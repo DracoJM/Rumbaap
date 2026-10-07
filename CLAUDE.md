@@ -198,6 +198,6 @@ Reglas de tests:
 
 ## 14. Documentación
 
-- Los requisitos y las decisiones de producto pertenecen al equipo. En documentos de requisitos se distingue `VALIDADO`, `HIPÓTESIS` y `NOT DECIDED`.
+- Los requisitos y las decisiones de producto pertenecen al equipo. En documentos de requisitos se distingue `VALIDATED`, `HYPOTHESIS` y `NOT DECIDED`.
 - Claude documenta lo implementado y aprobado. La documentación se actualiza en el mismo cambio que el código.
 - Los comentarios en el código explican el *porqué*, no el *qué*.
