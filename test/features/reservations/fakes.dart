@@ -1,25 +1,30 @@
 import 'dart:async';
 
 import 'package:rumbaap/features/reservations/domain/night_availability.dart';
+import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 
-const nightA = Night(id: 'a', label: 'Noche A');
-const nightB = Night(id: 'b', label: 'Noche B');
+/// Instante en hora del establecimiento (UTC−5), expresado como instante
+/// UTC real para usarlo como reloj.
+DateTime venueInstant(int y, int m, int d, [int h = 0, int min = 0]) =>
+    DateTime.utc(y, m, d, h, min).subtract(VenueTime.utcOffset);
+
+/// Miércoles 7 de octubre de 2026, 3:00 p. m. en el local: el fin de
+/// semana en curso es el viernes 9, sábado 10 y domingo 11.
+final wednesdayAfternoon = venueInstant(2026, 10, 7, 15);
+DateTime fixedClock() => wednesdayAfternoon;
+
+const nightA = '2026-10-09';
+const nightB = '2026-10-10';
 
 /// Repositorio cuyas respuestas se completan a mano desde el test, para
 /// controlar el orden en que llegan.
 class ControlledRepository implements NightAvailabilityRepository {
-  ControlledRepository({this.nights = const [nightA, nightB]});
-
-  final List<Night> nights;
   final List<(String, Completer<NightAvailability>)> pending = [];
 
   @override
-  Future<List<Night>> listNights() async => nights;
-
-  @override
-  Future<NightAvailability> availabilityFor(String nightId) {
+  Future<NightAvailability> availabilityFor(Night night) {
     final completer = Completer<NightAvailability>();
-    pending.add((nightId, completer));
+    pending.add((night.id, completer));
     return completer.future;
   }
 

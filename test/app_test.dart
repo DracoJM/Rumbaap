@@ -3,11 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/features/reservations/data/demo_night_availability_repository.dart';
 
+import 'features/reservations/fakes.dart';
+
 void main() {
   Widget app() => RumbaapApp(
     availabilityRepository: DemoNightAvailabilityRepository(
       latency: Duration.zero,
+      clock: fixedClock,
     ),
+    clock: fixedClock,
   );
 
   testWidgets(

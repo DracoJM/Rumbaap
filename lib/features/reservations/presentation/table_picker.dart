@@ -71,6 +71,7 @@ class _TablePicker extends StatelessWidget {
                     table: table,
                     status: TableMapStatus.from(
                       controller.availabilityOf(table.id),
+                      table: table,
                     ),
                     selected: table.id == controller.selectedTableId,
                     onTap: () => onPicked(table.id),

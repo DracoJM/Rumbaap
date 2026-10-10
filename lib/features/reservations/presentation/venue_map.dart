@@ -17,7 +17,7 @@ class VenueMap extends StatefulWidget {
     required this.onTableTap,
   });
 
-  final TableMapStatus Function(String tableId) statusOf;
+  final TableMapStatus Function(VenueTable table) statusOf;
   final String? selectedTableId;
   final ValueChanged<String> onTableTap;
 
@@ -25,9 +25,16 @@ class VenueMap extends StatefulWidget {
   State<VenueMap> createState() => _VenueMapState();
 }
 
-class _VenueMapState extends State<VenueMap>
-    with SingleTickerProviderStateMixin {
+class _VenueMapState extends State<VenueMap> with TickerProviderStateMixin {
   static const _maxScale = 5.0;
+
+  /// Ciclo de la iluminación ambiental y del pulso de las mesas en proceso.
+  /// Los tickers se silencian solos cuando la pantalla queda cubierta por
+  /// otra ruta o la app pasa a segundo plano.
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 10),
+  );
 
   final _transform = TransformationController();
   late final AnimationController _zoomAnim;
@@ -47,7 +54,19 @@ class _VenueMapState extends State<VenueMap>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Respeta el ajuste del sistema «reducir movimiento».
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pulse.stop();
+    } else if (!_pulse.isAnimating) {
+      _pulse.repeat();
+    }
+  }
+
+  @override
   void dispose() {
+    _pulse.dispose();
     _zoomCurve.dispose();
     _zoomAnim.dispose();
     _transform.dispose();
@@ -78,8 +97,10 @@ class _VenueMapState extends State<VenueMap>
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          const Positioned.fill(
-            child: RepaintBoundary(child: CustomPaint(painter: VenuePainter())),
+          Positioned.fill(
+            child: RepaintBoundary(
+              child: CustomPaint(painter: VenuePainter(pulse: _pulse)),
+            ),
           ),
           for (final table in VenueTables.all)
             Positioned.fromRect(
@@ -87,8 +108,9 @@ class _VenueMapState extends State<VenueMap>
               child: TableWidget(
                 key: ValueKey('table-${table.id}'),
                 table: table,
-                status: widget.statusOf(table.id),
+                status: widget.statusOf(table),
                 selected: table.id == widget.selectedTableId,
+                pulse: _pulse,
                 onTap: () => widget.onTableTap(table.id),
               ),
             ),

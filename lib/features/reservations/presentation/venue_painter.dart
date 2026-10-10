@@ -5,19 +5,22 @@ import 'package:flutter/material.dart';
 import '../../../app/app_theme.dart';
 import 'venue_geometry.dart';
 
-/// Dibuja el recinto estático: suelo, iluminación, muros, tarima VIP,
+/// Dibuja el recinto: suelo, iluminación, muros, tarima VIP,
 /// barra, escenario y acceso. Las mesas se dibujan aparte porque son
 /// interactivas. Adaptado del prototipo de demostración Rumbaap × Sagsa.
+///
+/// [pulse] (0–1) anima suavemente la iluminación. El mapa la detiene cuando
+/// el sistema pide reducir el movimiento.
 class VenuePainter extends CustomPainter {
-  const VenuePainter();
+  VenuePainter({required this.pulse}) : super(repaint: pulse);
+
+  final Animation<double> pulse;
 
   static const _hall = VenueGeometry.hall;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Fase de iluminación fija: a diferencia de la demo, el plano no se anima
-    // de forma continua, para ahorrar batería en el teléfono.
-    const t = 0.0;
+    final t = pulse.value;
     _paintShell(canvas, size);
     _paintFloor(canvas);
     _paintAmbientLight(canvas, t);
@@ -600,5 +603,5 @@ class VenuePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(VenuePainter oldDelegate) => false;
+  bool shouldRepaint(VenuePainter oldDelegate) => oldDelegate.pulse != pulse;
 }

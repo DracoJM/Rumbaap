@@ -1,18 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../domain/night_availability.dart';
+import '../domain/night_schedule.dart';
 import '../domain/venue_table.dart';
 
 enum LoadStatus { loading, ready, failed }
 
-/// Estado compartido de la consulta: noche elegida, disponibilidad y mesa
-/// seleccionada. Solo lee; no decide reservas, pagos ni confirmaciones.
+/// Estado compartido de la consulta: fin de semana y noche elegidos,
+/// disponibilidad y mesa seleccionada. Solo lee; no decide reservas, pagos
+/// ni confirmaciones.
 class VenueMapController extends ChangeNotifier {
-  VenueMapController(this._repository);
+  VenueMapController(this._repository, {Clock clock = systemClock})
+    : _clock = clock;
 
   final NightAvailabilityRepository _repository;
+  final Clock _clock;
 
-  LoadStatus _nightsStatus = LoadStatus.loading;
+  int _weeksAhead = 0;
   List<Night> _nights = const [];
   Night? _night;
   LoadStatus _availabilityStatus = LoadStatus.loading;
@@ -24,11 +30,19 @@ class VenueMapController extends ChangeNotifier {
   int _query = 0;
   bool _disposed = false;
 
-  LoadStatus get nightsStatus => _nightsStatus;
+  // Se dispara en la siguiente apertura o cierre para que el paso del tiempo
+  // no deje visible una noche terminada ni su ocupación.
+  Timer? _changeTimer;
+
+  /// 0 = fin de semana de la semana en curso.
+  int get weeksAhead => _weeksAhead;
   List<Night> get nights => _nights;
   Night? get night => _night;
   LoadStatus get availabilityStatus => _availabilityStatus;
   String? get selectedTableId => _selectedTableId;
+
+  /// Hora actual del establecimiento.
+  DateTime get venueNow => VenueTime.of(_clock());
 
   VenueTable? get selectedTable =>
       _selectedTableId == null ? null : VenueTables.byId(_selectedTableId!);
@@ -39,41 +53,62 @@ class VenueMapController extends ChangeNotifier {
       ? _availability?.statusOf(tableId)
       : null;
 
-  Future<void> loadNights() async {
-    final query = ++_query;
-    _nightsStatus = LoadStatus.loading;
-    _nights = const [];
-    _resetNight(null);
-    _notify();
-    try {
-      final nights = await _repository.listNights();
-      if (!_isCurrent(query)) return;
-      _nights = List.unmodifiable(nights);
-      _nightsStatus = LoadStatus.ready;
-    } catch (_) {
-      if (!_isCurrent(query)) return;
-      _nightsStatus = LoadStatus.failed;
-      _notify();
-      return;
-    }
+  /// Muestra el fin de semana de la semana en curso.
+  Future<void> start() => showWeek(0);
+
+  /// Cambia de fin de semana (0 = en curso). Este mapa no navega a semanas
+  /// pasadas (regla M3). [weeksAhead] es un desplazamiento relativo solo de
+  /// consulta: las reservas quedan ligadas a una noche concreta.
+  Future<void> showWeek(int weeksAhead) async {
+    if (weeksAhead < 0) return;
+    _weeksAhead = weeksAhead;
+    _nights = _computeNights();
     if (_nights.isEmpty) {
+      ++_query;
+      _resetNight(null);
       _notify();
       return;
     }
     await selectNight(_nights.first.id);
   }
 
+  /// Vuelve a calcular las noches con la hora actual y consulta de nuevo la
+  /// noche mostrada. Se llama al cruzar una apertura o un cierre y al volver
+  /// la app del segundo plano. Si la noche mostrada ya no se ofrece, pasa a
+  /// la primera disponible; si sigue, conserva la mesa seleccionada.
+  Future<void> refresh() async {
+    final previous = _night;
+    _nights = _computeNights();
+    final still = previous == null ? null : _byId(previous.id);
+    if (still == null) {
+      if (_nights.isEmpty) {
+        ++_query;
+        _resetNight(null);
+        _notify();
+        return;
+      }
+      return selectNight(_nights.first.id);
+    }
+    return _load(still, keepSelection: true);
+  }
+
   /// Cambia de noche: limpia selección y datos antes de consultar.
   Future<void> selectNight(String nightId) async {
-    final night = _nights.where((n) => n.id == nightId).firstOrNull;
+    final night = _byId(nightId);
     if (night == null) return;
+    return _load(night, keepSelection: false);
+  }
+
+  Future<void> _load(Night night, {required bool keepSelection}) async {
     final query = ++_query;
+    final selected = _selectedTableId;
     _resetNight(night);
+    if (keepSelection) _selectedTableId = selected;
     _notify();
     try {
-      final availability = await _repository.availabilityFor(nightId);
+      final availability = await _repository.availabilityFor(night);
       if (!_isCurrent(query)) return;
-      if (availability.nightId != nightId) {
+      if (availability.nightId != night.id) {
         throw StateError('Respuesta de otra noche: ${availability.nightId}');
       }
       _availability = availability;
@@ -88,10 +123,7 @@ class VenueMapController extends ChangeNotifier {
 
   Future<void> retry() {
     final night = _night;
-    if (_nightsStatus != LoadStatus.ready || night == null) {
-      return loadNights();
-    }
-    return selectNight(night.id);
+    return night == null ? showWeek(_weeksAhead) : selectNight(night.id);
   }
 
   /// Tocar la mesa ya seleccionada la deselecciona.
@@ -116,6 +148,20 @@ class VenueMapController extends ChangeNotifier {
     _notify();
   }
 
+  Night? _byId(String nightId) =>
+      _nights.where((n) => n.id == nightId).firstOrNull;
+
+  List<Night> _computeNights() {
+    final now = venueNow;
+    _changeTimer?.cancel();
+    if (!_disposed) {
+      _changeTimer = Timer(NightSchedule.nextChange(now).difference(now), () {
+        refresh();
+      });
+    }
+    return NightSchedule.weekendNights(now, weeksAhead: _weeksAhead);
+  }
+
   void _resetNight(Night? night) {
     _night = night;
     _availability = null;
@@ -132,6 +178,7 @@ class VenueMapController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _changeTimer?.cancel();
     super.dispose();
   }
 }

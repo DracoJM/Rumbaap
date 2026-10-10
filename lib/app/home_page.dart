@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../features/reservations/domain/night_availability.dart';
+import '../features/reservations/domain/night_schedule.dart';
 import '../features/reservations/presentation/venue_map_page.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.availabilityRepository});
+  const HomePage({
+    super.key,
+    required this.availabilityRepository,
+    this.clock = systemClock,
+  });
 
   final NightAvailabilityRepository availabilityRepository;
+  final Clock clock;
 
   @override
   Widget build(BuildContext context) {
@@ -30,8 +36,10 @@ class HomePage extends StatelessWidget {
                   ),
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) =>
-                          VenueMapPage(repository: availabilityRepository),
+                      builder: (_) => VenueMapPage(
+                        repository: availabilityRepository,
+                        clock: clock,
+                      ),
                     ),
                   ),
                   icon: const Icon(Icons.map_outlined),

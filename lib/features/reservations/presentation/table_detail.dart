@@ -86,7 +86,7 @@ class TableDetail extends StatelessWidget {
           'Reserva sin costo ni prepago.',
           'Consumo de referencia de 400.000 COP; el personal valida la '
               'tolerancia.',
-          'Reserva sujeta a confirmación.',
+          'Confirmación automática al completar la reserva.',
         ];
 }
 

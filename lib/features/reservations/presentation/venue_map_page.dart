@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
 import '../domain/night_availability.dart';
+import '../domain/night_schedule.dart';
 import 'table_detail.dart';
 import 'table_picker.dart';
 import 'table_presentation.dart';
@@ -12,9 +13,14 @@ import 'venue_map_controller.dart';
 
 /// «Mapa y disponibilidad»: consulta de estados por noche.
 class VenueMapPage extends StatefulWidget {
-  const VenueMapPage({super.key, required this.repository});
+  const VenueMapPage({
+    super.key,
+    required this.repository,
+    this.clock = systemClock,
+  });
 
   final NightAvailabilityRepository repository;
+  final Clock clock;
 
   /// Ancho a partir del cual el detalle va en un panel lateral en lugar de
   /// una hoja inferior (tabletas). En horizontal también se usa el panel
@@ -28,10 +34,22 @@ class VenueMapPage extends StatefulWidget {
 class _VenueMapPageState extends State<VenueMapPage> {
   late final VenueMapController _controller = VenueMapController(
     widget.repository,
-  )..loadNights();
+    clock: widget.clock,
+  )..start();
+
+  // Al volver del segundo plano la hora pudo cruzar una apertura o un cierre
+  // mientras el temporizador no corría.
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onResume: _controller.refresh);
+  }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -51,23 +69,7 @@ class _VenueMapPageState extends State<VenueMapPage> {
         top: false,
         child: ListenableBuilder(
           listenable: _controller,
-          builder: (context, _) => switch (_controller.nightsStatus) {
-            LoadStatus.loading => const _CenteredMessage(
-              icon: null,
-              text: 'Cargando noches…',
-            ),
-            LoadStatus.failed => _CenteredMessage(
-              icon: Icons.error_outline_rounded,
-              text: 'No se pudieron cargar las noches.',
-              onRetry: _controller.retry,
-            ),
-            LoadStatus.ready when _controller.nights.isEmpty =>
-              const _CenteredMessage(
-                icon: Icons.event_busy_rounded,
-                text: 'No hay noches para consultar.',
-              ),
-            LoadStatus.ready => _content(),
-          },
+          builder: (context, _) => _content(),
         ),
       ),
     );
@@ -81,7 +83,10 @@ class _VenueMapPageState extends State<VenueMapPage> {
         : TableDetail(
             key: ValueKey('detail-${selected.id}'),
             table: selected,
-            status: TableMapStatus.from(c.availabilityOf(selected.id)),
+            status: TableMapStatus.from(
+              c.availabilityOf(selected.id),
+              table: selected,
+            ),
             nightLabel: c.night?.label ?? '',
             onClose: c.clearSelection,
           );
@@ -97,7 +102,10 @@ class _VenueMapPageState extends State<VenueMapPage> {
             _NightSelector(
               nights: c.nights,
               selectedId: c.night?.id,
+              venueNow: c.venueNow,
+              weeksAhead: c.weeksAhead,
               onSelected: c.selectNight,
+              onWeekChanged: c.showWeek,
             ),
             // «Elegir mesa» va en la cabecera y no sobre el mapa, para no
             // tapar mesas ni los controles de zoom en pantallas pequeñas.
@@ -119,8 +127,10 @@ class _VenueMapPageState extends State<VenueMapPage> {
                 children: [
                   Positioned.fill(
                     child: VenueMap(
-                      statusOf: (id) =>
-                          TableMapStatus.from(c.availabilityOf(id)),
+                      statusOf: (table) => TableMapStatus.from(
+                        c.availabilityOf(table.id),
+                        table: table,
+                      ),
                       selectedTableId: c.selectedTableId,
                       onTableTap: c.toggleTable,
                     ),
@@ -207,32 +217,65 @@ class _NightSelector extends StatelessWidget {
   const _NightSelector({
     required this.nights,
     required this.selectedId,
+    required this.venueNow,
+    required this.weeksAhead,
     required this.onSelected,
+    required this.onWeekChanged,
   });
 
   final List<Night> nights;
   final String? selectedId;
+  final DateTime venueNow;
+  final int weeksAhead;
   final ValueChanged<String> onSelected;
+  final ValueChanged<int> onWeekChanged;
 
   @override
   Widget build(BuildContext context) {
-    // Wrap en lugar de una fila desplazable: todas las noches quedan a la
-    // vista aunque el ancho se reduzca (por ejemplo, con el panel abierto).
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 4,
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+      child: Row(
         children: [
-          for (final night in nights)
-            ChoiceChip(
-              key: ValueKey('night-${night.id}'),
-              label: Text(night.label),
-              selected: night.id == selectedId,
-              onSelected: (_) {
-                if (night.id != selectedId) onSelected(night.id);
-              },
-            ),
+          IconButton(
+            tooltip: 'Fin de semana anterior',
+            onPressed: weeksAhead > 0
+                ? () => onWeekChanged(weeksAhead - 1)
+                : null,
+            icon: const Icon(Icons.chevron_left_rounded),
+          ),
+          // Wrap en lugar de una fila desplazable: todas las noches quedan a
+          // la vista aunque el ancho se reduzca (p. ej. con el panel abierto).
+          Expanded(
+            child: nights.isEmpty
+                ? const Text(
+                    'No hay noches para consultar en este fin de semana.',
+                  )
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      for (final night in nights)
+                        ChoiceChip(
+                          key: ValueKey('night-${night.id}'),
+                          label: Text(
+                            night.isInProgress(venueNow)
+                                ? '${night.shortLabel} · En curso'
+                                : night.shortLabel,
+                          ),
+                          tooltip: night.label,
+                          selected: night.id == selectedId,
+                          onSelected: (_) {
+                            if (night.id != selectedId) onSelected(night.id);
+                          },
+                        ),
+                    ],
+                  ),
+          ),
+          IconButton(
+            tooltip: 'Fin de semana siguiente',
+            onPressed: () => onWeekChanged(weeksAhead + 1),
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
         ],
       ),
     );
@@ -366,43 +409,6 @@ class _BottomSheetPanel extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
         child: child,
-      ),
-    );
-  }
-}
-
-class _CenteredMessage extends StatelessWidget {
-  const _CenteredMessage({
-    required this.icon,
-    required this.text,
-    this.onRetry,
-  });
-
-  /// `null` muestra un indicador de carga.
-  final IconData? icon;
-  final String text;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon == null)
-              const CircularProgressIndicator()
-            else
-              Icon(icon, size: 40, color: AppColors.textMuted),
-            const SizedBox(height: 12),
-            Text(text, textAlign: TextAlign.center),
-            if (onRetry != null) ...[
-              const SizedBox(height: 8),
-              TextButton(onPressed: onRetry, child: const Text('Reintentar')),
-            ],
-          ],
-        ),
       ),
     );
   }

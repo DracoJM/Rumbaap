@@ -1,15 +1,17 @@
+import 'night_schedule.dart';
+
 /// Estado de lectura de una mesa en una noche. Las transiciones entre
 /// estados no pertenecen a esta consulta.
-enum TableAvailability { available, reserved, occupied }
+enum TableAvailability {
+  available,
 
-/// Noche o evento que se puede consultar.
-class Night {
-  const Night({required this.id, required this.label});
+  /// Reserva en proceso (mesa normal) o pendiente de pago (VIP): la mesa
+  /// queda bloqueada (regla R3).
+  pending,
+  reserved,
 
-  final String id;
-
-  /// Texto para mostrar, por ejemplo «Viernes 16 de octubre».
-  final String label;
+  /// Solo posible durante la noche en curso (regla N6).
+  occupied,
 }
 
 /// Estados de las mesas en una noche concreta.
@@ -29,8 +31,9 @@ class NightAvailability {
 /// Contrato de consulta de disponibilidad por noche. Hoy lo implementa un
 /// adaptador de demostración; un adaptador con datos compartidos podrá
 /// sustituirlo sin cambiar la presentación.
+///
+/// Las noches que se pueden consultar las define [NightSchedule], no el
+/// repositorio.
 abstract interface class NightAvailabilityRepository {
-  Future<List<Night>> listNights();
-
-  Future<NightAvailability> availabilityFor(String nightId);
+  Future<NightAvailability> availabilityFor(Night night);
 }
