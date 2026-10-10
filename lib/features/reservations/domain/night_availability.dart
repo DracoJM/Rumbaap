@@ -1,4 +1,5 @@
 import 'night_schedule.dart';
+import 'reservation.dart';
 
 /// Estado de lectura de una mesa en una noche. Las transiciones entre
 /// estados no pertenecen a esta consulta.
@@ -41,4 +42,25 @@ class NightAvailability {
 /// repositorio.
 abstract interface class NightAvailabilityRepository {
   Future<NightAvailability> availabilityFor(Night night);
+}
+
+/// Estados de una noche junto con sus reservas (incluidas las terminadas),
+/// tomados en la misma consulta para que mapa, listas y detalle coincidan.
+///
+/// Contiene datos personales del titular: solo para la vista del
+/// administrador, nunca para la consulta pública.
+class NightReservations extends NightAvailability {
+  NightReservations({
+    required super.nightId,
+    required super.byTableId,
+    required List<Reservation> reservations,
+    super.refreshAt,
+  }) : reservations = List.unmodifiable(reservations);
+
+  final List<Reservation> reservations;
+
+  /// Reserva activa de la mesa en esta consulta, si la hay.
+  Reservation? activeFor(String tableId) => reservations
+      .where((r) => r.tableId == tableId && r.status.isActive)
+      .firstOrNull;
 }

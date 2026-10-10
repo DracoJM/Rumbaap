@@ -1,6 +1,6 @@
 # Reservas — mapa y consulta de disponibilidad por noche
 
-- **Estado:** consulta de solo lectura con **datos de demostración**. Parte 1 del plan del [ADR 0002](../decisions/0002-perspectiva-administrador-y-reservas.md): noches por fin de semana y hora del local.
+- **Estado:** consulta de solo lectura con **datos de demostración**. Partes 1 y 2 del plan del [ADR 0002](../decisions/0002-perspectiva-administrador-y-reservas.md): noches por fin de semana, hora del local y reservas en memoria. La vista del administrador (Parte 3) está en [admin-reservations-demo.md](admin-reservations-demo.md).
 - **Base:** [ADR 0001](../decisions/0001-base-app-flutter.md) y [reglas de noches y reservas](../business-rules/reservas-y-noches.md). Este documento no cambia ninguna decisión aprobada.
 
 ## Qué hace
@@ -18,15 +18,16 @@ No reserva, no paga, no cancela, no une mesas VIP y no valida consumo. No muestr
 | `domain/night_availability.dart` | `TableAvailability` (Disponible, En proceso, Reservada, Ocupada), `NightAvailability` y el contrato `NightAvailabilityRepository.availabilityFor(Night)`. |
 | `domain/reservation.dart` | Modelo de reserva: noche concreta, mesa, titular, procedencia, estado (en proceso, pendiente de pago, reservada, ocupada, revocada, liberada, expirada) e historial de eventos. |
 | `domain/reservation_book.dart` | `ReservationBook`: reglas R1–R8 en memoria con reloj inyectable (exclusividad mesa+noche, expiración a los 10 min, prepago VIP manual, rechazo, reserva directa, llegada, revocar, liberar). |
-| `data/demo_reservation_store.dart` | `DemoReservationStore`: un único `ReservationBook` por ejecución, con reservas ficticias sembradas; implementa `NightAvailabilityRepository` para el mapa. |
-| `presentation/venue_map_controller.dart` | `ChangeNotifier` con el fin de semana, la noche, la consulta y la mesa seleccionada. |
+| `data/demo_reservation_store.dart` | `DemoReservationStore`: un único `ReservationBook` por ejecución, con reservas ficticias sembradas; implementa `NightAvailabilityRepository` para el mapa y avisa de los cambios (`ChangeNotifier`). |
+| `presentation/venue_map_controller.dart` | `ChangeNotifier` con el fin de semana, la noche, la consulta y la mesa seleccionada. Escucha los cambios del almacén. |
+| `presentation/venue_map_parts.dart` | Piezas de la pantalla compartidas con la vista del administrador. |
 | `presentation/venue_geometry.dart` | Coordenadas del plano ilustrativo (1000 × 1100), rotación y abertura de muebles. |
 | `presentation/venue_painter.dart`, `table_furniture_painter.dart`, `table_widget.dart`, `venue_map.dart` | Dibujo del recinto y de las mesas, zoom y desplazamiento. El mapa recibe estados, selección y callback. |
 | `presentation/table_presentation.dart` | Texto, icono y color de cada estado (incluidos «En proceso» y «Pendiente de pago»), etiquetas de tipo, zona y noche. |
 | `presentation/table_picker.dart` | Lista «Elegir mesa»: las 22 mesas con su estado, en filas de al menos 48 px y con etiquetas para lector de pantalla. Lee y selecciona en el mismo controlador que el mapa. |
 | `presentation/table_detail.dart`, `venue_map_page.dart` | Detalle de mesa y pantalla completa. |
 
-El tema oscuro con acentos violeta y ámbar está en `lib/app/app_theme.dart`. La dependencia del repositorio se crea en `lib/main.dart` y se pasa por constructor hasta la pantalla.
+El tema oscuro con acentos violeta y ámbar está en `lib/app/app_theme.dart`. El almacén se crea una vez en `lib/main.dart` y se pasa por constructor (`RumbaapApp` → inicio → pantallas).
 
 ### Noches
 
@@ -56,6 +57,7 @@ Implementación (I1 en las reglas): un temporizador del controlador (`NightSched
 - **Respuesta de otra noche:** si el `nightId` de la respuesta no coincide con la noche pedida, se trata como error.
 - **Carga, error o mesa sin dato:** el mapa la muestra como «Sin información». Nunca la presenta como disponible ni reutiliza datos de otra noche.
 - **Datos que vencen solos:** si la respuesta trae `refreshAt` (por ejemplo, el vencimiento de una reserva en proceso), el controlador vuelve a consultar en ese instante. El almacén calcula `refreshAt` antes que los estados: si una reserva vence mientras se construye la respuesta, la mesa puede llegar como pendiente, pero con un `refreshAt` (aunque ya pasado) que obliga a volver a consultar de inmediato.
+- **Cambios de datos (I11):** cuando el almacén avisa de una operación, se vuelve a consultar la misma noche manteniendo los datos y la mesa seleccionada hasta la respuesta. Una consulta abierta, también la pública, muestra el cambio sin reiniciar la app.
 - **Bloqueo por solicitud pendiente:** resuelto por R1–R3. La normal en proceso bloquea su mesa y noche hasta 10 min; la VIP solicitada la bloquea sin ese límite hasta que el administrador decida.
 
 ### Selección de mesa
@@ -84,7 +86,8 @@ Implementación (I1 en las reglas): un temporizador del controlador (`NightSched
 - **Latencia:** simula 350 ms para que la carga sea visible.
 - **Memoria:** navegar conserva las reservas y los cambios; cerrar la app los pierde. **No** comparte datos entre dispositivos ni refleja la operación real.
 - La pantalla muestra siempre «Datos de demostración».
-- Para conectar datos compartidos basta con otra implementación de `NightAvailabilityRepository` inyectada en `lib/main.dart`; la presentación no cambia.
+- Las operaciones de las vistas pasan por `perform`, que avisa a quienes escuchan. Los vencimientos no avisan: cada consulta los anuncia con `refreshAt`.
+- Para conectar datos compartidos hará falta otra implementación del almacén, con las mismas consultas y avisos; la decisión de backend sigue `NOT DECIDED`.
 
 ## Procedencia y límites del plano
 

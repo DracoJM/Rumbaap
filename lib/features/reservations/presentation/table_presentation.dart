@@ -89,4 +89,27 @@ extension NightLabels on Night {
   String get shortLabel =>
       '${_weekdays[date.weekday - 1].substring(0, 3)} ${date.day} '
       '${_months[date.month - 1].substring(0, 3)}';
+
+  /// «8:30 p. m. – 3:00 a. m.», horario del local (hora de Colombia).
+  String get scheduleLabel => '$opensLabel – ${_wallTime(closesAt)}';
+
+  /// «8:30 p. m.».
+  String get opensLabel => _wallTime(opensAt);
+}
+
+/// Hora del local de un instante real: «3:00 p. m.».
+String venueTimeLabel(DateTime instant) => _wallTime(VenueTime.of(instant));
+
+/// Fecha y hora del local de un instante real: «mié 7 oct, 3:00 p. m.».
+String venueDateTimeLabel(DateTime instant) {
+  final t = VenueTime.of(instant);
+  return '${_weekdays[t.weekday - 1].substring(0, 3).toLowerCase()} '
+      '${t.day} ${_months[t.month - 1].substring(0, 3)}, ${_wallTime(t)}';
+}
+
+/// [wall] ya está en hora del local (campos de un `DateTime` UTC).
+String _wallTime(DateTime wall) {
+  final h = wall.hour % 12 == 0 ? 12 : wall.hour % 12;
+  final m = wall.minute.toString().padLeft(2, '0');
+  return '$h:$m ${wall.hour < 12 ? 'a. m.' : 'p. m.'}';
 }

@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
+
 import '../domain/night_availability.dart';
 import '../domain/night_schedule.dart';
 import '../domain/reservation.dart';
@@ -7,14 +9,19 @@ import '../domain/reservation_book.dart';
 import '../domain/venue_table.dart';
 
 /// Almacén de DATOS DE DEMOSTRACIÓN: un único [ReservationBook] en memoria por
-/// ejecución de la app. El mapa de consulta lo lee como
-/// [NightAvailabilityRepository]; la vista del administrador (Parte 3) usará
-/// el mismo [book]. Navegar conserva reservas y cambios; cerrar la app los
-/// pierde.
+/// ejecución de la app. La consulta pública lo lee como
+/// [NightAvailabilityRepository] y la vista del administrador, mediante
+/// [adminView], con las reservas de cada noche. Navegar conserva reservas y
+/// cambios; cerrar la app los pierde.
+///
+/// Las operaciones de las vistas pasan por [perform], que avisa a quienes
+/// escuchan para que mapa, listas y detalle se actualicen. Los vencimientos
+/// no avisan: cada consulta los anuncia con `refreshAt`.
 ///
 /// PENDIENTE (fuera de alcance): persistencia y datos compartidos entre
 /// dispositivos (backend).
-class DemoReservationStore implements NightAvailabilityRepository {
+class DemoReservationStore extends ChangeNotifier
+    implements NightAvailabilityRepository {
   DemoReservationStore({
     this.latency = const Duration(milliseconds: 350),
     Clock clock = systemClock,
@@ -24,23 +31,57 @@ class DemoReservationStore implements NightAvailabilityRepository {
   /// Retardo simulado para que la carga sea visible durante el desarrollo.
   final Duration latency;
   final Clock _clock;
+
+  /// Reglas y datos. Cambiarlo directamente no avisa a las vistas; las vistas
+  /// usan [perform].
   final ReservationBook book;
   final Set<Night> _seeded = {};
 
+  /// Consulta de la vista del administrador: devuelve [NightReservations].
+  late final NightAvailabilityRepository adminView = _AdminView(this);
+
   @override
-  Future<NightAvailability> availabilityFor(Night night) async {
+  Future<NightAvailability> availabilityFor(Night night) =>
+      _snapshot(night, withReservations: false);
+
+  /// Ejecuta una operación del libro y, si tiene éxito, avisa a las vistas.
+  /// Si la operación lanza [ReservationException], no cambia nada ni avisa.
+  T perform<T>(T Function(ReservationBook book) operation) {
+    final result = operation(book);
+    notifyListeners();
+    return result;
+  }
+
+  Future<NightAvailability> _snapshot(
+    Night night, {
+    required bool withReservations,
+  }) async {
     await Future<void>.delayed(latency);
     _seedOnce(night);
     // El vencimiento se toma ANTES que los estados: si una reserva en proceso
     // vence mientras se construye la respuesta, puede seguir «pendiente», pero
     // [refreshAt] (aunque ya haya pasado) obliga a volver a consultar.
     final refreshAt = book.nextExpiry(night);
-    return NightAvailability(
+    final reservations = book.forNight(night);
+    final byTableId = {
+      for (final table in VenueTables.all)
+        table.id: _availability(
+          reservations
+              .where((r) => r.tableId == table.id && r.status.isActive)
+              .firstOrNull,
+        ),
+    };
+    if (!withReservations) {
+      return NightAvailability(
+        nightId: night.id,
+        byTableId: byTableId,
+        refreshAt: refreshAt,
+      );
+    }
+    return NightReservations(
       nightId: night.id,
-      byTableId: {
-        for (final table in VenueTables.all)
-          table.id: _availability(book.activeFor(night, table.id)),
-      },
+      byTableId: byTableId,
+      reservations: reservations,
       refreshAt: refreshAt,
     );
   }
@@ -122,4 +163,14 @@ class DemoReservationStore implements NightAvailabilityRepository {
       phone: '00000000$suffix',
     );
   }
+}
+
+class _AdminView implements NightAvailabilityRepository {
+  _AdminView(this._store);
+
+  final DemoReservationStore _store;
+
+  @override
+  Future<NightAvailability> availabilityFor(Night night) =>
+      _store._snapshot(night, withReservations: true);
 }

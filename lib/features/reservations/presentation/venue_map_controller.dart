@@ -11,12 +11,23 @@ enum LoadStatus { loading, ready, failed }
 /// Estado compartido de la consulta: fin de semana y noche elegidos,
 /// disponibilidad y mesa seleccionada. Solo lee; no decide reservas, pagos
 /// ni confirmaciones.
+///
+/// Si recibe [changes], vuelve a consultar la noche mostrada cada vez que
+/// los datos cambian (p. ej. una operación del administrador), para que
+/// cualquier vista abierta muestre el resultado sin reiniciar la app.
 class VenueMapController extends ChangeNotifier {
-  VenueMapController(this._repository, {Clock clock = systemClock})
-    : _clock = clock;
+  VenueMapController(
+    this._repository, {
+    Clock clock = systemClock,
+    Listenable? changes,
+  }) : _clock = clock,
+       _changes = changes {
+    _changes?.addListener(_onDataChanged);
+  }
 
   final NightAvailabilityRepository _repository;
   final Clock _clock;
+  final Listenable? _changes;
 
   int _weeksAhead = 0;
   List<Night> _nights = const [];
@@ -24,6 +35,7 @@ class VenueMapController extends ChangeNotifier {
   LoadStatus _availabilityStatus = LoadStatus.loading;
   NightAvailability? _availability;
   String? _selectedTableId;
+  bool _refreshing = false;
 
   // Cada consulta recibe un número; solo la más reciente puede publicar su
   // resultado, para que una respuesta tardía no sobrescriba otra noche.
@@ -44,6 +56,15 @@ class VenueMapController extends ChangeNotifier {
   Night? get night => _night;
   LoadStatus get availabilityStatus => _availabilityStatus;
   String? get selectedTableId => _selectedTableId;
+
+  /// Datos de la noche mostrada; `null` mientras carga o si falló.
+  NightAvailability? get availability =>
+      _availabilityStatus == LoadStatus.ready ? _availability : null;
+
+  /// `true` mientras se vuelve a consultar tras un cambio de datos. Se
+  /// siguen mostrando los datos anteriores de la misma noche; las acciones
+  /// deben esperar al resultado nuevo.
+  bool get isRefreshing => _refreshing;
 
   /// Hora actual del establecimiento.
   DateTime get venueNow => VenueTime.of(_clock());
@@ -106,6 +127,7 @@ class VenueMapController extends ChangeNotifier {
   Future<void> _load(Night night, {required bool keepSelection}) async {
     final query = ++_query;
     _dataTimer?.cancel();
+    _refreshing = false;
     final selected = _selectedTableId;
     _resetNight(night);
     if (keepSelection) _selectedTableId = selected;
@@ -124,6 +146,39 @@ class VenueMapController extends ChangeNotifier {
       _availability = null;
       _availabilityStatus = LoadStatus.failed;
     }
+    _notify();
+  }
+
+  /// Los datos cambiaron: se vuelve a consultar la misma noche conservando lo
+  /// mostrado hasta que llegue la respuesta, para no presentar como
+  /// desconocida una noche que solo se está actualizando.
+  Future<void> _onDataChanged() async {
+    final night = _night;
+    if (night == null || _disposed) return;
+    // Sin datos que conservar (cargando o con error): consulta normal, que
+    // también descarta una respuesta en curso anterior al cambio.
+    if (_availabilityStatus != LoadStatus.ready) {
+      return _load(night, keepSelection: true);
+    }
+    final query = ++_query;
+    _dataTimer?.cancel();
+    _refreshing = true;
+    _notify();
+    try {
+      final availability = await _repository.availabilityFor(night);
+      if (!_isCurrent(query)) return;
+      if (availability.nightId != night.id) {
+        throw StateError('Respuesta de otra noche: ${availability.nightId}');
+      }
+      _availability = availability;
+      _availabilityStatus = LoadStatus.ready;
+      _scheduleDataRefresh(availability.refreshAt);
+    } catch (_) {
+      if (!_isCurrent(query)) return;
+      _availability = null;
+      _availabilityStatus = LoadStatus.failed;
+    }
+    _refreshing = false;
     _notify();
   }
 
@@ -178,6 +233,7 @@ class VenueMapController extends ChangeNotifier {
   }
 
   void _resetNight(Night? night) {
+    _refreshing = false;
     _night = night;
     _availability = null;
     _availabilityStatus = LoadStatus.loading;
@@ -193,6 +249,7 @@ class VenueMapController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _changes?.removeListener(_onDataChanged);
     _changeTimer?.cancel();
     _dataTimer?.cancel();
     super.dispose();

@@ -7,10 +7,7 @@ import 'features/reservations/fakes.dart';
 
 void main() {
   Widget app() => RumbaapApp(
-    availabilityRepository: DemoReservationStore(
-      latency: Duration.zero,
-      clock: fixedClock,
-    ),
+    store: DemoReservationStore(latency: Duration.zero, clock: fixedClock),
     clock: fixedClock,
   );
 

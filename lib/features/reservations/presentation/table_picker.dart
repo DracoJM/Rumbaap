@@ -116,7 +116,12 @@ class _TableRow extends StatelessWidget {
         leading: Icon(status.icon, color: status.color),
         title: Text(table.displayName),
         subtitle: Text(table.zoneLabel),
-        trailing: Text(status.label),
+        // Ancho acotado: con texto ampliado el estado salta de línea en lugar
+        // de ocupar toda la fila.
+        trailing: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 112),
+          child: Text(status.label, textAlign: TextAlign.end),
+        ),
         onTap: onTap,
       ),
     );

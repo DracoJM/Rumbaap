@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rumbaap/features/reservations/domain/night_availability.dart';
 import 'package:rumbaap/features/reservations/presentation/venue_map_controller.dart';
@@ -266,6 +267,84 @@ void main() {
           .complete(availability(nightA, {'M01': TableAvailability.occupied}));
       await pumpEventQueue();
       expect(c.availabilityOf('M01'), TableAvailability.available);
+    });
+  });
+
+  group('cambios de datos', () {
+    late ChangeNotifier changes;
+    late ControlledRepository repo;
+    late VenueMapController c;
+
+    setUp(() async {
+      changes = ChangeNotifier();
+      repo = ControlledRepository();
+      c = VenueMapController(repo, clock: fixedClock, changes: changes)
+        ..start();
+      repo
+          .request(nightA)
+          .complete(availability(nightA, {'M01': TableAvailability.available}));
+      await pumpEventQueue();
+      c.toggleTable('M01');
+    });
+
+    tearDown(() {
+      c.dispose();
+      changes.dispose();
+    });
+
+    test('vuelve a consultar conservando los datos y la mesa hasta que '
+        'llega la respuesta', () async {
+      changes.notifyListeners();
+      expect(c.isRefreshing, isTrue);
+      expect(c.availabilityOf('M01'), TableAvailability.available);
+      expect(c.selectedTableId, 'M01');
+
+      repo
+          .request(nightA, nth: 1)
+          .complete(availability(nightA, {'M01': TableAvailability.reserved}));
+      await pumpEventQueue();
+      expect(c.isRefreshing, isFalse);
+      expect(c.availabilityOf('M01'), TableAvailability.reserved);
+      expect(c.selectedTableId, 'M01');
+    });
+
+    test(
+      'una respuesta anterior a un nuevo cambio no la sobrescribe',
+      () async {
+        changes.notifyListeners();
+        changes.notifyListeners();
+        repo
+            .request(nightA, nth: 2)
+            .complete(
+              availability(nightA, {'M01': TableAvailability.reserved}),
+            );
+        repo
+            .request(nightA, nth: 1)
+            .complete(availability(nightA, {'M01': TableAvailability.pending}));
+        await pumpEventQueue();
+        expect(c.availabilityOf('M01'), TableAvailability.reserved);
+      },
+    );
+
+    test('al cambiar de noche se descarta la recarga de la anterior', () async {
+      changes.notifyListeners();
+      c.selectNight(nightB);
+      repo
+          .request(nightA, nth: 1)
+          .complete(availability(nightA, {'M01': TableAvailability.reserved}));
+      await pumpEventQueue();
+      expect(c.night?.id, nightB);
+      expect(c.availabilityStatus, LoadStatus.loading);
+      expect(c.isRefreshing, isFalse);
+    });
+
+    test('al disponerse deja de escuchar los cambios', () async {
+      final queries = repo.pending.length;
+      c.dispose();
+      changes.notifyListeners();
+      expect(repo.pending, hasLength(queries));
+      // tearDown vuelve a llamar a dispose: se sustituye por uno nuevo.
+      c = VenueMapController(repo, clock: fixedClock);
     });
   });
 }

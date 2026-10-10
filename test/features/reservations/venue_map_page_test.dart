@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rumbaap/app/app.dart';
+import 'package:rumbaap/app/app_theme.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'package:rumbaap/features/reservations/domain/night_availability.dart';
@@ -10,6 +11,7 @@ import 'package:rumbaap/features/reservations/domain/venue_table.dart';
 import 'package:rumbaap/features/reservations/presentation/table_detail.dart';
 import 'package:rumbaap/features/reservations/presentation/table_presentation.dart';
 import 'package:rumbaap/features/reservations/presentation/table_widget.dart';
+import 'package:rumbaap/features/reservations/presentation/venue_map_page.dart';
 
 import 'fakes.dart';
 
@@ -34,7 +36,39 @@ Future<void> _pumpApp(
     addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   }
   await tester.pumpWidget(
-    RumbaapApp(availabilityRepository: repository, clock: clock),
+    repository is DemoReservationStore
+        ? RumbaapApp(store: repository, clock: clock)
+        : _MapOnlyApp(repository: repository, clock: clock),
+  );
+}
+
+/// La app recibe el almacén único de reservas. Para controlar a mano las
+/// respuestas de la consulta, el mapa se abre desde un inicio mínimo con la
+/// misma entrada «Mapa y disponibilidad».
+class _MapOnlyApp extends StatelessWidget {
+  const _MapOnlyApp({required this.repository, required this.clock});
+
+  final NightAvailabilityRepository repository;
+  final Clock clock;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    theme: AppTheme.build(),
+    home: Builder(
+      builder: (context) => Scaffold(
+        body: Center(
+          child: FilledButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    VenueMapPage(repository: repository, clock: clock),
+              ),
+            ),
+            child: const Text('Mapa y disponibilidad'),
+          ),
+        ),
+      ),
+    ),
   );
 }
 
