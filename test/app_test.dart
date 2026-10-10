@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rumbaap/app/app.dart';
+import 'package:rumbaap/features/reservations/data/demo_night_availability_repository.dart';
 
 void main() {
+  Widget app() => RumbaapApp(
+    availabilityRepository: DemoNightAvailabilityRepository(
+      latency: Duration.zero,
+    ),
+  );
+
   testWidgets(
     'la app arranca en la pantalla inicial de Rumbaap',
     (tester) async {
-      await tester.pumpWidget(const RumbaapApp());
+      await tester.pumpWidget(app());
 
       expect(find.text('Rumbaap'), findsOneWidget);
+      expect(find.text('Mapa y disponibilidad'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.mobile(),
@@ -28,7 +36,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
 
-        await tester.pumpWidget(const RumbaapApp());
+        await tester.pumpWidget(app());
 
         expect(find.text('Rumbaap'), findsOneWidget);
         expect(tester.takeException(), isNull);
