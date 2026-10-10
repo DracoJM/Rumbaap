@@ -52,10 +52,11 @@ Estas decisiones siguen sin tomarse. No se eligen ni se asumen implícitamente; 
 | Proveedor de pagos | NOT DECIDED |
 | Analytics | NOT DECIDED |
 | CI/CD | NOT DECIDED |
-| Arquitectura Flutter definitiva | NOT DECIDED |
-| State management | NOT DECIDED |
-| Versión mínima de iOS | NOT DECIDED |
-| Versión mínima de Android | NOT DECIDED |
+| Arquitectura Flutter | Decidido: modular sencilla, `lib/app` y funciones en `lib/features` ([ADR 0001](docs/decisions/0001-base-app-flutter.md)) |
+| State management | Decidido: `ChangeNotifier` + `ListenableBuilder` del SDK para estado compartido; `StatefulWidget`/`FutureBuilder` para estado local ([ADR 0001](docs/decisions/0001-base-app-flutter.md)) |
+| Versión mínima de iOS | Decidido: iOS 13.0 ([ADR 0001](docs/decisions/0001-base-app-flutter.md)) |
+| Versión mínima de Android | Decidido: Android 7.0 / API 24 ([ADR 0001](docs/decisions/0001-base-app-flutter.md)) |
+| Identificador de la app | Provisional para desarrollo: `com.rumbaap.app` ([ADR 0001](docs/decisions/0001-base-app-flutter.md)) |
 | Proveedor/acceso a macOS | NOT DECIDED |
 | Estrategia de flavors / entornos | NOT DECIDED |
 
