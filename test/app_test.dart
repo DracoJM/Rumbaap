@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rumbaap/app/app.dart';
-import 'package:rumbaap/features/reservations/data/demo_night_availability_repository.dart';
+import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 
 import 'features/reservations/fakes.dart';
 
 void main() {
   Widget app() => RumbaapApp(
-    availabilityRepository: DemoNightAvailabilityRepository(
+    availabilityRepository: DemoReservationStore(
       latency: Duration.zero,
       clock: fixedClock,
     ),

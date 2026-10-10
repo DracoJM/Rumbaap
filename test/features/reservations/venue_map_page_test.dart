@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rumbaap/app/app.dart';
-import 'package:rumbaap/features/reservations/data/demo_night_availability_repository.dart';
+import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
+import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'package:rumbaap/features/reservations/domain/night_availability.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/venue_table.dart';
@@ -44,8 +45,7 @@ Future<void> _openMap(
 }) async {
   await _pumpApp(
     tester,
-    repository ??
-        DemoNightAvailabilityRepository(latency: Duration.zero, clock: clock),
+    repository ?? DemoReservationStore(latency: Duration.zero, clock: clock),
     clock: clock,
   );
   await tester.tap(find.text('Mapa y disponibilidad'));
@@ -380,7 +380,11 @@ void main() {
     ) async {
       // Viernes 9, 8:00 p. m.: aún no abre.
       var now = venueInstant(2026, 10, 9, 20);
-      await _openMap(tester, clock: () => now);
+      final store = DemoReservationStore(
+        latency: Duration.zero,
+        clock: () => now,
+      );
+      await _openMap(tester, repository: store, clock: () => now);
       expect(find.text('Vie 9 oct'), findsOneWidget);
       expect(
         _allStatuses(tester).values,
@@ -406,7 +410,80 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Vie 9 oct · En curso'), findsOneWidget);
-      expect(_allStatuses(tester).values, contains(TableMapStatus.occupied));
+      // La apertura no convierte reservas en llegadas por sí sola.
+      expect(
+        _allStatuses(tester).values,
+        isNot(contains(TableMapStatus.occupied)),
+      );
+
+      // Mientras la app está en segundo plano, alguien del personal registra
+      // una llegada; al volver, el mapa la refleja.
+      final reserved = store.book
+          .forNight(Night(DateTime.utc(2026, 10, 9)))
+          .firstWhere((r) => r.status == ReservationStatus.confirmed);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      store.book.markArrival(reserved.id);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(_statusOf(tester, reserved.tableId), TableMapStatus.occupied);
+    });
+  });
+
+  group('reservas de demostración', () {
+    testWidgets(
+      'una mesa en proceso deja de mostrarse así al vencer, sin tocar nada',
+      (tester) async {
+        var now = fixedClock();
+        final store = DemoReservationStore(
+          latency: Duration.zero,
+          clock: () => now,
+        );
+        await _openMap(tester, repository: store, clock: () => now);
+        final inProcess = store.book
+            .forNight(Night(DateTime.utc(2026, 10, 9)))
+            .firstWhere((r) => r.status == ReservationStatus.inProcess);
+        expect(_statusOf(tester, inProcess.tableId), TableMapStatus.pending);
+
+        now = now.add(const Duration(minutes: 10));
+        await tester.pump(const Duration(minutes: 10));
+        await tester.pumpAndSettle();
+        expect(_statusOf(tester, inProcess.tableId), TableMapStatus.available);
+      },
+    );
+
+    testWidgets('salir y volver al mapa conserva reservas y cambios', (
+      tester,
+    ) async {
+      final store = DemoReservationStore(
+        latency: Duration.zero,
+        clock: fixedClock,
+      );
+      await _openMap(tester, repository: store);
+      final friday = Night(DateTime.utc(2026, 10, 9));
+      final reserved = store.book
+          .forNight(friday)
+          .firstWhere((r) => r.status == ReservationStatus.confirmed);
+      store.book.revoke(reserved.id);
+      final free = VenueTables.all.firstWhere(
+        (t) => store.book.activeFor(friday, t.id) == null,
+      );
+      store.book.createDirect(
+        night: friday,
+        tableId: free.id,
+        holder: const ReservationHolder(
+          name: 'Titular demo X',
+          idNumber: '0',
+          phone: '0',
+        ),
+      );
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mapa y disponibilidad'));
+      await tester.pumpAndSettle();
+
+      expect(_statusOf(tester, reserved.tableId), TableMapStatus.available);
+      expect(_statusOf(tester, free.id), TableMapStatus.reserved);
     });
   });
 
@@ -465,10 +542,7 @@ void main() {
     ) async {
       await _pumpApp(
         tester,
-        DemoNightAvailabilityRepository(
-          latency: Duration.zero,
-          clock: fixedClock,
-        ),
+        DemoReservationStore(latency: Duration.zero, clock: fixedClock),
         reduceMotion: false,
       );
       await tester.tap(find.text('Mapa y disponibilidad'));
@@ -483,10 +557,7 @@ void main() {
     ) async {
       await _pumpApp(
         tester,
-        DemoNightAvailabilityRepository(
-          latency: Duration.zero,
-          clock: fixedClock,
-        ),
+        DemoReservationStore(latency: Duration.zero, clock: fixedClock),
         reduceMotion: false,
       );
       await tester.tap(find.text('Mapa y disponibilidad'));
@@ -518,10 +589,7 @@ void main() {
     ) async {
       await _pumpApp(
         tester,
-        DemoNightAvailabilityRepository(
-          latency: Duration.zero,
-          clock: fixedClock,
-        ),
+        DemoReservationStore(latency: Duration.zero, clock: fixedClock),
         reduceMotion: false,
       );
       await tester.tap(find.text('Mapa y disponibilidad'));

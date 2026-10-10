@@ -16,7 +16,9 @@ No reserva, no paga, no cancela, no une mesas VIP y no valida consumo. No muestr
 | `domain/venue_table.dart` | Mesas físicas: ID, tipo y zona. Sin `dart:ui` ni coordenadas. |
 | `domain/night_schedule.dart` | Reloj inyectable (`Clock`), hora del local (UTC−5), `Night` (apertura 20:30, cierre 03:00) y `NightSchedule` (noches del fin de semana por semana operativa). |
 | `domain/night_availability.dart` | `TableAvailability` (Disponible, En proceso, Reservada, Ocupada), `NightAvailability` y el contrato `NightAvailabilityRepository.availabilityFor(Night)`. |
-| `data/demo_night_availability_repository.dart` | Adaptador de desarrollo: estados ficticios deterministas por fecha; «Ocupada» solo en la noche en curso. |
+| `domain/reservation.dart` | Modelo de reserva: noche concreta, mesa, titular, procedencia, estado (en proceso, pendiente de pago, reservada, ocupada, revocada, liberada, expirada) e historial de eventos. |
+| `domain/reservation_book.dart` | `ReservationBook`: reglas R1–R8 en memoria con reloj inyectable (exclusividad mesa+noche, expiración a los 10 min, prepago VIP manual, rechazo, reserva directa, llegada, revocar, liberar). |
+| `data/demo_reservation_store.dart` | `DemoReservationStore`: un único `ReservationBook` por ejecución, con reservas ficticias sembradas; implementa `NightAvailabilityRepository` para el mapa. |
 | `presentation/venue_map_controller.dart` | `ChangeNotifier` con el fin de semana, la noche, la consulta y la mesa seleccionada. |
 | `presentation/venue_geometry.dart` | Coordenadas del plano ilustrativo (1000 × 1100), rotación y abertura de muebles. |
 | `presentation/venue_painter.dart`, `table_furniture_painter.dart`, `table_widget.dart`, `venue_map.dart` | Dibujo del recinto y de las mesas, zoom y desplazamiento. El mapa recibe estados, selección y callback. |
@@ -53,6 +55,8 @@ Implementación (I1 en las reglas): un temporizador del controlador (`NightSched
 - **Respuestas tardías:** cada consulta lleva un número y solo la más reciente puede publicar su resultado. Una respuesta tardía de otra noche, sea éxito o error, se descarta.
 - **Respuesta de otra noche:** si el `nightId` de la respuesta no coincide con la noche pedida, se trata como error.
 - **Carga, error o mesa sin dato:** el mapa la muestra como «Sin información». Nunca la presenta como disponible ni reutiliza datos de otra noche.
+- **Datos que vencen solos:** si la respuesta trae `refreshAt` (por ejemplo, el vencimiento de una reserva en proceso), el controlador vuelve a consultar en ese instante. El almacén calcula `refreshAt` antes que los estados: si una reserva vence mientras se construye la respuesta, la mesa puede llegar como pendiente, pero con un `refreshAt` (aunque ya pasado) que obliga a volver a consultar de inmediato.
+- **Bloqueo por solicitud pendiente:** resuelto por R1–R3. La normal en proceso bloquea su mesa y noche hasta 10 min; la VIP solicitada la bloquea sin ese límite hasta que el administrador decida.
 
 ### Selección de mesa
 
@@ -69,11 +73,16 @@ Implementación (I1 en las reglas): un temporizador del controlador (`NightSched
 - **Leyenda:** se desplaza en horizontal cuando no cabe.
 - **Controles de zoom:** se colocan en fila si el área del mapa mide menos de 220 px de alto.
 
-## Adaptador de demostración
+## Almacén de demostración
 
-`DemoNightAvailabilityRepository` genera estados ficticios para cualquier noche, siempre los mismos para la misma fecha. Solo la noche en curso puede tener mesas «Ocupadas». Simula 350 ms de latencia para que la carga sea visible.
-
-- Vive en la memoria del dispositivo. **No** comparte disponibilidad entre dispositivos ni refleja la operación real.
+`DemoReservationStore` (Parte 2) sustituye al adaptador aleatorio anterior.
+- **Fuente única:** guarda un único `ReservationBook` por ejecución de la app y deriva los estados del mapa de las reservas activas:
+  - en proceso o pendiente de pago → «En proceso» o «Pendiente de pago»;
+  - confirmada → «Reservada»;
+  - ocupada → «Ocupada».
+- **Siembra:** la primera vez que se consulta una noche siembra reservas ficticias, aplicando las mismas reglas que una reserva real y eligiendo las mismas mesas para la misma fecha. No siembra noches terminadas ni noches que ya tienen historial (por ejemplo, reservas creadas antes de consultarlas): así nunca choca con operaciones reales ni rellena una mesa revocada o liberada. Solo hay llegadas sembradas si la noche está en curso.
+- **Latencia:** simula 350 ms para que la carga sea visible.
+- **Memoria:** navegar conserva las reservas y los cambios; cerrar la app los pierde. **No** comparte datos entre dispositivos ni refleja la operación real.
 - La pantalla muestra siempre «Datos de demostración».
 - Para conectar datos compartidos basta con otra implementación de `NightAvailabilityRepository` inyectada en `lib/main.dart`; la presentación no cambia.
 
@@ -108,5 +117,4 @@ Proceden de las instrucciones del equipo para esta tarea:
 | Fuente de datos compartida (backend) | NOT DECIDED |
 | Capacidad de las mesas normales | NOT DECIDED |
 | Numeración física oficial de mesas | NOT DECIDED |
-| Política de bloqueo de mesa por solicitud pendiente | NOT DECIDED (fuera de esta consulta) |
 | Compilación y ejecución nativas en iOS | Pendiente de macOS/Xcode |

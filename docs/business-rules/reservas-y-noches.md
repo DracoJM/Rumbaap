@@ -60,13 +60,19 @@ No son reglas de negocio. Son formas técnicas de cumplir las reglas anteriores 
 | I2 | En el mapa, la reserva pendiente se muestra como **«En proceso»** en mesas normales y **«Pendiente de pago»** en VIP. Ambas en ámbar, con icono y texto propios, también para el lector de pantalla. | Hacer visibles R1 y R2. No implementa la caducidad ni el pago. |
 | I3 | La pausa de la animación (M4) usa los mecanismos del SDK: `TickerMode` de las rutas, ciclo de vida de la app y `MediaQuery.disableAnimations`. | Cumplir M4 sin código adicional. |
 | I4 | La hora del local se representa como `DateTime` UTC con los campos de la hora de Colombia, y los datos de demostración son deterministas por fecha. | No depender de la zona horaria del dispositivo; resultados reproducibles. |
+| I5 | El **rechazo** de una VIP pendiente de pago deja la reserva en estado *revocada*, con un evento «rechazada» en el historial que la distingue de una revocación. | Respetar los 7 estados acordados sin añadir uno nuevo. |
+| I6 | La expiración a los 10 min (R1) se aplica al consultar o al operar, y se registra con el **instante exacto** de vencimiento, no con el de la consulta. | Exactitud sin temporizadores en el dominio. |
+| I7 | No se crean reservas en una noche ya terminada. | Coherente con N6 y M2. |
+| I8 | Las operaciones no válidas o repetidas fallan sin modificar la reserva ni duplicar eventos en el historial. | Trazabilidad e idempotencia. |
+| I9 | El almacén de demostración siembra reservas ficticias la primera vez que se consulta una noche, con las mismas reglas que una reserva real. No siembra una noche que ya tiene historial. | Datos de demostración coherentes con las reglas, sin sustituir ni chocar con operaciones reales. |
+| I10 | El mapa vuelve a consultar cuando vence una reserva en proceso (`refreshAt`), que se calcula antes que los estados de las mesas. | Que una mesa expirada no quede en ámbar, aunque venza durante la consulta. |
 
 ## 3. Todavía no implementado
 
 | Tema | Estado |
 |---|---|
-| Reglas de reserva R1–R8 (modelo, caducidad de 10 min, pago VIP manual, revocar, liberar, llegada, reserva directa) | Parte 2 del plan (ADR 0002) |
-| Vista y acciones del administrador, con lista de pendientes VIP | Parte 3 del plan |
+| Reglas R1–R8 en el dominio (`ReservationBook`) | Implementadas en la Parte 2; sin vista que las use todavía |
+| Vista y acciones del administrador, lista de pendientes VIP y diálogos de advertencia y doble confirmación | Parte 3 del plan |
 | Vistas de cliente (incluida N5), promotor y mesero | Fuera de alcance (futuro) |
 | Puntos de beneficio | Fuera de alcance (futuro) |
 | Cobro real, ruta de pago en la app y reembolsos | `NOT DECIDED` (proveedor de pagos) |

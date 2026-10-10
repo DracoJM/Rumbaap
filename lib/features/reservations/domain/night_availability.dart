@@ -19,9 +19,14 @@ class NightAvailability {
   NightAvailability({
     required this.nightId,
     required Map<String, TableAvailability> byTableId,
+    this.refreshAt,
   }) : _byTableId = Map.unmodifiable(byTableId);
 
   final String nightId;
+
+  /// Instante real en que estos datos dejan de ser válidos sin intervención
+  /// de nadie (p. ej. vence una reserva en proceso, R1). `null` si no hay.
+  final DateTime? refreshAt;
   final Map<String, TableAvailability> _byTableId;
 
   /// `null` si no hay información de esa mesa: nunca se asume disponible.

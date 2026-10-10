@@ -34,6 +34,10 @@ class VenueMapController extends ChangeNotifier {
   // no deje visible una noche terminada ni su ocupación.
   Timer? _changeTimer;
 
+  // Se dispara cuando los datos mostrados vencen por sí solos (p. ej. expira
+  // una reserva en proceso a los 10 min, R1).
+  Timer? _dataTimer;
+
   /// 0 = fin de semana de la semana en curso.
   int get weeksAhead => _weeksAhead;
   List<Night> get nights => _nights;
@@ -101,6 +105,7 @@ class VenueMapController extends ChangeNotifier {
 
   Future<void> _load(Night night, {required bool keepSelection}) async {
     final query = ++_query;
+    _dataTimer?.cancel();
     final selected = _selectedTableId;
     _resetNight(night);
     if (keepSelection) _selectedTableId = selected;
@@ -113,6 +118,7 @@ class VenueMapController extends ChangeNotifier {
       }
       _availability = availability;
       _availabilityStatus = LoadStatus.ready;
+      _scheduleDataRefresh(availability.refreshAt);
     } catch (_) {
       if (!_isCurrent(query)) return;
       _availability = null;
@@ -148,6 +154,15 @@ class VenueMapController extends ChangeNotifier {
     _notify();
   }
 
+  void _scheduleDataRefresh(DateTime? refreshAt) {
+    _dataTimer?.cancel();
+    if (refreshAt == null || _disposed) return;
+    final wait = refreshAt.difference(_clock());
+    _dataTimer = Timer(wait.isNegative ? Duration.zero : wait, () {
+      refresh();
+    });
+  }
+
   Night? _byId(String nightId) =>
       _nights.where((n) => n.id == nightId).firstOrNull;
 
@@ -179,6 +194,7 @@ class VenueMapController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _changeTimer?.cancel();
+    _dataTimer?.cancel();
     super.dispose();
   }
 }
