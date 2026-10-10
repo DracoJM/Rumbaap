@@ -1,7 +1,7 @@
 # Reservas — mapa y consulta de disponibilidad por noche
 
-- **Estado:** implementación inicial, consulta de solo lectura con **datos de demostración**.
-- **Base:** [ADR 0001](../decisions/0001-base-app-flutter.md). Este documento no cambia ninguna decisión aprobada.
+- **Estado:** consulta de solo lectura con **datos de demostración**. Parte 1 del plan del [ADR 0002](../decisions/0002-perspectiva-administrador-y-reservas.md): noches por fin de semana y hora del local.
+- **Base:** [ADR 0001](../decisions/0001-base-app-flutter.md) y [reglas de noches y reservas](../business-rules/reservas-y-noches.md). Este documento no cambia ninguna decisión aprobada.
 
 ## Qué hace
 
@@ -14,16 +14,38 @@ No reserva, no paga, no cancela, no une mesas VIP y no valida consumo. No muestr
 | Archivo | Responsabilidad |
 |---|---|
 | `domain/venue_table.dart` | Mesas físicas: ID, tipo y zona. Sin `dart:ui` ni coordenadas. |
-| `domain/night_availability.dart` | `Night`, `TableAvailability` (Disponible, Reservada, Ocupada), `NightAvailability` y el contrato `NightAvailabilityRepository`. |
-| `data/demo_night_availability_repository.dart` | Adaptador de desarrollo con dos noches ficticias. |
-| `presentation/venue_map_controller.dart` | `ChangeNotifier` con la noche, la consulta y la mesa seleccionada. |
+| `domain/night_schedule.dart` | Reloj inyectable (`Clock`), hora del local (UTC−5), `Night` (apertura 20:30, cierre 03:00) y `NightSchedule` (noches del fin de semana por semana operativa). |
+| `domain/night_availability.dart` | `TableAvailability` (Disponible, En proceso, Reservada, Ocupada), `NightAvailability` y el contrato `NightAvailabilityRepository.availabilityFor(Night)`. |
+| `data/demo_night_availability_repository.dart` | Adaptador de desarrollo: estados ficticios deterministas por fecha; «Ocupada» solo en la noche en curso. |
+| `presentation/venue_map_controller.dart` | `ChangeNotifier` con el fin de semana, la noche, la consulta y la mesa seleccionada. |
 | `presentation/venue_geometry.dart` | Coordenadas del plano ilustrativo (1000 × 1100), rotación y abertura de muebles. |
 | `presentation/venue_painter.dart`, `table_furniture_painter.dart`, `table_widget.dart`, `venue_map.dart` | Dibujo del recinto y de las mesas, zoom y desplazamiento. El mapa recibe estados, selección y callback. |
-| `presentation/table_presentation.dart` | Texto, icono y color de cada estado; etiquetas de tipo y zona. |
+| `presentation/table_presentation.dart` | Texto, icono y color de cada estado (incluidos «En proceso» y «Pendiente de pago»), etiquetas de tipo, zona y noche. |
 | `presentation/table_picker.dart` | Lista «Elegir mesa»: las 22 mesas con su estado, en filas de al menos 48 px y con etiquetas para lector de pantalla. Lee y selecciona en el mismo controlador que el mapa. |
 | `presentation/table_detail.dart`, `venue_map_page.dart` | Detalle de mesa y pantalla completa. |
 
 El tema oscuro con acentos violeta y ámbar está en `lib/app/app_theme.dart`. La dependencia del repositorio se crea en `lib/main.dart` y se pasa por constructor hasta la pantalla.
+
+### Noches
+
+- **Por defecto:** se muestran las noches de viernes, sábado y domingo de la semana operativa en curso.
+- **Navegación:** con las flechas se pasa a fines de semana futuros.
+- **Noche en curso:** se marca «En curso».
+- **Origen de las noches:** las define `NightSchedule`, no el repositorio.
+- **Hora:** se calcula en hora del local, independientemente de la zona horaria del dispositivo.
+
+Reglas del mapa de consulta (M1–M3 en las [reglas de negocio](../business-rules/reservas-y-noches.md)), propuestas por Claude y aprobadas por el equipo para esta fase:
+- **M1, cambio de semana:** la semana operativa cambia el lunes a las 03:00. No aplica al futuro catálogo del cliente, que usa la semana calendario.
+- **M2, noches terminadas:** no se ofrecen.
+- **M3, semanas pasadas:** no hay navegación a ellas. M2 y M3 no impiden un futuro historial del administrador.
+- **`weeksAhead`:** es un desplazamiento relativo y solo de consulta. Las reservas quedan ligadas a una noche concreta.
+
+Implementación (I1 en las reglas): un temporizador del controlador (`NightSchedule.nextChange`) vuelve a calcular las noches y a consultar al cruzar una apertura o un cierre. La página hace lo mismo al volver del segundo plano (`AppLifecycleListener.onResume`). Se conserva la mesa seleccionada si su noche sigue ofrecida. El temporizador y el observador se liberan al salir.
+
+### Estados
+
+- **Pendiente:** en una mesa normal se muestra «En proceso»; en una VIP, «Pendiente de pago». Comparten el ámbar, con icono y texto propios.
+- **Animación:** las mesas pendientes «respiran» con la animación del mapa.
 
 ### Comportamiento del controlador
 
@@ -49,7 +71,7 @@ El tema oscuro con acentos violeta y ámbar está en `lib/app/app_theme.dart`. L
 
 ## Adaptador de demostración
 
-`DemoNightAvailabilityRepository` contiene dos noches ficticias, «Viernes 16 de octubre» y «Sábado 17 de octubre», con estados distintos para varias mesas. Simula 350 ms de latencia para que la carga sea visible.
+`DemoNightAvailabilityRepository` genera estados ficticios para cualquier noche, siempre los mismos para la misma fecha. Solo la noche en curso puede tener mesas «Ocupadas». Simula 350 ms de latencia para que la carga sea visible.
 
 - Vive en la memoria del dispositivo. **No** comparte disponibilidad entre dispositivos ni refleja la operación real.
 - La pantalla muestra siempre «Datos de demostración».
@@ -59,7 +81,8 @@ El tema oscuro con acentos violeta y ámbar está en `lib/app/app_theme.dart`. L
 
 - Geometría, painters y paleta adaptados del prototipo separado `Rumbaap-Demo-Sagsa`.
 - Respecto a la demo:
-  - Se quitó la animación continua de iluminación, el estado «Solicitud pendiente», el hover y la fuente incluida.
+  - Por decisión del equipo (M4) se restauraron la iluminación animada, el pulso de las mesas pendientes y el efecto al pasar el ratón. Se detiene si el sistema pide reducir el movimiento y se pausa cuando el mapa no está visible o la app está en segundo plano. Para ello usa los mecanismos del SDK (I3).
+  - Se quitó la fuente incluida.
   - No se copiaron `DemoController`, `ReservationLedger`, formularios, selector de roles ni acciones.
 - Las medidas 1000 × 1100 son ilustrativas; no son metros ni un plano arquitectónico.
 - Los IDs M01–M20 y VIP 1/VIP 2 se conservan por continuidad del desarrollo. **No** son la numeración física oficial confirmada por el establecimiento.
@@ -72,7 +95,7 @@ Proceden de las instrucciones del equipo para esta tarea:
   - Capacidad «Por confirmar».
   - Reserva sin costo ni prepago.
   - Consumo de referencia de 400.000 COP con tolerancia validada por el personal.
-  - Reserva sujeta a confirmación. El texto no asigna la confirmación a ningún rol ni decide entre aprobación administrativa y automática.
+  - Confirmación automática al completar la reserva (regla R1). Es información sobre la regla aprobada; el formulario del cliente no está construido.
 - **Mesa VIP:**
   - Hasta 20 personas.
   - Consumo prepagado de 2.000.000 COP por mesa.
