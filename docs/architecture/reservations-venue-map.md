@@ -62,7 +62,7 @@ Implementación (I1 en las reglas): un temporizador del controlador (`NightSched
 ### Selección de mesa
 
 - **Dos formas de seleccionar:** tocar la mesa en el mapa o elegirla en la lista «Elegir mesa». Ambas llevan a la misma selección y al mismo detalle.
-- **Por qué la lista:** con el plano completo a la vista, las mesas normales quedan pequeñas en el teléfono (unos 28 px lógicos). Las áreas táctiles del mapa no se amplían, para no solaparse.
+- **Por qué la lista:** con el plano completo a la vista, las franjas de las mesas normales miden menos de 48 dp en teléfonos pequeños (unos 43 × 33 dp a 320 de ancho; ver [mapa-noche-de-cristal.md](mapa-noche-de-cristal.md#diseño-adaptable)). Las áreas táctiles del mapa no se amplían, para no solaparse.
 - **Desde el mapa,** tocar la mesa ya seleccionada la deselecciona. **Desde la lista,** elegirla de nuevo la mantiene seleccionada.
 
 ### Diseño adaptable

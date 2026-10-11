@@ -44,9 +44,20 @@
 
 ## Diseño adaptable
 
-- **Teléfono en vertical:** el plano se escala al ancho, hasta 560 px, y se desplaza en vertical. Su margen inferior deja el final del plano por encima de la ficha.
+- **Teléfono en vertical:** el plano se escala al ancho, hasta 560 px, y se desplaza en vertical. Su margen inferior deja el final del plano por encima de la ficha. La ficha ocupa como mucho el 42 % del alto, para que siempre quede una franja del plano por la que desplazarse.
 - **600 px o más, u horizontal:** ficha y barra van en una columna lateral.
-- **Zonas táctiles:** franja de 58 × 44 unidades por mesa normal y 72 × 58 por VIP, sin solaparse. «Elegir mesa» sigue disponible como alternativa accesible.
+- **Zonas táctiles del plano:** franja de 58 × 44 unidades del lienzo por mesa normal y 72 × 58 por VIP, contiguas y sin solaparse. El plano se escala al ancho (`FittedBox`), así que en pantalla miden 58 × 44 × escala:
+  - 320 de ancho: unos 43 × 33 dp (por debajo de 48 dp);
+  - 360: unos 49 × 37 dp;
+  - 411: unos 56 × 43 dp.
+
+  El plano es un gráfico denso y sus franjas no se declaran como áreas de 48 dp. La alternativa accesible es «Elegir mesa» (botón de lista arriba a la derecha, siempre a la vista), con filas de al menos 48 dp.
+- **Controles:** volver, «Elegir mesa», flechas de noche, chips del resumen, acciones y botones de la ficha y pestañas miden al menos 48 × 48 dp; un test los mide en 320 × 568.
+- **Texto ampliado:** la barra inferior usa la escala de texto del sistema sin límite propio.
+  - Si a esa escala las cinco secciones no caben sin partir palabras, pasa a varias filas (`GlassTabBar.columnsFor`); con el tamaño normal es la fila única de v7.
+  - Con texto grande, la cabecera ocupa como mucho la mitad del alto y se desplaza.
+  - La ficha cede alto a la barra. Ficha y barra juntas no pasan del 80 % de la pantalla; si no caben, se desplazan.
+  - Los segmentos de Reservas van en una fila desplazable y «Elegir mesa» es una sola lista desplazable.
 
 ## Pendiente
 
