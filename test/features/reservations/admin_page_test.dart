@@ -92,19 +92,24 @@ Future<void> _list(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-/// Selecciona la mesa desde «Elegir mesa», como lo haría la persona, y abre
+/// Selecciona la mesa desde «Buscar mesa», como lo haría la persona, y abre
 /// su ficha.
 Future<void> _pick(WidgetTester tester, String id) async {
-  await tester.tap(find.byTooltip('Elegir mesa'));
+  await tester.tap(find.byTooltip('Buscar mesa'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byKey(const ValueKey('table-search')), id);
   await tester.pumpAndSettle();
   final row = find.byKey(ValueKey('picker-$id'));
   await tester.scrollUntilVisible(
     row,
     80,
-    scrollable: find.descendant(
-      of: find.byType(BottomSheet),
-      matching: find.byType(Scrollable),
-    ),
+    // La lista de resultados; el campo de búsqueda tiene su propio Scrollable.
+    scrollable: find
+        .descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byType(Scrollable),
+        )
+        .first,
   );
   await tester.ensureVisible(row);
   await tester.pumpAndSettle();

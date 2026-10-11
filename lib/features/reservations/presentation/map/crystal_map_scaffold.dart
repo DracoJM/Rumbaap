@@ -125,12 +125,12 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
         size.width > size.height;
     final sheet = widget.sheetBuilder(context, _clock.animating);
 
-    // La fila superior (volver, aviso y «Elegir mesa») siempre queda fija y a
+    // La fila superior (volver, aviso y «Buscar mesa») siempre queda fija y a
     // la vista: es el acceso a la alternativa accesible al plano.
     final topBar = _TopBar(
       demoLabel: widget.demoLabel,
       onPickTable: widget.body == null
-          ? () => showTablePicker(context, c)
+          ? () => showTableSearch(context, c)
           : null,
     );
     final headerItems = <Widget>[
@@ -375,7 +375,7 @@ class _NoStretch extends StatelessWidget {
   );
 }
 
-/// Volver, aviso de datos ficticios y lista accesible de mesas.
+/// Volver, aviso de datos ficticios y búsqueda accesible de mesas.
 class _TopBar extends StatelessWidget {
   const _TopBar({required this.demoLabel, required this.onPickTable});
 
@@ -399,10 +399,10 @@ class _TopBar extends StatelessWidget {
           Expanded(child: DemoDataTag(text: demoLabel)),
           if (onPickTable != null)
             IconButton(
-              tooltip: 'Elegir mesa',
+              tooltip: 'Buscar mesa',
               style: glass,
               onPressed: onPickTable,
-              icon: const Icon(Icons.format_list_bulleted_rounded, size: 20),
+              icon: const Icon(Icons.search_rounded, size: 22),
             ),
         ],
       ),

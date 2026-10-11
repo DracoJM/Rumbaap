@@ -63,10 +63,12 @@ const _public = 'Cliente demo A';
 Finder _table(String id) => find.byKey(ValueKey('table-$id'));
 Finder _tab(String label) => find.byKey(ValueKey('tab-$label'));
 
-/// Selecciona la mesa con «Elegir mesa»: con texto grande o en pantallas
+/// Selecciona la mesa con «Buscar mesa»: con texto grande o en pantallas
 /// pequeñas la mesa puede quedar bajo la ficha o la barra.
 Future<void> _pick(WidgetTester tester, String id) async {
-  await tester.tap(find.byTooltip('Elegir mesa'));
+  await tester.tap(find.byTooltip('Buscar mesa'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byKey(const ValueKey('table-search')), id);
   await tester.pumpAndSettle();
   final list = find.descendant(
     of: find.byType(BottomSheet),
@@ -433,10 +435,63 @@ void main() {
     });
   });
 
-  testWidgets('«Elegir mesa» con texto al 200 %: el estado de cada fila se '
+  group('«Buscar mesa» (P24)', () {
+    Future<void> search(WidgetTester tester, String q) async {
+      await tester.enterText(find.byKey(const ValueKey('table-search')), q);
+      await tester.pumpAndSettle();
+    }
+
+    String count(WidgetTester tester) => tester
+        .widget<Text>(find.byKey(const ValueKey('table-search-count')))
+        .data!;
+
+    Finder rows() => find.byWidgetPredicate(
+      (w) =>
+          w is ListTile &&
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('picker-'),
+    );
+
+    testWidgets('no repite el plano como listado: sin texto no hay filas; '
+        'busca por número, zona y estado', (tester) async {
+      await _open(tester, _admin);
+      await tester.tap(find.byTooltip('Buscar mesa'));
+      await tester.pumpAndSettle();
+      expect(rows(), findsNothing);
+      expect(count(tester), 'Escribe para buscar una mesa del plano.');
+
+      await search(tester, '07');
+      expect(find.byKey(const ValueKey('picker-M07')), findsOneWidget);
+      expect(rows(), findsOneWidget);
+
+      await search(tester, 'vip');
+      expect(find.byKey(const ValueKey('picker-VIP 1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('picker-VIP 2')), findsOneWidget);
+
+      await search(tester, 'zzz');
+      expect(rows(), findsNothing);
+      expect(count(tester), 'Ninguna mesa coincide.');
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets('con un solo resultado, la tecla de buscar del teclado la '
+        'selecciona y abre su ficha', (tester) async {
+      await _open(tester, _admin);
+      await tester.tap(find.byTooltip('Buscar mesa'));
+      await tester.pumpAndSettle();
+      await search(tester, 'M07');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(tester.widget<CrystalTable>(_table('M07')).selected, isTrue);
+    }, variant: TargetPlatformVariant.mobile());
+  });
+
+  testWidgets('«Buscar mesa» con texto al 200 %: el estado de cada fila se '
       'lee entero dentro de la fila', (tester) async {
     await _open(tester, _admin, size: const Size(320, 568), textScale: 2);
-    await tester.tap(find.byTooltip('Elegir mesa'));
+    await tester.tap(find.byTooltip('Buscar mesa'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('table-search')), 'VIP 1');
     await tester.pumpAndSettle();
     final row = find.byKey(const ValueKey('picker-VIP 1'));
     final status = find.descendant(
@@ -496,7 +551,7 @@ void main() {
         of: find.byTooltip(tooltip),
         matching: find.byType(IconButton),
       );
-      atLeast48(button('Elegir mesa'), 'Elegir mesa');
+      atLeast48(button('Buscar mesa'), 'Buscar mesa');
       atLeast48(button('Noche anterior'), 'Noche anterior');
       atLeast48(button('Noche siguiente'), 'Noche siguiente');
       atLeast48(find.byKey(const ValueKey('status-chip-available')), 'chip');
@@ -506,7 +561,9 @@ void main() {
         atLeast48(_tab(label), label);
       }
 
-      await tester.tap(find.byTooltip('Elegir mesa'));
+      await tester.tap(find.byTooltip('Buscar mesa'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('table-search')), '1');
       await tester.pumpAndSettle();
       for (final id in ['VIP 1', 'M01']) {
         final row = find.byKey(ValueKey('picker-$id'));
@@ -534,7 +591,7 @@ void main() {
       expect(normal.height, closeTo(44 * scale, 0.5));
       expect(normal.height, lessThan(48));
       // La alternativa accesible sigue a la vista.
-      expect(find.byTooltip('Elegir mesa').hitTestable(), findsOneWidget);
+      expect(find.byTooltip('Buscar mesa').hitTestable(), findsOneWidget);
     });
   });
 }

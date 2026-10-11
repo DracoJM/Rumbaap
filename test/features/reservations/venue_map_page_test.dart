@@ -117,18 +117,23 @@ TableMapStatus _statusOf(WidgetTester tester, String id) =>
 
 Finder _pickerRow(String id) => find.byKey(ValueKey('picker-$id'));
 
-/// Abre «Elegir mesa» y toca la fila de [id], desplazando la lista como lo
+/// Abre «Buscar mesa» y toca la fila de [id], desplazando la lista como lo
 /// haría la persona si la fila no está a la vista.
 Future<void> _pickFromList(WidgetTester tester, String id) async {
-  await tester.tap(find.byTooltip('Elegir mesa'));
+  await tester.tap(find.byTooltip('Buscar mesa'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byKey(const ValueKey('table-search')), id);
   await tester.pumpAndSettle();
   await tester.scrollUntilVisible(
     _pickerRow(id),
     80,
-    scrollable: find.descendant(
-      of: find.byType(BottomSheet),
-      matching: find.byType(Scrollable),
-    ),
+    // La lista de resultados; el campo de búsqueda tiene su propio Scrollable.
+    scrollable: find
+        .descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byType(Scrollable),
+        )
+        .first,
   );
   await tester.tap(_pickerRow(id));
   await tester.pumpAndSettle();
@@ -620,7 +625,12 @@ void main() {
         await tester.pumpAndSettle();
         expect(_inDetail('Pendiente de pago'), findsOneWidget);
 
-        await tester.tap(find.byTooltip('Elegir mesa'));
+        await tester.tap(find.byTooltip('Buscar mesa'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('table-search')),
+          'M03',
+        );
         await tester.pumpAndSettle();
         expect(
           find.bySemanticsLabel('Mesa M03, En proceso, Lado occidental'),
@@ -776,7 +786,12 @@ void main() {
         final before = _allStatuses(tester);
 
         for (final id in ['M01', 'VIP 2']) {
-          await tester.tap(find.byTooltip('Elegir mesa'));
+          await tester.tap(find.byTooltip('Buscar mesa'));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.byKey(const ValueKey('table-search')),
+            id,
+          );
           await tester.pumpAndSettle();
           await _semanticTap(tester, _pickerRow(id));
 
@@ -788,7 +803,12 @@ void main() {
           expect(tester.widget<CrystalTable>(_table(id)).selected, isTrue);
 
           // Reelegirla desde la lista no la deselecciona.
-          await tester.tap(find.byTooltip('Elegir mesa'));
+          await tester.tap(find.byTooltip('Buscar mesa'));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.byKey(const ValueKey('table-search')),
+            id,
+          );
           await tester.pumpAndSettle();
           await _semanticTap(tester, _pickerRow(id));
           expect(find.byType(BottomSheet), findsNothing);
@@ -844,7 +864,12 @@ void main() {
       (tester) async {
         final semantics = tester.ensureSemantics();
         await _openMap(tester);
-        await tester.tap(find.byTooltip('Elegir mesa'));
+        await tester.tap(find.byTooltip('Buscar mesa'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('table-search')),
+          'VIP 2',
+        );
         await tester.pumpAndSettle();
 
         final row = _pickerRow('VIP 2');
@@ -884,7 +909,7 @@ void main() {
         await _nextNight(tester);
         expect(find.byType(TableDetail), findsNothing);
 
-        await tester.tap(find.byTooltip('Elegir mesa'));
+        await tester.tap(find.byTooltip('Buscar mesa'));
         await tester.pumpAndSettle();
         final sheet = find.byType(BottomSheet);
         expect(
@@ -895,6 +920,11 @@ void main() {
           findsOneWidget,
         );
         for (final id in ['VIP 1', 'VIP 2', 'M01', 'M02']) {
+          await tester.enterText(
+            find.byKey(const ValueKey('table-search')),
+            id,
+          );
+          await tester.pumpAndSettle();
           final tile = tester.widget<ListTile>(_pickerRow(id));
           expect(tile.selected, isFalse);
           expect(
@@ -952,7 +982,7 @@ void main() {
 
           await _pickFromList(tester, 'VIP 2');
           expect(_inDetail('VIP 2'), findsOneWidget);
-          expect(find.byTooltip('Elegir mesa').hitTestable(), findsOneWidget);
+          expect(find.byTooltip('Buscar mesa').hitTestable(), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
         variant: _iosAndAndroid,

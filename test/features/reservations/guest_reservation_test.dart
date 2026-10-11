@@ -576,8 +576,13 @@ void main() {
       expect(tester.takeException(), isNull);
       await enter(tester, 'promotor-1');
       final tableId = freeNormal(store);
-      final picker = find.byTooltip('Elegir mesa');
+      final picker = find.byTooltip('Buscar mesa');
       await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('table-search')),
+        tableId,
+      );
       await tester.pumpAndSettle();
       final row = find.byKey(ValueKey('picker-$tableId'));
       final list = find.descendant(
