@@ -266,6 +266,11 @@ class _AdminTicketsState extends State<AdminTickets> {
                 key: const ValueKey('admin-ticket-night'),
                 initialValue: _night,
                 isExpanded: true,
+                selectedItemBuilder: (_) => [
+                  const Text('Todas las noches'),
+                  for (final n in nights)
+                    Text('${n.shortLabel} ${n.date.year}'),
+                ],
                 decoration: const InputDecoration(labelText: 'Noche'),
                 items: [
                   const DropdownMenuItem<Night?>(
@@ -692,6 +697,9 @@ class _CourtesyPageState extends State<CourtesyPage> {
             key: const ValueKey('courtesy-night'),
             initialValue: _night,
             isExpanded: true,
+            selectedItemBuilder: (_) => [
+              for (final n in nights) Text('${n.shortLabel} ${n.date.year}'),
+            ],
             decoration: const InputDecoration(labelText: 'Noche'),
             items: [
               for (final n in nights)

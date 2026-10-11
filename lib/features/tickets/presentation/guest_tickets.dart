@@ -145,6 +145,12 @@ class _GuestTicketsState extends State<GuestTickets> {
                         key: const ValueKey('ticket-night'),
                         initialValue: _night,
                         isExpanded: true,
+                        // Con texto grande, el campo muestra la forma corta
+                        // para no recortar la fecha; la lista, la larga.
+                        selectedItemBuilder: (_) => [
+                          for (final n in nights)
+                            Text('${n.shortLabel} ${n.date.year}'),
+                        ],
                         decoration: const InputDecoration(labelText: 'Noche'),
                         items: [
                           for (final n in nights)
