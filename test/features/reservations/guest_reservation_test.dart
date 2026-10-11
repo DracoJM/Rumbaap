@@ -333,6 +333,58 @@ void main() {
       );
     });
 
+    testWidgets('entrada y trámite con texto al 200 % en móvil pequeño, sin '
+        'desbordes', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final store = await pumpApp(tester);
+      tester.view.physicalSize = const Size(320, 568);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await enter(tester, 'promotor-1');
+      final tableId = freeNormal(store);
+      final picker = find.byTooltip('Elegir mesa');
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      final row = find.byKey(ValueKey('picker-$tableId'));
+      final list = find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(Scrollable),
+      );
+      for (var i = 0; i < 120 && row.hitTestable().evaluate().isEmpty; i++) {
+        await tester.drag(list.first, const Offset(0, -150));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(row.hitTestable());
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'sheet-action');
+      expect(tester.takeException(), isNull);
+      final flowList = find
+          .descendant(
+            of: find.byType(ReservationFlowPage),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      for (final key in ['flow-name', 'flow-phone']) {
+        await tester.scrollUntilVisible(
+          find.byKey(ValueKey(key)),
+          100,
+          scrollable: flowList,
+        );
+        await tester.enterText(find.byKey(ValueKey(key)), '1');
+      }
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('flow-review')),
+        100,
+        scrollable: flowList,
+      );
+      await tapKey(tester, 'flow-review');
+      // Pasó al resumen: el formulario ya no está.
+      expect(find.byKey(const ValueKey('flow-review')), findsNothing);
+      expect(find.byKey(const ValueKey('flow-name')), findsNothing);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.mobile());
+
     testWidgets('cliente: VIP a su nombre crea la solicitud solo al enviar', (
       tester,
     ) async {
