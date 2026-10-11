@@ -42,23 +42,6 @@ enum ActivityKind {
       values.firstWhere((k) => k.types.contains(type));
 }
 
-/// Quién originó un evento, deducido de su tipo y del origen de la reserva.
-/// El historial no guarda la identidad: la llegada puede registrarla el
-/// personal o la administración, y el vencimiento ocurre solo.
-String activityActor(Reservation r, ReservationEventType type) =>
-    switch (type) {
-      ReservationEventType.requested ||
-      ReservationEventType.completed ||
-      ReservationEventType.cancelled => r.originLabel,
-      ReservationEventType.createdDirect ||
-      ReservationEventType.prepaymentMarked ||
-      ReservationEventType.rejected ||
-      ReservationEventType.revoked ||
-      ReservationEventType.released => 'Administración',
-      ReservationEventType.arrived => 'Personal o administración',
-      ReservationEventType.expired => 'Automático (plazo de 10 min)',
-    };
-
 typedef _Entry = ({Reservation reservation, ReservationEvent event, int index});
 
 /// Registro de actividad de la noche consultada para el administrador: una
@@ -369,8 +352,11 @@ class _ActivityCard extends StatelessWidget {
                       ),
                       Text('Titular: ${r.holderName}', style: muted),
                       Text(
-                        'Por: ${activityActor(r, type)} · Estado actual: '
-                        '${r.statusLabel}',
+                        // El historial no guarda quién hizo cada cambio:
+                        // solo se muestra el origen de la reserva, que sí
+                        // consta.
+                        'Origen de la reserva: ${r.originLabel} · Estado '
+                        'actual: ${r.statusLabel}',
                         style: muted,
                       ),
                     ],

@@ -822,7 +822,6 @@ void main() {
       );
       // Cabecera de día con fecha completa.
       expect(find.textContaining('de 2026'), findsWidgets);
-      expect(find.textContaining('Por: Administración'), findsWidgets);
 
       // Búsqueda por ID de reserva.
       await tester.enterText(
@@ -909,6 +908,43 @@ void main() {
       },
       variant: TargetPlatformVariant.mobile(),
     );
+
+    testWidgets('quitar filtros tras elegir una mesa devuelve el selector a '
+        '«Todas las mesas» y muestra toda la actividad', (tester) async {
+      final store = await _openAdmin(tester);
+      final r = _first(store, _friday, ReservationStatus.confirmed);
+      await _list(tester, 'Actividad');
+      final total = countText(tester);
+      await _tapVisible(tester, find.byKey(const ValueKey('activity-table')));
+      await tester.tap(
+        find.text(sagsaVenue.tableById(r.tableId)!.displayName).last,
+      );
+      await tester.pumpAndSettle();
+      expect(countText(tester), contains(' de '));
+
+      await _tapVisible(tester, find.byKey(const ValueKey('activity-reset')));
+      expect(countText(tester), total);
+      final selector = find.byKey(const ValueKey('activity-table'));
+      expect(
+        find.descendant(of: selector, matching: find.text('Todas las mesas')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: selector,
+          matching: find.text(sagsaVenue.tableById(r.tableId)!.displayName),
+        ),
+        findsNothing,
+      );
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets('las tarjetas no atribuyen el cambio a un actor que el '
+        'historial no guarda', (tester) async {
+      await _openAdmin(tester);
+      await _list(tester, 'Actividad');
+      expect(find.textContaining('Por: '), findsNothing);
+      expect(find.textContaining('Origen de la reserva: '), findsWidgets);
+    }, variant: TargetPlatformVariant.mobile());
 
     testWidgets('actividad con texto al 200 % en un móvil de 320 dp, sin '
         'errores', (tester) async {
