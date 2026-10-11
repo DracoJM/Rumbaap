@@ -6,6 +6,7 @@ import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'package:rumbaap/features/reservations/domain/reservation_book.dart';
 import 'package:rumbaap/features/reservations/presentation/admin/admin_page.dart';
+import 'package:rumbaap/features/reservations/presentation/admin/admin_labels.dart';
 import 'package:rumbaap/features/reservations/presentation/guest/guest_home_page.dart';
 import 'package:rumbaap/features/reservations/presentation/guest/reservation_flow_page.dart';
 import 'package:rumbaap/features/reservations/presentation/map/crystal_map_scaffold.dart';
@@ -266,6 +267,156 @@ void main() {
     expect(store.ownReservations('admin-1'), isEmpty);
   });
 
+  group('rutas antiguas y adjudicación a cuenta', () {
+    test('completeRequest no confirma un trámite sin titular ni con la noche '
+        'cerrada, y no cambia nada', () {
+      final clock = _Clock(venueInstant(2026, 10, 10, 2, 55));
+      final book = ReservationBook(venue: sagsaVenue, clock: clock.call);
+      final noHolder = book.startNormal(
+        night: _friday,
+        tableId: 'M01',
+        origin: ReservationOrigin.client,
+      );
+      expect(
+        () => book.completeRequest(noHolder.id),
+        throwsA(
+          isA<ReservationException>().having(
+            (e) => e.error,
+            'error',
+            ReservationError.invalidHolder,
+          ),
+        ),
+      );
+      expect(book.byId(noHolder.id)!.status, ReservationStatus.inProcess);
+
+      final legacy = book.requestNormal(
+        night: _friday,
+        tableId: 'M02',
+        holder: _holder,
+        origin: ReservationOrigin.client,
+      );
+      clock.now = venueInstant(2026, 10, 10, 3);
+      expect(
+        () => book.completeRequest(legacy.id),
+        throwsA(
+          isA<ReservationException>().having(
+            (e) => e.error,
+            'error',
+            ReservationError.nightEnded,
+          ),
+        ),
+      );
+      expect(book.byId(legacy.id)!.status, ReservationStatus.inProcess);
+    });
+
+    test('requestVip y requestNormal antiguos rechazan un titular no '
+        'válido', () {
+      final book = ReservationBook(venue: sagsaVenue, clock: fixedClock);
+      const bad = ReservationHolder(name: ' ', phone: 'abc');
+      expect(
+        () => book.requestVip(
+          night: _friday,
+          tableId: 'VIP2',
+          holder: bad,
+          origin: ReservationOrigin.client,
+        ),
+        throwsA(isA<ReservationException>()),
+      );
+      expect(
+        () => book.requestNormal(
+          night: _friday,
+          tableId: 'M03',
+          holder: bad,
+          origin: ReservationOrigin.client,
+        ),
+        throwsA(isA<ReservationException>()),
+      );
+      expect(book.forNight(_friday), isEmpty);
+    });
+
+    test('el cliente ve lo que creó y lo adjudicado a su cuenta, sin '
+        'duplicados; cada promotor solo lo suyo', () {
+      final store = DemoReservationStore(
+        venue: sagsaVenue,
+        latency: Duration.zero,
+        clock: fixedClock,
+      );
+      final free = sagsaVenue.tables
+          .where((t) => !t.isVip && store.book.activeFor(_friday, t.id) == null)
+          .map((t) => t.id)
+          .toList();
+      const holderA = ReservationHolder(
+        name: 'Titular escrito A',
+        phone: '3000000001',
+        idNumber: '1000000001',
+      );
+      const holderB = ReservationHolder(
+        name: 'Titular escrito B',
+        phone: '3000000002',
+        idNumber: '1000000002',
+      );
+      Reservation normal(
+        int i,
+        String creator,
+        ReservationHolder h, {
+        String? linked,
+        ReservationOrigin? origin,
+      }) {
+        return store.perform((b) {
+          final r = b.startNormal(
+            night: _friday,
+            tableId: free[i],
+            origin: origin ?? ReservationOrigin.promoter,
+            createdBy: creator,
+          );
+          return b.submitNormal(r.id, holder: h, linkedAccountId: linked);
+        });
+      }
+
+      final byP1 = normal(0, 'promotor-1', holderA, linked: 'cliente-a');
+      final byP2 = normal(1, 'promotor-2', holderB, linked: 'cliente-b');
+      final ownA = normal(
+        2,
+        'cliente-a',
+        holderA,
+        linked: 'cliente-a',
+        origin: ReservationOrigin.client,
+      );
+      final aForB = normal(
+        3,
+        'cliente-a',
+        holderB,
+        linked: 'cliente-b',
+        origin: ReservationOrigin.client,
+      );
+      final direct = store.perform(
+        (b) => b.createDirect(
+          night: _friday,
+          tableId: free[4],
+          holder: holderB,
+          linkedAccountId: 'cliente-b',
+        ),
+      );
+
+      List<String> ids(String id, {bool linked = false}) => [
+        for (final r in store.ownReservations(id, includeLinked: linked)) r.id,
+      ]..sort();
+      expect(
+        ids('cliente-a', linked: true),
+        [byP1.id, ownA.id, aForB.id]..sort(),
+      );
+      expect(
+        ids('cliente-b', linked: true),
+        [byP2.id, aForB.id, direct.id]..sort(),
+      );
+      expect(ids('promotor-1'), [byP1.id]);
+      expect(ids('promotor-2'), [byP2.id]);
+      // La adjudicación no cambia quién la creó.
+      expect(store.book.byId(byP1.id)!.createdBy, 'promotor-1');
+      expect(store.book.byId(direct.id)!.origin, ReservationOrigin.admin);
+    });
+  });
+
   group('catálogo de noches del cliente (N5)', () {
     test('semana calendario: del lunes 5 al domingo 11 se ofrecen 9, 10 y '
         '11', () {
@@ -385,7 +536,11 @@ void main() {
         '1000000001',
       );
       await tapKey(tester, 'flow-review');
-      expect(find.text('Cuenta vinculada: Cliente demo A'), findsOneWidget);
+      expect(
+        find.text('Cuenta encontrada: se vinculará al enviar'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Cliente demo A'), findsNothing);
       await tapKey(tester, 'flow-submit');
       expect(find.byKey(const ValueKey('flow-done')), findsOneWidget);
       final done = store.book.byId(started.id)!;
@@ -791,6 +946,103 @@ void main() {
       },
       variant: TargetPlatformVariant.mobile(),
     );
+
+    testWidgets('el cliente vinculado ve la reserva del promotor en «Mis '
+        'reservas» y su ficha de solo lectura se actualiza en vivo', (
+      tester,
+    ) async {
+      final store = await pumpApp(tester);
+      await enter(tester, 'promotor-1');
+      final tableId = freeNormal(store);
+      await pick(tester, tableId);
+      await tapKey(tester, 'sheet-action');
+      await tester.enterText(
+        find.byKey(const ValueKey('flow-name')),
+        'Titular escrito',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('flow-phone')),
+        '3001112233',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('flow-id')),
+        '1000000001',
+      );
+      await tapKey(tester, 'flow-review');
+      await tapKey(tester, 'flow-submit');
+      final r = store.book.activeFor(_friday, tableId)!;
+      expect(r.linkedAccountId, 'cliente-a');
+      expect(r.createdBy, 'promotor-1');
+      await tapKey(tester, 'flow-show-mine');
+      await backToEntry(tester);
+
+      await enter(tester, 'cliente-a');
+      await tapKey(tester, 'tab-Mis reservas');
+      await tapKey(tester, 'mine-${r.id}');
+      expect(find.byKey(ValueKey('mine-detail-${r.id}')), findsOneWidget);
+      expect(find.text('Reservada'), findsOneWidget);
+      expect(find.text('Sagsa'), findsOneWidget);
+      expect(find.text('Titular escrito'), findsOneWidget);
+      expect(find.text('Vinculada a tu cuenta'), findsOneWidget);
+      for (final key in [
+        'action-revoke',
+        'action-release',
+        'action-arrive',
+        'create-direct',
+      ]) {
+        expect(find.byKey(ValueKey(key)), findsNothing);
+      }
+      expect(find.byType(FilledButton), findsNothing);
+
+      // Un cambio en el almacén se refleja sin volver a abrir la ficha.
+      String statusShown() => tester
+          .widget<Text>(find.byKey(const ValueKey('mine-detail-status')))
+          .data!;
+      expect(statusShown(), 'Reservada');
+      store.perform((b) => b.revoke(r.id));
+      await tester.pumpAndSettle();
+      expect(statusShown(), store.book.byId(r.id)!.statusLabel);
+      expect(statusShown(), isNot('Reservada'));
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(ValueKey('mine-${r.id}')), findsOneWidget);
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets('el cliente que reserva para otra persona vincula por cédula '
+        'exacta sin ver los datos de esa cuenta', (tester) async {
+      final store = await pumpApp(tester);
+      await enter(tester, 'cliente-a');
+      final tableId = freeNormal(store);
+      await pick(tester, tableId);
+      await tapKey(tester, 'sheet-action');
+      await tester.tap(find.text('Otra persona'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('flow-name')),
+        'Titular escrito',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('flow-phone')),
+        '3001112233',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('flow-id')),
+        '1000000002',
+      );
+      await tapKey(tester, 'flow-review');
+      expect(
+        find.text('Cuenta encontrada: se vinculará al enviar'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Cliente demo B'), findsNothing);
+      expect(find.textContaining('3000000002'), findsNothing);
+      await tapKey(tester, 'flow-submit');
+      final r = store.book.activeFor(_friday, tableId)!;
+      expect(r.linkedAccountId, 'cliente-b');
+      expect(r.createdBy, 'cliente-a');
+      expect(r.holder!.name, 'Titular escrito');
+    }, variant: TargetPlatformVariant.mobile());
 
     testWidgets('el segundo plano no reinicia el plazo: el trámite vence a su '
         'hora original', (tester) async {

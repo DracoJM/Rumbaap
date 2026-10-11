@@ -24,7 +24,8 @@
 No hay pantallas duplicadas para rellenar pestañas.
 
 - **Mapa:** todas las perspectivas usan el mapa v7 compartido (`CrystalMapScaffold`).
-- **Cliente y promotor:** leen la consulta pública, sin titulares ajenos. «Mis reservas» pide al almacén la proyección propia (`DemoReservationStore.ownReservations`): solo lo que creó esa identidad (`createdBy`). La cuenta vinculada al titular (`linkedAccountId`) es otro dato y no la convierte en creadora (`NOT DECIDED: si el cliente vinculado ve la reserva que hizo un promotor`).
+- **Cliente y promotor:** leen la consulta pública, sin titulares ajenos. «Mis reservas» pide al almacén la proyección propia (`DemoReservationStore.ownReservations`). El promotor ve solo lo que creó (`createdBy`). El cliente ve, además, lo adjudicado a su cuenta ficticia (`linkedAccountId`) por un promotor, por otro cliente o por una reserva directa del administrador (decisión de interfaz de la demo, 2026-10-11). La adjudicación no cambia quién la creó.
+- **Ficha de «Mis reservas»:** tocar una reserva abre una ficha de solo lectura (`guest/my_reservation_detail_page.dart`) con local, noche, mesa, estado, datos de la reserva y cambios de estado. Lee la misma proyección y se actualiza en vivo; no tiene acciones.
 - **Personal:** solo localiza reservas confirmadas y registra la llegada (R5) durante la noche en curso (N6), con confirmación. No revoca, no libera ni verifica prepagos.
 
 ## Trámite de reserva (`guest/reservation_flow_page.dart`)
@@ -38,8 +39,10 @@ No hay pantallas duplicadas para rellenar pestañas.
 - **Mesa VIP:**
   - No hay solicitud hasta el envío final (`submitVip`), que vuelve a comprobar la mesa y la deja pendiente de pago, sin caducidad (R16).
   - La VIP directa del administrador no cambia (R7).
-- **Vínculo de cuenta:** el promotor vincula una cuenta ficticia solo si la cédula coincide exactamente (`DemoIdentities.accountByIdNumber`). Sin coincidencia: «Sin cuenta vinculada». No hay puntos.
-- **Vista del administrador:** ve cada cambio en su mapa y en sus listas, porque comparte el almacén. Si el trámite no tiene titular, muestra «Titular pendiente».
+- **Vínculo de cuenta:** el promotor, el cliente que reserva para otra persona y la reserva directa del administrador vinculan una cuenta ficticia solo si la cédula coincide exactamente (`DemoIdentities.accountByIdNumber`). Sin coincidencia: «Sin cuenta vinculada». No hay puntos.
+- **Privacidad del vínculo:** el cliente y el promotor solo ven «Cuenta encontrada: se vinculará al enviar», sin el nombre ni el teléfono de esa cuenta; el nombre que escribieron sigue visible. La ficha del administrador muestra la cuenta vinculada.
+- **Rutas antiguas del libro:** `completeRequest`, `requestNormal` y `requestVip` (siembra y tests del administrador) aplican las mismas comprobaciones que el trámite: titular válido, sin vencer y con la noche abierta.
+- **Vista del administrador:** ve cada cambio en su mapa y en sus listas, porque comparte el almacén. Si el trámite no tiene titular, muestra «Titular pendiente (sin enviar)» mientras sigue En proceso y «Sin titular registrado (no se envió)» si se canceló o expiró.
 
 ## Límites
 

@@ -6,9 +6,11 @@ import '../../../session/demo_identities.dart';
 import '../../data/demo_reservation_store.dart';
 import '../admin/admin_labels.dart';
 import '../table_presentation.dart';
+import 'my_reservation_detail_page.dart';
 
-/// «Mis reservas» del cliente o del promotor: solo las que creó esta
-/// identidad, con su estado actual. Se actualiza con cada cambio del almacén
+/// «Mis reservas» del cliente o del promotor, con su estado actual: el
+/// promotor ve las que creó; el cliente, además, las adjudicadas a su cuenta
+/// ficticia. Tocar una abre su ficha de solo lectura. Se actualiza con cada cambio del almacén
 /// (por ejemplo, cuando el administrador verifica un prepago VIP).
 class MyReservations extends StatelessWidget {
   const MyReservations({
@@ -27,8 +29,10 @@ class MyReservations extends StatelessWidget {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        final mine = store.ownReservations(identity.id)
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final mine = store.ownReservations(
+          identity.id,
+          includeLinked: identity.profile == DemoProfile.client,
+        )..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         return ListView(
           padding: EdgeInsets.fromLTRB(
             16,
@@ -56,6 +60,16 @@ class MyReservations extends StatelessWidget {
                 color: NightNeutrals.glass(0.06),
                 child: ListTile(
                   minTileHeight: 56,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => MyReservationDetailPage(
+                        store: store,
+                        identity: identity,
+                        reservationId: r.id,
+                      ),
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   leading: Icon(r.statusIcon, color: r.statusColorIn(colors)),
                   title: Text(
                     '${r.tableIn(store.venue).displayName} · '

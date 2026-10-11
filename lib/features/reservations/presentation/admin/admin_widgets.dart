@@ -164,12 +164,12 @@ class HolderCard extends StatelessWidget {
               const _FictionalTag(),
             ],
           ),
-          if (holder == null)
+          if (holder == null && r.status == ReservationStatus.inProcess)
             line(
               Icons.hourglass_top_rounded,
               'El titular se registra al enviar el trámite.',
             )
-          else ...[
+          else if (holder != null) ...[
             line(
               Icons.badge_outlined,
               (holder.idNumber ?? '').isEmpty

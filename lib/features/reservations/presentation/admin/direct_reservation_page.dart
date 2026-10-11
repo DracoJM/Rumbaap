@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../theme/venue_theme.dart';
 
 import '../../../../app/app_theme.dart';
+import '../../../session/demo_identities.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/night_schedule.dart';
 import '../../domain/reservation.dart';
@@ -216,6 +217,7 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
     if (!_formKey.currentState!.validate()) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _submitting = true);
+    final idNumber = _idNumber.text.trim();
     try {
       final created = widget.store.perform(
         (book) => book.createDirect(
@@ -223,9 +225,11 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
           tableId: widget.table.id,
           holder: ReservationHolder(
             name: _name.text.trim(),
-            idNumber: _idNumber.text.trim(),
+            idNumber: idNumber,
             phone: _phone.text.trim(),
           ),
+          // Se adjudica a una cuenta ficticia solo por cédula exacta (R12).
+          linkedAccountId: DemoIdentities.accountByIdNumber(idNumber)?.id,
         ),
       );
       showResultMessage(

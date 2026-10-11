@@ -9,8 +9,13 @@ extension ReservationLabels on Reservation {
   /// Mesa de la reserva dentro de su local.
   VenueTable tableIn(Venue venue) => venue.tableById(tableId)!;
 
-  /// Nombre del titular, o aviso de que el trámite aún no lo tiene (R14).
-  String get holderName => holder?.name ?? 'Titular pendiente (sin enviar)';
+  /// Nombre del titular, o aviso de que el trámite no lo tiene (R14): aún
+  /// pendiente si sigue En proceso, o ya sin titular si no se envió.
+  String get holderName =>
+      holder?.name ??
+      (status == ReservationStatus.inProcess
+          ? 'Titular pendiente (sin enviar)'
+          : 'Sin titular registrado (no se envió)');
 
   bool get wasRejected =>
       status == ReservationStatus.revoked &&

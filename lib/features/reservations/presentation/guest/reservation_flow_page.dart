@@ -128,9 +128,10 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
   }
 
   /// Cuenta ficticia vinculada: la propia del cliente que reserva a su
-  /// nombre, o la que coincide exactamente con la cédula del promotor (R12).
+  /// nombre, o la que coincide exactamente con la cédula escrita (R12), tanto
+  /// del promotor como del cliente que reserva para otra persona.
   DemoIdentity? get _linkedAccount {
-    if (_isClient) return _forOther ? null : widget.identity;
+    if (_isClient && !_forOther) return widget.identity;
     return DemoIdentities.accountByIdNumber(_holder.idNumber);
   }
 
@@ -431,9 +432,12 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
       ),
       row(
         'Cuenta',
+        // De una cuenta ajena no se muestran sus datos, solo que existe.
         linked == null
             ? 'Sin cuenta vinculada (no se adjudica por nombre ni teléfono)'
-            : 'Cuenta vinculada: ${linked.name}',
+            : linked.id == widget.identity.id
+            ? 'Cuenta vinculada: ${linked.name}'
+            : 'Cuenta encontrada: se vinculará al enviar',
       ),
       row('Capacidad', terms.capacity),
       for (final c in terms.conditions) Text('· $c'),
