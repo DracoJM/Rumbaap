@@ -765,6 +765,27 @@ void main() {
     });
   });
 
+  // P24: en Android 12+ el estiramiento de overscroll envolvía la ficha en
+  // una capa con filtro y el cristal perdía el desenfoque al llegar al borde.
+  // La prueba en dispositivo está en la evidencia; aquí se comprueba que
+  // ningún cristal quede dentro de un estiramiento.
+  testWidgets('ningún cristal de la ficha ni de la barra queda dentro de un '
+      'estiramiento de overscroll', (tester) async {
+    final clock = _Clock(venueInstant(2026, 10, 9, 23));
+    final store = await _openAdmin(tester, clock: clock);
+    final r = _first(store, _friday, ReservationStatus.seated);
+    await _pick(tester, r.tableId);
+    final glass = find.byType(BackdropFilter);
+    expect(glass, findsWidgets);
+    expect(
+      find.ancestor(
+        of: glass,
+        matching: find.byType(StretchingOverscrollIndicator),
+      ),
+      findsNothing,
+    );
+  }, variant: const TargetPlatformVariant({TargetPlatform.android}));
+
   group('registro de actividad (P24)', () {
     Finder activityCards() => find.byWidgetPredicate(
       (w) =>

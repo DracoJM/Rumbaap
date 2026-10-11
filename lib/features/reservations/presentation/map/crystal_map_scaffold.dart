@@ -247,24 +247,26 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
                   ),
                   SizedBox(
                     width: (size.width * 0.45).clamp(240, 380),
-                    child: BackdropGroup(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 8, 10, 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: SingleChildScrollView(child: sheet),
-                            ),
-                            if (bar != null) ...[
-                              const SizedBox(height: 8),
-                              // Con texto grande la barra puede necesitar
-                              // más alto del que queda: se desplaza.
-                              Flexible(
-                                child: SingleChildScrollView(child: bar),
+                    child: _NoStretch(
+                      child: BackdropGroup(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 8, 10, 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: SingleChildScrollView(child: sheet),
                               ),
+                              if (bar != null) ...[
+                                const SizedBox(height: 8),
+                                // Con texto grande la barra puede necesitar
+                                // más alto del que queda: se desplaza.
+                                Flexible(
+                                  child: SingleChildScrollView(child: bar),
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -308,46 +310,69 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
           : Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               // Ficha y barra comparten una sola lectura del fondo.
-              child: BackdropGroup(
-                // Con texto grande la barra crece: la ficha cede el alto que
-                // falte y se desplaza dentro de su espacio, así ficha y barra
-                // nunca tapan toda la pantalla.
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: size.height * 0.8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (sheet != null)
-                        Flexible(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxHeight:
-                                  size.height *
-                                  CrystalMapScaffold.sheetMaxShare,
+              child: _NoStretch(
+                child: BackdropGroup(
+                  // Con texto grande la barra crece: la ficha cede el alto que
+                  // falte y se desplaza dentro de su espacio, así ficha y barra
+                  // nunca tapan toda la pantalla.
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: size.height * 0.8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (sheet != null)
+                          Flexible(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight:
+                                    size.height *
+                                    CrystalMapScaffold.sheetMaxShare,
+                              ),
+                              child: SingleChildScrollView(child: sheet),
                             ),
-                            child: SingleChildScrollView(child: sheet),
                           ),
-                        ),
-                      if (bar != null) ...[
-                        const SizedBox(height: 8),
-                        // Con texto muy grande la barra puede necesitar más
-                        // alto del disponible: entonces se desplaza.
-                        Flexible(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: bar,
+                        if (bar != null) ...[
+                          const SizedBox(height: 8),
+                          // Con texto muy grande la barra puede necesitar más
+                          // alto del disponible: entonces se desplaza.
+                          Flexible(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: bar,
+                            ),
                           ),
-                        ),
+                        ],
+                        SizedBox(height: bottomInset > 0 ? bottomInset : 10),
                       ],
-                      SizedBox(height: bottomInset > 0 ? bottomInset : 10),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
     );
   }
+}
+
+/// Sin estiramiento de overscroll para el contenido de cristal.
+///
+/// En Android 12+ el estiramiento envuelve el contenido desplazable en una
+/// capa con filtro de imagen; un [BackdropFilter] dentro de esa capa pierde
+/// el fondo y el cristal se ve transparente mientras dura el estiramiento
+/// (al arrastrar la ficha hasta su borde). El desplazamiento se conserva; solo
+/// se quita el efecto de borde.
+class _NoStretch extends StatelessWidget {
+  const _NoStretch({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ScrollConfiguration(
+    behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+    child: child,
+  );
 }
 
 /// Volver, aviso de datos ficticios y lista accesible de mesas.

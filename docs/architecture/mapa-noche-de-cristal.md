@@ -40,6 +40,7 @@
 - **Un solo reloj:** un `Ticker` (`MapClock`) alimenta todas las animaciones. Las capas animadas son `CustomPainter` con `repaint: clock`, cada una en su `RepaintBoundary`; las capas fijas y las mesas no repintan.
 - **Qué se anima:** solo giro, escala, desplazamiento y opacidad. El desenfoque es fijo.
 - **Cristal:** ficha y barra usan `BackdropFilter.grouped` dentro de un `BackdropGroup`, en la ranura inferior del `Scaffold` con `extendBody`. Así el plano se ve detrás y los avisos flotantes aparecen encima de la ficha.
+- **Sin estiramiento de overscroll en el cristal (P24):** en Android 12+ el estiramiento envuelve el contenido desplazable en una capa con filtro de imagen, y un `BackdropFilter` dentro de esa capa pierde el fondo: la ficha se veía transparente al arrastrarla hasta su borde. Ficha y barra desactivan solo ese efecto (`ScrollConfiguration` con `overscroll: false`); el desplazamiento se conserva. Lo reproduje y verifiqué en el emulador Android (capturas antes, durante y después); en iOS no hay estiramiento, pero la validación nativa sigue pendiente.
 - **Reducir movimiento:** con `MediaQuery.disableAnimations` no se arranca el ticker. `TickerMode` lo pausa cuando otra pantalla tapa el mapa.
 
 ## Diseño adaptable
