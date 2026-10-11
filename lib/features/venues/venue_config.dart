@@ -17,6 +17,7 @@ class VenueConfig {
     required this.layout,
     required this.terms,
     this.ticketProducts = const [],
+    this.ticketTag = 'XX',
     this.capacity,
   }) {
     assert(
@@ -41,6 +42,9 @@ class VenueConfig {
   /// Entradas a la venta en la demo. Nombres y precios son de
   /// DEMOSTRACIÓN, no política del local.
   final List<TicketProduct> ticketProducts;
+
+  /// Prefijo de 2 letras de las credenciales de entrada del local.
+  final String ticketTag;
 
   /// Aforo del local, configurable por local. `null`: no configurado
   /// (`NOT DECIDED`). La ocupación física no se deduce de las entradas.

@@ -33,9 +33,19 @@ final sagsaConfig = VenueConfig(
       ],
     ),
   },
-  // Entrada de DEMOSTRACIÓN para recorrer la venta: nombre y precio
-  // ficticios, no son los de Sagsa. Aforo: sin configurar (NOT DECIDED).
+  // Entrada de DEMOSTRACIÓN para recorrer la venta: nombre y precios por
+  // noche ficticios, no son los de Sagsa. Aforo: sin configurar
+  // (NOT DECIDED).
   ticketProducts: const [
-    TicketProduct(id: 'general', name: 'Entrada general', demoPrice: 50000),
+    TicketProduct(
+      id: 'general',
+      name: 'Entrada general',
+      demoPriceByWeekday: {
+        DateTime.friday: 40000,
+        DateTime.saturday: 50000,
+        DateTime.sunday: 30000,
+      },
+    ),
   ],
+  ticketTag: 'SG',
 );
