@@ -1016,7 +1016,82 @@ void main() {
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.byKey(ValueKey('mine-${r.id}')), findsOneWidget);
+      // Revocada ya no es activa (P24): pasa al historial plegado.
+      expect(find.byKey(ValueKey('mine-${r.id}')), findsNothing);
+      expect(find.byKey(PageStorageKey('mine-${r.id}')), findsNothing);
+      await tester.tap(find.byKey(const PageStorageKey('mine-history')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(PageStorageKey('mine-${r.id}')), findsOneWidget);
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets('Mis reservas: activas primero y terminadas en un historial '
+        'plegado con motivo y cambios de estado, en vivo', (tester) async {
+      final store = await pumpApp(tester);
+      final free = sagsaVenue.tables
+          .where((t) => !t.isVip && store.book.activeFor(_friday, t.id) == null)
+          .map((t) => t.id)
+          .toList();
+      Reservation make(int i) => store.perform((b) {
+        final started = b.startNormal(
+          night: _friday,
+          tableId: free[i],
+          origin: ReservationOrigin.client,
+          createdBy: 'cliente-a',
+        );
+        return b.submitNormal(started.id, holder: _holder);
+      });
+      final keep = make(0);
+      final revoked = make(1);
+      final cancelled = store.perform(
+        (b) => b.startNormal(
+          night: _friday,
+          tableId: free[2],
+          origin: ReservationOrigin.client,
+          createdBy: 'cliente-a',
+        ),
+      );
+      store.perform((b) => b.revoke(revoked.id));
+      store.perform((b) => b.cancelInProcess(cancelled.id));
+
+      await enter(tester, 'cliente-a');
+      await tapKey(tester, 'tab-Mis reservas');
+      expect(find.byKey(ValueKey('mine-${keep.id}')), findsOneWidget);
+      expect(find.byKey(ValueKey('mine-${revoked.id}')), findsNothing);
+      expect(find.text('Historial (2)'), findsOneWidget);
+      // Plegado al abrir.
+      expect(find.byKey(PageStorageKey('mine-${revoked.id}')), findsNothing);
+
+      await tester.tap(find.byKey(const PageStorageKey('mine-history')));
+      await tester.pumpAndSettle();
+      final ended = find.byKey(PageStorageKey('mine-${revoked.id}'));
+      expect(ended, findsOneWidget);
+      expect(
+        find.descendant(
+          of: ended,
+          matching: find.textContaining('Motivo: Revocada'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(ended);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: ended, matching: find.text('Cambios de estado')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(PageStorageKey('mine-${cancelled.id}')),
+          matching: find.textContaining('Trámite cancelado'),
+        ),
+        findsOneWidget,
+      );
+
+      // En vivo: si se revoca la activa, pasa al historial.
+      store.perform((b) => b.revoke(keep.id));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ValueKey('mine-${keep.id}')), findsNothing);
+      expect(find.text('Historial (3)'), findsOneWidget);
+      expect(find.text('No tienes reservas activas.'), findsOneWidget);
     }, variant: TargetPlatformVariant.mobile());
 
     testWidgets('el cliente que reserva para otra persona vincula por cédula '
