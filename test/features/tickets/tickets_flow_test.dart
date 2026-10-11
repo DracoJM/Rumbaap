@@ -139,6 +139,7 @@ void main() {
     expect(title(tester), 'Primer ingreso registrado.');
     await tapKey(tester, 'door-consult');
     expect(title(tester), startsWith('Ingreso ya registrado'));
+    expect(title(tester), isNot(contains('..')));
     expect(find.byKey(const ValueKey('door-confirm-entry')), findsNothing);
 
     // Taquilla canjea aunque la puerta ya leyó la credencial.

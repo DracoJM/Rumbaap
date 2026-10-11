@@ -267,8 +267,10 @@ class _ResultCard extends StatelessWidget {
       CheckOutcome.entryAlreadyRecorded => (
         Icons.info_outline_rounded,
         AppColors.amber,
+        // La hora termina en «p. m.»: va entre paréntesis para no repetir
+        // el punto.
         'Ingreso ya registrado'
-            '${t?.firstEntryAt == null ? '' : ' a las ${venueTimeLabel(t!.firstEntryAt!)}'}'
+            '${t?.firstEntryAt == null ? '' : ' (${venueTimeLabel(t!.firstEntryAt!)})'}'
             '. No se registra otro; taquilla aún puede canjear.',
       ),
       CheckOutcome.entryRecorded => (
