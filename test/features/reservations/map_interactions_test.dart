@@ -11,6 +11,7 @@ import 'package:rumbaap/features/reservations/presentation/map/crystal_venue_map
 import 'package:rumbaap/features/reservations/presentation/map/glass_tab_bar.dart';
 import 'package:rumbaap/features/reservations/presentation/map/table_sheet.dart';
 import 'package:rumbaap/features/reservations/presentation/table_presentation.dart';
+import 'package:rumbaap/features/bar/presentation/bar_views.dart';
 import 'package:rumbaap/features/tickets/presentation/admin_tickets.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
@@ -304,8 +305,8 @@ void main() {
       variant: TargetPlatformVariant.mobile(),
     );
 
-    testWidgets('Mapa, Reservas y Entradas se activan; Pedidos, en '
-        'desarrollo, no publica acción', (tester) async {
+    testWidgets('Mapa, Reservas, Entradas y Pedidos se activan desde el '
+        'árbol semántico y se vuelve al mapa', (tester) async {
       final semantics = tester.ensureSemantics();
       await _open(tester, _admin);
 
@@ -324,9 +325,11 @@ void main() {
       await _semanticTap(tester, _tab('Mapa'));
       expect(find.byType(CrystalVenueMap), findsOneWidget);
 
-      final data = tester.getSemantics(_tab('Pedidos')).getSemanticsData();
-      expect(data.hasAction(SemanticsAction.tap), isFalse);
-      expect(data.flagsCollection.isEnabled, isFalse);
+      await _semanticTap(tester, _tab('Pedidos'));
+      expect(find.byType(BarCorrections), findsOneWidget);
+      expect(find.byType(CrystalVenueMap), findsNothing);
+      await _semanticTap(tester, _tab('Mapa'));
+      expect(find.byType(CrystalVenueMap), findsOneWidget);
       semantics.dispose();
     }, variant: TargetPlatformVariant.mobile());
   });

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../theme/venue_theme.dart';
 import '../reservations/domain/venue_table.dart';
 import '../reservations/presentation/map/crystal_layout.dart';
+import '../bar/domain/bar.dart';
 import '../tickets/domain/ticket.dart';
 
 /// Todo lo que la app necesita saber de un local para mostrarlo: identidad,
@@ -19,6 +20,7 @@ class VenueConfig {
     this.ticketProducts = const [],
     this.ticketTag = 'XX',
     this.capacity,
+    this.menu = const [],
   }) {
     assert(
       venue.tables.every((t) => layout.placementOf(t.id) != null),
@@ -45,6 +47,9 @@ class VenueConfig {
 
   /// Prefijo de 2 letras de las credenciales de entrada del local.
   final String ticketTag;
+
+  /// Menú INFORMATIVO de la demo, con precios de demostración.
+  final List<MenuItem> menu;
 
   /// Aforo del local, configurable por local. `null`: no configurado
   /// (`NOT DECIDED`). La ocupación física no se deduce de las entradas.

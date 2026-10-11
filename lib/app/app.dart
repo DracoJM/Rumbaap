@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/bar/data/demo_bar_store.dart';
 import '../features/reservations/data/demo_reservation_store.dart';
 import '../features/reservations/domain/night_schedule.dart';
 import '../features/tickets/data/demo_ticket_store.dart';
@@ -15,6 +16,7 @@ class RumbaapApp extends StatelessWidget {
     required this.config,
     DemoReservationStore? store,
     DemoTicketStore? tickets,
+    DemoBarStore? bar,
     this.clock = systemClock,
     this.simulatedTime = false,
     this.persistence,
@@ -25,6 +27,13 @@ class RumbaapApp extends StatelessWidget {
            DemoTicketStore(
              venueId: config.venue.id,
              venueTag: config.ticketTag,
+             clock: clock,
+           ),
+       bar =
+           bar ??
+           DemoBarStore(
+             venueId: config.venue.id,
+             menu: config.menu,
              clock: clock,
            ) {
     assert(
@@ -42,6 +51,9 @@ class RumbaapApp extends StatelessWidget {
 
   /// Fuente única de entradas del local en esta ejecución.
   final DemoTicketStore tickets;
+
+  /// Fuente única de ventas de barra del local en esta ejecución.
+  final DemoBarStore bar;
   final Clock clock;
 
   /// La hora viene de `RUMBAAP_DEMO_NOW` (solo pruebas): se marca en
@@ -67,6 +79,7 @@ class RumbaapApp extends StatelessWidget {
         home: HomePage(
           store: store,
           tickets: tickets,
+          bar: bar,
           clock: clock,
           onResetDemo: onResetDemo,
         ),

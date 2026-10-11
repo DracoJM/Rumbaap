@@ -4,6 +4,8 @@ import '../../../../app/app_theme.dart';
 import '../../../session/demo_identities.dart';
 import '../../../session/session_panel.dart';
 import '../../../venues/venue_config.dart';
+import '../../../bar/data/demo_bar_store.dart';
+import '../../../bar/presentation/bar_views.dart';
 import '../../../tickets/data/demo_ticket_store.dart';
 import '../../../tickets/presentation/admin_tickets.dart';
 import '../../data/demo_reservation_store.dart';
@@ -25,7 +27,7 @@ import 'direct_reservation_page.dart';
 import 'reservation_actions.dart';
 import 'reservation_page.dart';
 
-enum AdminSection { map, reservations, tickets, more }
+enum AdminSection { map, reservations, tickets, orders, more }
 
 /// Lista que muestra la sección Reservas.
 enum AdminList { pending, reservations, activity }
@@ -44,12 +46,16 @@ class AdminPage extends StatefulWidget {
     this.clock = systemClock,
     this.identity,
     this.tickets,
+    this.bar,
   });
 
   final DemoReservationStore store;
 
   /// Entradas del local; sin él, «Entradas» queda como en desarrollo.
   final DemoTicketStore? tickets;
+
+  /// Ventas de barra del local; sin él, «Pedidos» queda en desarrollo.
+  final DemoBarStore? bar;
   final Clock clock;
 
   /// Identidad de la sesión de demostración; sin ella no se ofrece «Más».
@@ -125,10 +131,16 @@ class _AdminPageState extends State<AdminPage> {
           controller: _controller,
           demoLabel: 'Datos ficticios · sin autenticación real',
           showNight:
-              _section != AdminSection.more && _section != AdminSection.tickets,
+              _section == AdminSection.map ||
+              _section == AdminSection.reservations,
           body: switch (_section) {
             AdminSection.map => null,
             AdminSection.reservations => _listsSection(),
+            AdminSection.orders => BarCorrections(
+              store: widget.bar!,
+              identity: widget.identity ?? DemoIdentities.byId('admin-1')!,
+              showAcceptances: true,
+            ),
             AdminSection.tickets => AdminTickets(
               store: widget.tickets!,
               identity: widget.identity ?? DemoIdentities.byId('admin-1')!,
@@ -161,9 +173,14 @@ class _AdminPageState extends State<AdminPage> {
                     ? null
                     : () => _select(AdminSection.tickets),
               ),
-              // Pendiente de desarrollo: se muestra sin simular su
-              // operación.
-              const GlassTab(icon: Icons.local_bar_outlined, label: 'Pedidos'),
+              GlassTab(
+                icon: Icons.local_bar_outlined,
+                label: 'Pedidos',
+                selected: _section == AdminSection.orders,
+                onTap: widget.bar == null
+                    ? null
+                    : () => _select(AdminSection.orders),
+              ),
               GlassTab(
                 icon: Icons.more_horiz_rounded,
                 label: 'Más',

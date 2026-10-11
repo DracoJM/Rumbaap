@@ -10,6 +10,7 @@ import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'package:rumbaap/features/reservations/domain/reservation_book.dart';
 import 'package:rumbaap/features/reservations/domain/venue_table.dart';
 import 'package:rumbaap/features/reservations/presentation/admin/admin_page.dart';
+import 'package:rumbaap/features/bar/presentation/bar_views.dart';
 import 'package:rumbaap/features/reservations/presentation/guest/guest_home_page.dart';
 import 'package:rumbaap/features/reservations/presentation/map/crystal_layout.dart';
 import 'package:rumbaap/features/reservations/presentation/map/crystal_map_scaffold.dart';
@@ -181,13 +182,10 @@ void main() {
       },
     );
 
-    // La UI de Entradas (P25) está escrita pero sin terminar: aquí solo se
-    // comprueba que la pestaña navega a su sección y que se vuelve al mapa
-    // con la misma noche; Pedidos sigue en desarrollo.
-    testWidgets('administración: Entradas abre su sección y vuelve al mapa '
-        'con la misma noche; Pedidos sigue en desarrollo y no navega', (
-      tester,
-    ) async {
+    // Entradas y Pedidos navegan a su sección y se vuelve al mapa con la
+    // misma noche (las secciones se prueban en sus propios archivos).
+    testWidgets('administración: Pedidos y Entradas abren su sección y '
+        'vuelven al mapa con la misma noche', (tester) async {
       await _pumpApp(tester);
       await _open(tester, 'Administrador (demostración)');
       final semantics = tester.ensureSemantics();
@@ -202,17 +200,25 @@ void main() {
       expect(
         tester.getSemantics(pedidos),
         matchesSemantics(
-          label: 'Pedidos, en desarrollo',
+          label: 'Pedidos',
           isButton: true,
           hasEnabledState: true,
-          isEnabled: false,
+          isEnabled: true,
           hasSelectedState: true,
+          hasTapAction: true,
         ),
       );
       await tester.tap(pedidos);
       await tester.pumpAndSettle();
+      expect(find.byType(BarCorrections), findsOneWidget);
+      expect(find.byType(CrystalVenueMap), findsNothing);
+      expect(find.text(GlassTabBar.pendingNote), findsNothing);
+      await tester.ensureVisible(find.byKey(const ValueKey('tab-Mapa')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('tab-Mapa')));
+      await tester.pumpAndSettle();
       expect(find.byType(CrystalVenueMap), findsOneWidget);
-      expect(find.text(GlassTabBar.pendingNote), findsOneWidget);
+      expect(controller().night, night);
 
       final entradas = find.byKey(const ValueKey('tab-Entradas'));
       await tester.ensureVisible(entradas);

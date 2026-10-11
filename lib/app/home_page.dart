@@ -5,6 +5,7 @@ import '../features/reservations/domain/night_schedule.dart';
 import '../features/reservations/presentation/admin/admin_page.dart';
 import '../features/reservations/presentation/guest/guest_home_page.dart';
 import '../features/reservations/presentation/staff/staff_page.dart';
+import '../features/bar/data/demo_bar_store.dart';
 import '../features/session/demo_identities.dart';
 import '../features/tickets/data/demo_ticket_store.dart';
 import '../features/venues/venue_config.dart';
@@ -23,6 +24,7 @@ class HomePage extends StatelessWidget {
     super.key,
     required this.store,
     required this.tickets,
+    required this.bar,
     this.clock = systemClock,
     this.onResetDemo,
   });
@@ -34,6 +36,9 @@ class HomePage extends StatelessWidget {
 
   /// Entradas del local, compartidas por todos los perfiles.
   final DemoTicketStore tickets;
+
+  /// Ventas de barra del local, compartidas por todos los perfiles.
+  final DemoBarStore bar;
   final Future<void> Function()? onResetDemo;
   final Clock clock;
 
@@ -44,18 +49,21 @@ class HomePage extends StatelessWidget {
         clock: clock,
         identity: identity,
         tickets: tickets,
+        bar: bar,
       ),
       DemoProfile.staff => StaffPage(
         store: store,
         clock: clock,
         identity: identity,
         tickets: tickets,
+        bar: bar,
       ),
       DemoProfile.client || DemoProfile.promoter => GuestHomePage.withStore(
         store: store,
         clock: clock,
         identity: identity,
         tickets: tickets,
+        bar: bar,
       ),
     };
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));

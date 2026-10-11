@@ -1,5 +1,6 @@
 import '../../../theme/venues/sagsa.dart';
 import '../../reservations/domain/venue_table.dart';
+import '../../bar/domain/bar.dart';
 import '../../tickets/domain/ticket.dart';
 import '../venue_config.dart';
 import 'sagsa_layout.dart';
@@ -48,4 +49,38 @@ final sagsaConfig = VenueConfig(
     ),
   ],
   ticketTag: 'SG',
+  // Menú de DEMOSTRACIÓN: productos y precios ficticios, no son la carta de
+  // Sagsa (NOT DECIDED). Solo informativo para el cliente.
+  menu: const [
+    MenuItem(
+      id: 'agua',
+      name: 'Agua',
+      category: 'Sin alcohol',
+      demoPrice: 6000,
+    ),
+    MenuItem(
+      id: 'gaseosa',
+      name: 'Gaseosa',
+      category: 'Sin alcohol',
+      demoPrice: 8000,
+    ),
+    MenuItem(
+      id: 'coctel',
+      name: 'Cóctel de la casa',
+      category: 'Cócteles',
+      demoPrice: 35000,
+    ),
+    MenuItem(
+      id: 'botella',
+      name: 'Botella (demostración)',
+      category: 'Botellas',
+      demoPrice: 250000,
+    ),
+    MenuItem(
+      id: 'picada',
+      name: 'Picada para compartir',
+      category: 'Comida',
+      demoPrice: 45000,
+    ),
+  ],
 );

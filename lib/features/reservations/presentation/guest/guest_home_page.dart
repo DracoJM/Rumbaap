@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../session/demo_identities.dart';
 import '../../../session/session_panel.dart';
+import '../../../bar/data/demo_bar_store.dart';
+import '../../../bar/presentation/bar_views.dart';
 import '../../../tickets/data/demo_ticket_store.dart';
 import '../../../tickets/presentation/guest_tickets.dart';
 import '../../data/demo_reservation_store.dart';
@@ -19,7 +21,7 @@ import '../venue_map_controller.dart';
 import 'my_reservations.dart';
 import 'reservation_flow_page.dart';
 
-enum _GuestSection { map, mine, tickets, more }
+enum _GuestSection { map, mine, tickets, menu, more }
 
 /// Perspectiva del cliente y del promotor sobre el mapa v7 compartido.
 ///
@@ -35,6 +37,7 @@ class GuestHomePage extends StatefulWidget {
     this.changes,
     this.store,
     this.tickets,
+    this.bar,
     this.clock = systemClock,
   });
 
@@ -44,6 +47,7 @@ class GuestHomePage extends StatefulWidget {
     required DemoReservationStore store,
     required DemoIdentity identity,
     DemoTicketStore? tickets,
+    DemoBarStore? bar,
     Clock clock = systemClock,
   }) : this(
          key: key,
@@ -53,6 +57,7 @@ class GuestHomePage extends StatefulWidget {
          changes: store,
          store: store,
          tickets: tickets,
+         bar: bar,
          clock: clock,
        );
 
@@ -69,6 +74,9 @@ class GuestHomePage extends StatefulWidget {
 
   /// Entradas del local; sin él no hay pestaña «Entradas».
   final DemoTicketStore? tickets;
+
+  /// Ventas de barra; el cliente ve el menú y sus comprobantes.
+  final DemoBarStore? bar;
   final Clock clock;
 
   @override
@@ -170,6 +178,10 @@ class _GuestHomePageState extends State<GuestHomePage> {
           identity: widget.identity,
           clock: widget.clock,
         ),
+        _GuestSection.menu => ClientMenu(
+          store: widget.bar!,
+          identity: widget.identity,
+        ),
         _GuestSection.more => SessionPanel(
           identity: widget.identity,
           extras: [
@@ -234,6 +246,13 @@ class _GuestHomePageState extends State<GuestHomePage> {
               label: 'Entradas',
               selected: _section == _GuestSection.tickets,
               onTap: () => setState(() => _section = _GuestSection.tickets),
+            ),
+          if (widget.bar != null && profile == DemoProfile.client)
+            GlassTab(
+              icon: Icons.restaurant_menu_rounded,
+              label: 'Menú',
+              selected: _section == _GuestSection.menu,
+              onTap: () => setState(() => _section = _GuestSection.menu),
             ),
           GlassTab(
             icon: Icons.more_horiz_rounded,

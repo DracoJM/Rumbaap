@@ -9,7 +9,7 @@ enum DemoProfile { client, promoter, admin, staff }
 
 /// Responsabilidad del personal en la demo. Cada una ve solo sus tareas;
 /// no hay autenticación real.
-enum StaffRole { security, cashier, waiter }
+enum StaffRole { security, cashier, bar, waiter }
 
 class DemoIdentity {
   const DemoIdentity({
@@ -72,6 +72,12 @@ abstract final class DemoIdentities {
       staffRole: StaffRole.cashier,
     ),
     DemoIdentity(
+      id: 'barra-1',
+      name: 'Barra demo',
+      profile: DemoProfile.staff,
+      staffRole: StaffRole.bar,
+    ),
+    DemoIdentity(
       id: 'personal-1',
       name: 'Mesero demo',
       profile: DemoProfile.staff,
@@ -117,8 +123,9 @@ extension DemoProfileLabels on DemoProfile {
     DemoProfile.admin =>
       'Gestiona reservas, pagos VIP por verificar, llegadas y mesas.',
     DemoProfile.staff =>
-      'Seguridad valida entradas, Caja entrega manillas y el mesero '
-          'registra llegadas a mesas.',
+      'Seguridad valida entradas; Caja entrega manillas y corrige pedidos; '
+          'Barra registra compras pagadas; el mesero registra llegadas y '
+          'acepta consumos.',
   };
 }
 
@@ -126,6 +133,7 @@ extension StaffRoleLabels on StaffRole {
   String get label => switch (this) {
     StaffRole.security => 'Seguridad',
     StaffRole.cashier => 'Caja',
+    StaffRole.bar => 'Barra',
     StaffRole.waiter => 'Mesero / barra',
   };
 }

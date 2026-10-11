@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../features/bar/data/demo_bar_store.dart';
+import '../../features/bar/domain/bar.dart';
 import '../../features/reservations/data/demo_reservation_store.dart';
 import '../../features/reservations/domain/night_schedule.dart';
 import '../../features/reservations/domain/reservation.dart';
@@ -32,10 +34,12 @@ String encodeDemoSnapshot({
   required VenueConfig config,
   required DemoReservationStore reservations,
   required DemoTicketStore tickets,
+  required DemoBarStore bar,
   required DateTime savedAt,
 }) {
   final r = reservations.book.exportState();
   final t = tickets.book.exportState();
+  final b = bar.book.exportState();
   return jsonEncode({
     'format': demoSnapshotFormat,
     'venueId': config.venue.id,
@@ -59,6 +63,11 @@ String encodeDemoSnapshot({
           },
       },
     },
+    'bar': {
+      'next': b.next,
+      'sales': [for (final s in b.sales) _sale(s)],
+      'acceptances': [for (final a in b.acceptances) _acceptance(a)],
+    },
   });
 }
 
@@ -69,6 +78,7 @@ void decodeDemoSnapshot(
   required VenueConfig config,
   required DemoReservationStore reservations,
   required DemoTicketStore tickets,
+  required DemoBarStore bar,
 }) {
   final Object? root;
   try {
@@ -114,6 +124,16 @@ void decodeDemoSnapshot(
     final counters = [
       for (final c in ts['counters']! as List) (c as num).toInt(),
     ];
+    // La sección de barra se añadió después sin cambiar el formato: si
+    // falta, no había ventas de barra.
+    final bs = root['bar'] as Map<String, Object?>?;
+    final sales = [
+      for (final x in (bs?['sales'] as List?) ?? const []) _saleFrom(x as Map),
+    ];
+    final acceptances = [
+      for (final x in (bs?['acceptances'] as List?) ?? const [])
+        _acceptanceFrom(x as Map),
+    ];
     // Todo validado: ahora sí se aplica.
     reservations.book.importState(
       restoredReservations,
@@ -129,6 +149,11 @@ void decodeDemoSnapshot(
       counters: counters,
     );
     tickets.importResults(results);
+    bar.book.importState(
+      sales: sales,
+      acceptances: acceptances,
+      next: ((bs?['next'] as num?) ?? 1).toInt(),
+    );
   } on DemoDataException {
     rethrow;
   } catch (e) {
@@ -336,6 +361,92 @@ TicketIncident _incidentFrom(Map j) => TicketIncident(
   code: j['code'] as String,
   reason: RejectReason.values.byName(j['reason'] as String),
   ticketId: j['ticketId'] as String?,
+);
+
+// ---------------------------------------------------------------- Barra
+
+Map<String, Object?> _line(SaleLine l) => {
+  'itemId': l.itemId,
+  'name': l.name,
+  'unitPrice': l.unitPrice,
+  'quantity': l.quantity,
+};
+
+SaleLine _lineFrom(Map j) => SaleLine(
+  itemId: j['itemId'] as String,
+  name: j['name'] as String,
+  unitPrice: (j['unitPrice'] as num).toInt(),
+  quantity: (j['quantity'] as num).toInt(),
+);
+
+Map<String, Object?> _sale(BarSale s) => {
+  'id': s.id,
+  'venueId': s.venueId,
+  'night': s.night.id,
+  'lines': [for (final l in s.lines) _line(l)],
+  'registeredBy': s.registeredBy,
+  'registeredAt': _time(s.registeredAt),
+  'status': s.status.name,
+  'reservationId': s.reservationId,
+  'tableId': s.tableId,
+  'accountId': s.accountId,
+  'corrections': [
+    for (final c in s.corrections)
+      {
+        'kind': c.kind.name,
+        'at': _time(c.at),
+        'actorId': c.actorId,
+        'reason': c.reason,
+        'previousLines': [for (final l in c.previousLines) _line(l)],
+      },
+  ],
+};
+
+BarSale _saleFrom(Map j) => BarSale(
+  id: j['id'] as String,
+  venueId: j['venueId'] as String,
+  night: _night(j['night'] as String),
+  lines: [for (final l in j['lines'] as List) _lineFrom(l as Map)],
+  registeredBy: j['registeredBy'] as String,
+  registeredAt: _parseTime(j['registeredAt']),
+  status: BarSaleStatus.values.byName(j['status'] as String),
+  reservationId: j['reservationId'] as String?,
+  tableId: j['tableId'] as String?,
+  accountId: j['accountId'] as String?,
+  corrections: [
+    for (final c in j['corrections'] as List)
+      BarCorrection(
+        kind: CorrectionKind.values.byName((c as Map)['kind'] as String),
+        at: _parseTime(c['at']),
+        actorId: c['actorId'] as String,
+        reason: c['reason'] as String,
+        previousLines: [
+          for (final l in c['previousLines'] as List) _lineFrom(l as Map),
+        ],
+      ),
+  ],
+);
+
+Map<String, Object?> _acceptance(ConsumptionAcceptance a) => {
+  'reservationId': a.reservationId,
+  'tableId': a.tableId,
+  'night': a.night.id,
+  'acceptedBy': a.acceptedBy,
+  'at': _time(a.at),
+  'saleIds': a.saleIds,
+  'totalSeen': a.totalSeen,
+  'note': a.note,
+};
+
+ConsumptionAcceptance _acceptanceFrom(Map j) => ConsumptionAcceptance(
+  reservationId: j['reservationId'] as String,
+  tableId: j['tableId'] as String,
+  night: _night(j['night'] as String),
+  acceptedBy: j['acceptedBy'] as String,
+  at: _parseTime(j['at']),
+  saleIds: [for (final s in j['saleIds'] as List) s as String],
+  totalSeen: (j['totalSeen'] as num).toInt(),
+  note: j['note'] as String?,
 );
 
 // -------------------------------------------------------------- Comunes

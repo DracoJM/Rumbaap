@@ -6,6 +6,7 @@ import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/app/persistence/demo_bootstrap.dart';
 import 'package:rumbaap/app/persistence/demo_persistence.dart';
 import 'package:rumbaap/app/persistence/demo_snapshot.dart';
+import 'package:rumbaap/features/bar/data/demo_bar_store.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
@@ -55,7 +56,7 @@ final _friday = Night(DateTime.utc(2026, 10, 9));
 final _tonight = venueInstant(2026, 10, 9, 22);
 final _key = demoStorageKey(sagsaVenue.id);
 
-(DemoReservationStore, DemoTicketStore) _stores() => (
+(DemoReservationStore, DemoTicketStore, DemoBarStore) _stores() => (
   DemoReservationStore(
     venue: sagsaVenue,
     latency: Duration.zero,
@@ -67,20 +68,27 @@ final _key = demoStorageKey(sagsaVenue.id);
     clock: () => _tonight,
     latency: Duration.zero,
   ),
+  DemoBarStore(
+    venueId: sagsaVenue.id,
+    menu: sagsaConfig.menu,
+    clock: () => _tonight,
+  ),
 );
 
-String _encode(DemoReservationStore r, DemoTicketStore t) => encodeDemoSnapshot(
-  config: sagsaConfig,
-  reservations: r,
-  tickets: t,
-  savedAt: _tonight,
-);
+String _encode(DemoReservationStore r, DemoTicketStore t, DemoBarStore b) =>
+    encodeDemoSnapshot(
+      config: sagsaConfig,
+      reservations: r,
+      tickets: t,
+      bar: b,
+      savedAt: _tonight,
+    );
 
 void main() {
   group('formato guardado (ida y vuelta)', () {
     test('conserva reserva, canje, credencial retirada, incidencias, actores '
         'y resultados por operación; no regenera credenciales', () async {
-      final (r, t) = _stores();
+      final (r, t, b) = _stores();
       final res = r.perform((b) {
         final s = b.startNormal(
           night: _friday,
@@ -118,16 +126,48 @@ void main() {
       );
       await t.doorCheck('nada', actorId: 'seguridad-1');
 
-      final raw = _encode(r, t);
-      final (r2, t2) = _stores();
+      final sale = b.perform(
+        (x) => x.register(
+          quantities: {'coctel': 2},
+          paidInFull: true,
+          actorId: 'barra-1',
+          reservationId: res.id,
+          tableId: res.tableId,
+          accountId: 'cliente-a',
+        ),
+      );
+      b.perform(
+        (x) => x.adjust(
+          sale.id,
+          quantities: {'coctel': 1},
+          actorId: 'caja-1',
+          reason: 'De más',
+        ),
+      );
+      b.perform(
+        (x) => x.acceptConsumption(
+          reservationId: res.id,
+          tableId: res.tableId,
+          night: _friday,
+          actorId: 'personal-1',
+        ),
+      );
+      final raw = _encode(r, t, b);
+      final (r2, t2, b2) = _stores();
       decodeDemoSnapshot(
         raw,
         config: sagsaConfig,
         reservations: r2,
         tickets: t2,
+        bar: b2,
       );
 
       expect(r2.book.byId(res.id)!.status, ReservationStatus.confirmed);
+      final restoredSale = b2.book.saleById(sale.id)!;
+      expect(restoredSale.total, 35000);
+      expect(restoredSale.corrections.single.actorId, 'caja-1');
+      expect(b2.book.salesOfAccount('cliente-a').single.id, sale.id);
+      expect(b2.book.acceptanceFor(res.id)!.acceptedBy, 'personal-1');
       expect(r2.ownReservations('cliente-a').map((x) => x.id), [res.id]);
       final restoredOther = t2.book.ticketById(other.id)!;
       expect(restoredOther.credential, t.book.ticketById(other.id)!.credential);
@@ -195,13 +235,14 @@ void main() {
         (jsonEncode({'format': demoSnapshotFormat, 'venueId': 'otro'}), true),
         (jsonEncode({'format': demoSnapshotFormat, 'venueId': 'sagsa'}), false),
       ]) {
-        final (r, t) = _stores();
+        final (r, t, b) = _stores();
         expect(
           () => decodeDemoSnapshot(
             raw,
             config: sagsaConfig,
             reservations: r,
             tickets: t,
+            bar: b,
           ),
           throwsA(
             isA<DemoDataException>().having(
@@ -218,7 +259,7 @@ void main() {
 
     test('una entrada canjeada sin hora de canje no se carga (no se adivina '
         'ni se reactiva)', () async {
-      final (r, t) = _stores();
+      final (r, t, b) = _stores();
       final p = t.perform(
         (b) => b.sell(
           night: _friday,
@@ -236,17 +277,18 @@ void main() {
         point: RedeemPoint.boxOffice,
         requestId: 'x',
       );
-      final json = jsonDecode(_encode(r, t)) as Map<String, Object?>;
+      final json = jsonDecode(_encode(r, t, b)) as Map<String, Object?>;
       ((json['tickets']! as Map)['tickets']! as List).cast<Map>().single.remove(
         'redeemedAt',
       );
-      final (r2, t2) = _stores();
+      final (r2, t2, b2) = _stores();
       expect(
         () => decodeDemoSnapshot(
           jsonEncode(json),
           config: sagsaConfig,
           reservations: r2,
           tickets: t2,
+          bar: b2,
         ),
         throwsA(isA<DemoDataException>()),
       );

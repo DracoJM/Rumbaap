@@ -4,6 +4,8 @@ import '../../../../app/app_theme.dart';
 import '../../../../theme/night_neutrals.dart';
 import '../../../session/demo_identities.dart';
 import '../../../session/session_panel.dart';
+import '../../../bar/data/demo_bar_store.dart';
+import '../../../bar/presentation/bar_views.dart';
 import '../../../tickets/data/demo_ticket_store.dart';
 import '../../../tickets/presentation/staff_ticket_desks.dart';
 import '../../data/demo_reservation_store.dart';
@@ -17,19 +19,32 @@ import '../map/glass_tab_bar.dart';
 import '../table_presentation.dart';
 import '../venue_map_controller.dart';
 
-enum _StaffSection { arrivals, access, wristbands, more }
+enum _StaffSection {
+  arrivals('Llegadas', Icons.how_to_reg_outlined),
+  consumption('Consumo', Icons.local_bar_outlined),
+  access('Acceso', Icons.verified_user_outlined),
+  wristbands('Manillas', Icons.watch_outlined),
+  barDesk('Barra', Icons.receipt_long_outlined),
+  corrections('Pedidos', Icons.edit_note_rounded),
+  more('Más', Icons.more_horiz_rounded);
+
+  const _StaffSection(this.label, this.icon);
+  final String label;
+  final IconData icon;
+}
 
 /// Perspectiva del personal en la demostración, según su responsabilidad:
-/// Seguridad valida entradas en el acceso, Caja entrega manillas y el
-/// mesero localiza una reserva y registra la llegada (R5) durante el
-/// horario permitido (N6). Nadie ofrece revocar, liberar ni verificar
-/// prepagos.
+/// Seguridad valida entradas en el acceso; Caja entrega manillas y corrige
+/// pedidos de barra; Barra registra compras pagadas en persona; el mesero
+/// registra llegadas (R5, N6) y acepta el consumo de las mesas reservadas.
+/// Nadie ofrece revocar, liberar ni verificar prepagos.
 class StaffPage extends StatefulWidget {
   const StaffPage({
     super.key,
     required this.store,
     required this.identity,
     this.tickets,
+    this.bar,
     this.clock = systemClock,
   });
 
@@ -38,6 +53,9 @@ class StaffPage extends StatefulWidget {
 
   /// Entradas del local, para Seguridad y Caja.
   final DemoTicketStore? tickets;
+
+  /// Ventas de barra del local, para Barra, Caja y el mesero.
+  final DemoBarStore? bar;
   final Clock clock;
 
   @override
@@ -54,16 +72,26 @@ class _StaffPageState extends State<StaffPage> {
 
   late final AppLifecycleListener _lifecycle;
   final _search = TextEditingController();
-  late _StaffSection _section = _primary;
+  late _StaffSection _section = _sections.first;
 
   StaffRole get _role => widget.identity.staffRole ?? StaffRole.waiter;
 
-  /// La tarea de cada responsabilidad; sin entradas, solo llegadas.
-  _StaffSection get _primary => switch (_role) {
-    StaffRole.security when widget.tickets != null => _StaffSection.access,
-    StaffRole.cashier when widget.tickets != null => _StaffSection.wristbands,
-    _ => _StaffSection.arrivals,
-  };
+  /// Tareas de cada responsabilidad, según los datos disponibles.
+  List<_StaffSection> get _sections {
+    final t = widget.tickets != null, b = widget.bar != null;
+    return [
+      ...switch (_role) {
+        StaffRole.security when t => [_StaffSection.access],
+        StaffRole.cashier => [
+          if (t) _StaffSection.wristbands,
+          if (b) _StaffSection.corrections,
+        ],
+        StaffRole.bar when b => [_StaffSection.barDesk],
+        _ => [_StaffSection.arrivals, if (b) _StaffSection.consumption],
+      },
+      _StaffSection.more,
+    ];
+  }
 
   @override
   void initState() {
@@ -140,36 +168,31 @@ class _StaffPageState extends State<StaffPage> {
           store: widget.tickets!,
           identity: widget.identity,
         ),
+        _StaffSection.barDesk => BarDesk(
+          store: widget.bar!,
+          reservations: widget.store,
+          identity: widget.identity,
+        ),
+        _StaffSection.corrections => BarCorrections(
+          store: widget.bar!,
+          identity: widget.identity,
+        ),
+        _StaffSection.consumption => WaiterConsumption(
+          bar: widget.bar!,
+          reservations: widget.store,
+          identity: widget.identity,
+        ),
         _StaffSection.more => SessionPanel(identity: widget.identity),
       },
       bottomBar: GlassTabBar(
         tabs: [
-          switch (_primary) {
-            _StaffSection.access => GlassTab(
-              icon: Icons.verified_user_outlined,
-              label: 'Acceso',
-              selected: _section == _StaffSection.access,
-              onTap: () => setState(() => _section = _StaffSection.access),
+          for (final section in _sections)
+            GlassTab(
+              icon: section.icon,
+              label: section.label,
+              selected: _section == section,
+              onTap: () => setState(() => _section = section),
             ),
-            _StaffSection.wristbands => GlassTab(
-              icon: Icons.watch_outlined,
-              label: 'Manillas',
-              selected: _section == _StaffSection.wristbands,
-              onTap: () => setState(() => _section = _StaffSection.wristbands),
-            ),
-            _ => GlassTab(
-              icon: Icons.how_to_reg_outlined,
-              label: 'Llegadas',
-              selected: _section == _StaffSection.arrivals,
-              onTap: () => setState(() => _section = _StaffSection.arrivals),
-            ),
-          },
-          GlassTab(
-            icon: Icons.more_horiz_rounded,
-            label: 'Más',
-            selected: _section == _StaffSection.more,
-            onTap: () => setState(() => _section = _StaffSection.more),
-          ),
         ],
       ),
     );
