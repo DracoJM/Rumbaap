@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_theme.dart';
 import '../../../../theme/status_colors.dart';
 import '../../../../theme/venue_theme.dart';
+import '../../../session/demo_identities.dart';
 import '../../../venues/venue_config.dart';
 import '../../domain/reservation.dart';
 import '../table_presentation.dart';
@@ -185,7 +186,8 @@ class HolderCard extends StatelessWidget {
               Icons.link_rounded,
               r.linkedAccountId == null
                   ? 'Sin cuenta vinculada'
-                  : 'Cuenta ficticia vinculada: ${r.linkedAccountId}',
+                  : 'Cuenta ficticia vinculada: '
+                        '${DemoIdentities.byId(r.linkedAccountId)?.name ?? r.linkedAccountId}',
             ),
           ],
           line(
