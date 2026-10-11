@@ -11,6 +11,7 @@ import '../features/venues/venue_config.dart';
 import '../theme/night_neutrals.dart';
 import '../theme/venue_theme.dart';
 import 'app_theme.dart';
+import 'persistence/demo_bootstrap.dart';
 
 /// Entrada del prototipo: elegir una identidad ficticia por perfil.
 ///
@@ -23,12 +24,17 @@ class HomePage extends StatelessWidget {
     required this.store,
     required this.tickets,
     this.clock = systemClock,
+    this.onResetDemo,
   });
+
+  /// Reinicia la demo (borra solo sus datos guardados); `null` si los
+  /// datos no se guardan.
 
   final DemoReservationStore store;
 
   /// Entradas del local, compartidas por todos los perfiles.
   final DemoTicketStore tickets;
+  final Future<void> Function()? onResetDemo;
   final Clock clock;
 
   void _enter(BuildContext context, DemoIdentity identity) {
@@ -121,6 +127,15 @@ class HomePage extends StatelessWidget {
                     ],
                     const SizedBox(height: 8),
                     const _DemoNotice(),
+                    if (onResetDemo case final reset?) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        key: const ValueKey('demo-reset'),
+                        onPressed: () => confirmDemoReset(context, reset),
+                        icon: const Icon(Icons.restart_alt_rounded),
+                        label: const Text('Reiniciar demostración'),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -223,8 +238,8 @@ class _DemoNotice extends StatelessWidget {
           Expanded(
             child: Text(
               'Demostración: datos ficticios guardados solo en este '
-              'teléfono mientras la app está abierta; se pierden al '
-              'cerrarla. Las sesiones son ficticias, sin contraseñas ni '
+              'teléfono; se conservan al cerrar la app hasta que reinicies '
+              'la demostración. Las sesiones son ficticias, sin contraseñas ni '
               'autenticación real; la cédula no es una contraseña.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppColors.text,

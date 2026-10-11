@@ -156,8 +156,8 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Demostración: los datos quedan solo en la memoria de '
-                      'este teléfono y se pierden al cerrar la app.',
+                      'Demostración: los datos ficticios se guardan solo en '
+                      'este teléfono, hasta que se reinicie la demostración.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppColors.textMuted,
                       ),

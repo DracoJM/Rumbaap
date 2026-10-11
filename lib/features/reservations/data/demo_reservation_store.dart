@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -41,6 +42,16 @@ class DemoReservationStore extends ChangeNotifier
   final ReservationBook book;
   final Set<Night> _seeded = {};
 
+  /// Se llama tras cada cambio de datos, también los que no avisan a las
+  /// vistas (la siembra de una noche): lo usa la persistencia local.
+  VoidCallback? onDataChanged;
+
+  /// Noches ya sembradas, para la persistencia local.
+  Set<Night> get seededNights => Set.unmodifiable(_seeded);
+
+  /// Restaura noches sembradas: no se vuelven a sembrar al reabrir.
+  void importSeededNights(Iterable<Night> nights) => _seeded.addAll(nights);
+
   /// Consulta de la vista del administrador: devuelve [NightReservations].
   late final NightAvailabilityRepository adminView = _AdminView(this);
 
@@ -75,6 +86,7 @@ class DemoReservationStore extends ChangeNotifier
   T perform<T>(T Function(ReservationBook book) operation) {
     final result = operation(book);
     notifyListeners();
+    onDataChanged?.call();
     return result;
   }
 
@@ -137,6 +149,8 @@ class DemoReservationStore extends ChangeNotifier
   /// rellena una mesa revocada o liberada.
   void _seedOnce(Night night) {
     if (!_seeded.add(night)) return;
+    // Se guarda al terminar la siembra (al salir de este método).
+    scheduleMicrotask(() => onDataChanged?.call());
     final venueNow = VenueTime.of(_clock());
     if (night.hasEnded(venueNow)) return;
     if (book.forNight(night).isNotEmpty) return;

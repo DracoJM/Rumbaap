@@ -62,7 +62,7 @@ Inicio
 
 ## Límites
 
-- Datos en memoria del dispositivo: se pierden al cerrar la app y no se comparten entre dispositivos.
+- Datos ficticios guardados solo en este teléfono (persistencia local de la demo, ver `perfiles-demo.md`); no se comparten entre dispositivos.
 - Sin autenticación ni permisos reales: cualquiera que abra la app entra como administrador de demostración.
 - No hay historial de noches ya terminadas en el selector (M2). Una reserva abierta por su ID sigue consultable.
 - iOS: solo pruebas del código compartido; la validación nativa está pendiente de macOS/Xcode.

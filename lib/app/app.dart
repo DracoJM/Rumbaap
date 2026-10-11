@@ -6,6 +6,8 @@ import '../features/tickets/data/demo_ticket_store.dart';
 import '../features/venues/venue_config.dart';
 import 'app_theme.dart';
 import 'home_page.dart';
+import 'persistence/demo_persistence.dart';
+import 'persistence/save_error_banner.dart';
 
 class RumbaapApp extends StatelessWidget {
   RumbaapApp({
@@ -15,6 +17,8 @@ class RumbaapApp extends StatelessWidget {
     DemoTicketStore? tickets,
     this.clock = systemClock,
     this.simulatedTime = false,
+    this.persistence,
+    this.onResetDemo,
   }) : store = store ?? DemoReservationStore(venue: config.venue, clock: clock),
        tickets =
            tickets ??
@@ -44,6 +48,12 @@ class RumbaapApp extends StatelessWidget {
   /// pantalla para que nunca se confunda con la real.
   final bool simulatedTime;
 
+  /// Guardado local de la demo; sin él, los datos viven solo en memoria.
+  final DemoPersistence? persistence;
+
+  /// Borra los datos guardados de este local y empieza de nuevo.
+  final Future<void> Function()? onResetDemo;
+
   @override
   Widget build(BuildContext context) {
     // La configuración va por encima del Navigator para que también la
@@ -54,14 +64,26 @@ class RumbaapApp extends StatelessWidget {
         title: 'Rumbaap',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.build(config.theme),
-        home: HomePage(store: store, tickets: tickets, clock: clock),
-        builder: simulatedTime
-            ? (context, child) => Banner(
-                message: 'Hora simulada',
-                location: BannerLocation.topEnd,
-                child: child!,
-              )
-            : null,
+        home: HomePage(
+          store: store,
+          tickets: tickets,
+          clock: clock,
+          onResetDemo: onResetDemo,
+        ),
+        builder: (context, child) {
+          var result = child!;
+          if (persistence case final p?) {
+            result = SaveErrorBanner(persistence: p, child: result);
+          }
+          if (simulatedTime) {
+            result = Banner(
+              message: 'Hora simulada',
+              location: BannerLocation.topEnd,
+              child: result,
+            );
+          }
+          return result;
+        },
       ),
     );
   }

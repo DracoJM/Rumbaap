@@ -34,11 +34,22 @@ class DemoTicketStore extends ChangeNotifier implements TicketGateway {
 
   final _results = <String, CheckResult>{};
 
+  /// Se llama tras cada cambio de datos: lo usa la persistencia local.
+  VoidCallback? onDataChanged;
+
+  /// Resultados ya dados por identificador de operación (idempotencia), para
+  /// la persistencia local.
+  Map<String, CheckResult> get resultsByRequest => Map.unmodifiable(_results);
+
+  void importResults(Map<String, CheckResult> results) =>
+      _results.addAll(results);
+
   /// Ejecuta una operación del libro y avisa a las vistas. Si lanza, no
   /// cambia nada.
   T perform<T>(T Function(TicketBook book) operation) {
     final result = operation(book);
     notifyListeners();
+    onDataChanged?.call();
     return result;
   }
 
@@ -87,6 +98,7 @@ class DemoTicketStore extends ChangeNotifier implements TicketGateway {
     final result = op();
     if (requestId != null) _results[requestId] = result;
     notifyListeners();
+    onDataChanged?.call();
     return result;
   }
 }

@@ -41,6 +41,50 @@ class TicketBook {
   DateTime get _now => _clock();
   DateTime get _venueNow => VenueTime.of(_now);
 
+  // --------------------------------------------- Persistencia local
+
+  /// Estado completo, para la persistencia local de la demostración.
+  ({
+    List<TicketPurchase> purchases,
+    List<Ticket> tickets,
+    List<TicketIncident> incidents,
+    List<int> counters,
+  })
+  exportState() => (
+    purchases: _purchases.values.toList(),
+    tickets: _tickets.values.toList(),
+    incidents: List.of(_incidents),
+    counters: [_nextPurchase, _nextTicket, _nextCredential],
+  );
+
+  /// Restaura un estado exportado en un libro recién creado. Los índices de
+  /// credenciales vigentes y retiradas se reconstruyen desde las entradas:
+  /// ninguna credencial se regenera ni se reactiva.
+  void importState({
+    required List<TicketPurchase> purchases,
+    required List<Ticket> tickets,
+    required List<TicketIncident> incidents,
+    required List<int> counters,
+  }) {
+    if (_tickets.isNotEmpty || _purchases.isNotEmpty) {
+      throw StateError('Solo se restaura en un libro vacío');
+    }
+    for (final p in purchases) {
+      _purchases[p.id] = p;
+    }
+    for (final t in tickets) {
+      _tickets[t.id] = t;
+      if (t.credential case final c?) _byCredential[c] = t.id;
+      for (final r in t.retired) {
+        _retiredIndex[r.code] = t.id;
+      }
+    }
+    _incidents.addAll(incidents);
+    _nextPurchase = counters[0];
+    _nextTicket = counters[1];
+    _nextCredential = counters[2];
+  }
+
   // ---------------------------------------------------------- Consultas
 
   List<TicketPurchase> get purchases => _purchases.values.toList();

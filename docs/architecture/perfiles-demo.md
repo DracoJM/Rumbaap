@@ -60,7 +60,12 @@ Reglas y propuestas: [entradas](../business-rules/entradas.md).
 
 ## Límites
 
-- **Datos en memoria:** las sesiones y las reservas son ficticias y se pierden al cerrar la app.
+- **Persistencia local de la demo:** reservas y entradas ficticias se guardan en el teléfono con `shared_preferences` 2.5.5 (`SharedPreferencesAsync`), aprobado solo para la demo; no es el almacenamiento de producción.
+  - Un estado versionado por local (`rumbaap.demo.v1.<local>`), compartido por sus cuentas; cada vista lee su proyección. Cambiar de identidad no copia ni reinicia nada.
+  - Se carga antes de mostrar la app. Se guarda tras cada cambio, en serie (una escritura vieja no pisa una nueva), no solo al cerrar.
+  - Datos ilegibles, dañados o de otra versión: se explica y se ofrece reintentar o reiniciar; nunca se reemplazan por datos de ejemplo. Un fallo al guardar muestra un aviso con «Reintentar».
+  - «Reiniciar demostración» (entrada, con confirmación) borra solo los datos de este local.
+  - Se conservan historial, actores, incidencias, credenciales retiradas y resultados por identificador de operación; ninguna credencial se regenera al reabrir.
 - **Sin pagos:** no hay cobro ni ruta de pago (`NOT DECIDED: proveedor de pagos`).
 - **Sin Pedidos.** Entradas y QR son de demostración: lectura simulada y QR no escaneable.
 - **Plataformas:** los recorridos de la app se prueban con `TargetPlatformVariant.mobile()` (Android, iOS y Fuchsia); la validación nativa de iOS está pendiente.

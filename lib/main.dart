@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app/app.dart';
+import 'app/persistence/demo_bootstrap.dart';
+import 'app/persistence/demo_persistence.dart';
 import 'features/reservations/domain/night_schedule.dart';
 import 'features/venues/sagsa/sagsa_config.dart';
 
@@ -12,9 +13,9 @@ import 'features/venues/sagsa/sagsa_config.dart';
 const _demoNow = String.fromEnvironment('RUMBAAP_DEMO_NOW');
 
 void main() {
-  // Sagsa es hoy el único local configurado. La app crea un almacén de
-  // demostración único por ejecución, hasta que exista una fuente de datos
-  // compartida.
+  // Sagsa es hoy el único local configurado. Hasta que exista una fuente de
+  // datos compartida (backend), la demo usa un almacén por local guardado
+  // en este teléfono.
   final start = _demoNow.isEmpty ? null : DateTime.tryParse('${_demoNow}Z');
   Clock clock = systemClock;
   if (start != null) {
@@ -22,7 +23,14 @@ void main() {
     final venueStart = start.subtract(VenueTime.utcOffset);
     clock = () => venueStart.add(DateTime.now().difference(real));
   }
+  // Los datos ficticios se guardan en el teléfono (SharedPreferencesAsync)
+  // y se cargan antes de habilitar cualquier acción.
   runApp(
-    RumbaapApp(config: sagsaConfig, clock: clock, simulatedTime: start != null),
+    DemoBootstrap(
+      config: sagsaConfig,
+      storage: SharedPrefsDemoStorage(),
+      clock: clock,
+      simulatedTime: start != null,
+    ),
   );
 }

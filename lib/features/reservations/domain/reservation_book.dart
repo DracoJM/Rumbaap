@@ -29,6 +29,21 @@ class ReservationBook {
   final Map<String, Reservation> _reservations = {};
   int _sequence = 0;
 
+  /// Estado completo, para la persistencia local de la demostración.
+  ({List<Reservation> reservations, int sequence}) exportState() =>
+      (reservations: _reservations.values.toList(), sequence: _sequence);
+
+  /// Restaura un estado exportado en un libro recién creado.
+  void importState(List<Reservation> reservations, int sequence) {
+    if (_reservations.isNotEmpty) {
+      throw StateError('Solo se restaura en un libro vacío');
+    }
+    for (final r in reservations) {
+      _reservations[r.id] = r;
+    }
+    _sequence = sequence;
+  }
+
   /// Todas las reservas de [night], incluidas las terminadas (historial).
   List<Reservation> forNight(Night night) {
     _expireOverdue();

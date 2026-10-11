@@ -1,0 +1,353 @@
+import 'dart:convert';
+
+import '../../features/reservations/data/demo_reservation_store.dart';
+import '../../features/reservations/domain/night_schedule.dart';
+import '../../features/reservations/domain/reservation.dart';
+import '../../features/tickets/data/demo_ticket_store.dart';
+import '../../features/tickets/domain/ticket.dart';
+import '../../features/venues/venue_config.dart';
+
+/// Formato del estado guardado de la demostración. Si cambia de forma
+/// incompatible, se sube y los datos anteriores no se cargan en silencio.
+const demoSnapshotFormat = 1;
+
+/// Los datos guardados no se pueden usar. Nunca se sustituyen solos por
+/// datos de ejemplo: la persona decide si reiniciar la demo.
+class DemoDataException implements Exception {
+  const DemoDataException(this.incompatible, this.detail);
+
+  /// `true`: formato de otra versión o de otro local; `false`: datos
+  /// dañados.
+  final bool incompatible;
+  final String detail;
+
+  @override
+  String toString() => 'DemoDataException($detail)';
+}
+
+/// Estado compartido de UN local: reservas y entradas de todas las cuentas
+/// ficticias. Cada vista sigue leyendo solo su proyección; cambiar de
+/// identidad no copia ni reinicia nada.
+String encodeDemoSnapshot({
+  required VenueConfig config,
+  required DemoReservationStore reservations,
+  required DemoTicketStore tickets,
+  required DateTime savedAt,
+}) {
+  final r = reservations.book.exportState();
+  final t = tickets.book.exportState();
+  return jsonEncode({
+    'format': demoSnapshotFormat,
+    'venueId': config.venue.id,
+    'savedAt': savedAt.toUtc().toIso8601String(),
+    'reservations': {
+      'sequence': r.sequence,
+      'seededNights': [for (final n in reservations.seededNights) n.id],
+      'items': [for (final x in r.reservations) _reservation(x)],
+    },
+    'tickets': {
+      'counters': t.counters,
+      'purchases': [for (final p in t.purchases) _purchase(p)],
+      'tickets': [for (final x in t.tickets) _ticket(x)],
+      'incidents': [for (final i in t.incidents) _incident(i)],
+      'results': {
+        for (final e in tickets.resultsByRequest.entries)
+          e.key: {
+            'outcome': e.value.outcome.name,
+            'ticketId': e.value.ticket?.id,
+            'reason': e.value.reason?.name,
+          },
+      },
+    },
+  });
+}
+
+/// Carga el estado guardado en almacenes recién creados. Si algo no encaja
+/// lanza [DemoDataException] y no deja nada a medias.
+void decodeDemoSnapshot(
+  String raw, {
+  required VenueConfig config,
+  required DemoReservationStore reservations,
+  required DemoTicketStore tickets,
+}) {
+  final Object? root;
+  try {
+    root = jsonDecode(raw);
+  } on FormatException catch (e) {
+    throw DemoDataException(false, 'JSON no válido: ${e.message}');
+  }
+  if (root is! Map<String, Object?>) {
+    throw const DemoDataException(false, 'Raíz inesperada');
+  }
+  if (root['format'] != demoSnapshotFormat) {
+    throw DemoDataException(true, 'Formato ${root['format']}');
+  }
+  if (root['venueId'] != config.venue.id) {
+    throw DemoDataException(true, 'Datos de otro local: ${root['venueId']}');
+  }
+  try {
+    final products = {for (final p in config.ticketProducts) p.id: p};
+    final rs = root['reservations']! as Map<String, Object?>;
+    final ts = root['tickets']! as Map<String, Object?>;
+    final restoredReservations = [
+      for (final x in rs['items']! as List) _reservationFrom(x as Map),
+    ];
+    final restoredTickets = [
+      for (final x in ts['tickets']! as List) _ticketFrom(x as Map),
+    ];
+    final byId = {for (final t in restoredTickets) t.id: t};
+    final purchases = [
+      for (final x in ts['purchases']! as List)
+        _purchaseFrom(x as Map, products),
+    ];
+    final incidents = [
+      for (final x in ts['incidents']! as List) _incidentFrom(x as Map),
+    ];
+    final results = {
+      for (final e in (ts['results']! as Map).entries)
+        e.key as String: CheckResult(
+          CheckOutcome.values.byName((e.value as Map)['outcome'] as String),
+          ticket: byId[(e.value as Map)['ticketId']],
+          reason: _enumOrNull(RejectReason.values, (e.value as Map)['reason']),
+        ),
+    };
+    final counters = [
+      for (final c in ts['counters']! as List) (c as num).toInt(),
+    ];
+    // Todo validado: ahora sí se aplica.
+    reservations.book.importState(
+      restoredReservations,
+      (rs['sequence']! as num).toInt(),
+    );
+    reservations.importSeededNights([
+      for (final id in rs['seededNights']! as List) _night(id as String),
+    ]);
+    tickets.book.importState(
+      purchases: purchases,
+      tickets: restoredTickets,
+      incidents: incidents,
+      counters: counters,
+    );
+    tickets.importResults(results);
+  } on DemoDataException {
+    rethrow;
+  } catch (e) {
+    throw DemoDataException(false, 'Datos dañados: $e');
+  }
+}
+
+// ------------------------------------------------------------- Reservas
+
+Map<String, Object?> _reservation(Reservation r) => {
+  'id': r.id,
+  'night': r.night.id,
+  'tableId': r.tableId,
+  'holder': r.holder == null
+      ? null
+      : {
+          'name': r.holder!.name,
+          'idNumber': r.holder!.idNumber,
+          'phone': r.holder!.phone,
+        },
+  'origin': r.origin.name,
+  'status': r.status.name,
+  'createdBy': r.createdBy,
+  'linkedAccountId': r.linkedAccountId,
+  'history': [
+    for (final e in r.history) {'type': e.type.name, 'at': _time(e.at)},
+  ],
+};
+
+Reservation _reservationFrom(Map j) {
+  final h = j['holder'] as Map?;
+  return Reservation(
+    id: j['id'] as String,
+    night: _night(j['night'] as String),
+    tableId: j['tableId'] as String,
+    holder: h == null
+        ? null
+        : ReservationHolder(
+            name: h['name'] as String,
+            idNumber: h['idNumber'] as String?,
+            phone: h['phone'] as String?,
+          ),
+    origin: ReservationOrigin.values.byName(j['origin'] as String),
+    status: ReservationStatus.values.byName(j['status'] as String),
+    createdBy: j['createdBy'] as String?,
+    linkedAccountId: j['linkedAccountId'] as String?,
+    history: [
+      for (final e in j['history'] as List)
+        ReservationEvent(
+          ReservationEventType.values.byName((e as Map)['type'] as String),
+          _parseTime(e['at']),
+        ),
+    ],
+  );
+}
+
+// ------------------------------------------------------------- Entradas
+
+Map<String, Object?> _purchase(TicketPurchase p) => {
+  'id': p.id,
+  'venueId': p.venueId,
+  'night': p.night.id,
+  'productId': p.product.id,
+  'quantity': p.quantity,
+  'unitPrice': p.unitPrice,
+  'channel': p.channel.name,
+  'createdBy': p.createdBy,
+  'createdAt': _time(p.createdAt),
+  'payment': p.payment.name,
+  'paidAt': p.paidAt == null ? null : _time(p.paidAt!),
+  'paymentBy': p.paymentBy,
+  'holderName': p.holderName,
+  'ownerId': p.ownerId,
+  'note': p.note,
+};
+
+TicketPurchase _purchaseFrom(Map j, Map<String, TicketProduct> products) {
+  final product = products[j['productId']];
+  if (product == null) {
+    throw DemoDataException(true, 'Producto desconocido ${j['productId']}');
+  }
+  return TicketPurchase(
+    id: j['id'] as String,
+    venueId: j['venueId'] as String,
+    night: _night(j['night'] as String),
+    product: product,
+    quantity: (j['quantity'] as num).toInt(),
+    unitPrice: (j['unitPrice'] as num).toInt(),
+    channel: TicketChannel.values.byName(j['channel'] as String),
+    createdBy: j['createdBy'] as String,
+    createdAt: _parseTime(j['createdAt']),
+    payment: PaymentStatus.values.byName(j['payment'] as String),
+    paidAt: j['paidAt'] == null ? null : _parseTime(j['paidAt']),
+    paymentBy: j['paymentBy'] as String?,
+    holderName: j['holderName'] as String?,
+    ownerId: j['ownerId'] as String?,
+    note: j['note'] as String?,
+  );
+}
+
+Map<String, Object?> _ticket(Ticket t) => {
+  'id': t.id,
+  'purchaseId': t.purchaseId,
+  'venueId': t.venueId,
+  'night': t.night.id,
+  'channel': t.channel.name,
+  'status': t.status.name,
+  'credential': t.credential,
+  'retired': [
+    for (final r in t.retired)
+      {'code': r.code, 'at': _time(r.at), 'reason': r.reason},
+  ],
+  'ownerId': t.ownerId,
+  'holderName': t.holderName,
+  'firstEntryAt': t.firstEntryAt == null ? null : _time(t.firstEntryAt!),
+  'redeemedAt': t.redeemedAt == null ? null : _time(t.redeemedAt!),
+  'redeemPoint': t.redeemPoint?.name,
+  'request': t.request == null
+      ? null
+      : {
+          'type': t.request!.type.name,
+          'status': t.request!.status.name,
+          'requestedAt': _time(t.request!.requestedAt),
+          'targetNight': t.request!.targetNight?.id,
+        },
+  'history': [
+    for (final e in t.history)
+      {
+        'type': e.type.name,
+        'at': _time(e.at),
+        'actorId': e.actorId,
+        'note': e.note,
+      },
+  ],
+};
+
+Ticket _ticketFrom(Map j) {
+  final status = TicketStatus.values.byName(j['status'] as String);
+  final redeemedAt = j['redeemedAt'] == null
+      ? null
+      : _parseTime(j['redeemedAt']);
+  // Una entrada canjeada sin hora de canje sería ambigua: no se adivina.
+  if (status == TicketStatus.redeemed && redeemedAt == null) {
+    throw const DemoDataException(false, 'Canje sin hora');
+  }
+  final r = j['request'] as Map?;
+  return Ticket(
+    id: j['id'] as String,
+    purchaseId: j['purchaseId'] as String,
+    venueId: j['venueId'] as String,
+    night: _night(j['night'] as String),
+    channel: TicketChannel.values.byName(j['channel'] as String),
+    status: status,
+    credential: j['credential'] as String?,
+    retired: [
+      for (final x in j['retired'] as List)
+        RetiredCredential(
+          (x as Map)['code'] as String,
+          _parseTime(x['at']),
+          x['reason'] as String,
+        ),
+    ],
+    ownerId: j['ownerId'] as String?,
+    holderName: j['holderName'] as String?,
+    firstEntryAt: j['firstEntryAt'] == null
+        ? null
+        : _parseTime(j['firstEntryAt']),
+    redeemedAt: redeemedAt,
+    redeemPoint: _enumOrNull(RedeemPoint.values, j['redeemPoint']),
+    request: r == null
+        ? null
+        : TicketRequest(
+            type: TicketRequestType.values.byName(r['type'] as String),
+            status: TicketRequestStatus.values.byName(r['status'] as String),
+            requestedAt: _parseTime(r['requestedAt']),
+            targetNight: r['targetNight'] == null
+                ? null
+                : _night(r['targetNight'] as String),
+          ),
+    history: [
+      for (final e in j['history'] as List)
+        TicketEvent(
+          TicketEventType.values.byName((e as Map)['type'] as String),
+          _parseTime(e['at']),
+          actorId: e['actorId'] as String,
+          note: e['note'] as String?,
+        ),
+    ],
+  );
+}
+
+Map<String, Object?> _incident(TicketIncident i) => {
+  'at': _time(i.at),
+  'actorId': i.actorId,
+  'point': i.point,
+  'code': i.code,
+  'reason': i.reason.name,
+  'ticketId': i.ticketId,
+};
+
+TicketIncident _incidentFrom(Map j) => TicketIncident(
+  at: _parseTime(j['at']),
+  actorId: j['actorId'] as String,
+  point: j['point'] as String,
+  code: j['code'] as String,
+  reason: RejectReason.values.byName(j['reason'] as String),
+  ticketId: j['ticketId'] as String?,
+);
+
+// -------------------------------------------------------------- Comunes
+
+String _time(DateTime t) => t.toUtc().toIso8601String();
+
+DateTime _parseTime(Object? v) => DateTime.parse(v! as String).toUtc();
+
+Night _night(String id) {
+  final d = DateTime.parse(id);
+  return Night(DateTime.utc(d.year, d.month, d.day));
+}
+
+T? _enumOrNull<T extends Enum>(List<T> values, Object? name) =>
+    name == null ? null : values.byName(name as String);
