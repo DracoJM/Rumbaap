@@ -51,6 +51,8 @@ Future<DemoReservationStore> _openAdmin(
   await tester.pumpWidget(
     RumbaapApp(config: sagsaConfig, store: s, clock: c.call),
   );
+  await tester.ensureVisible(find.text('Administrador (demostración)'));
+  await tester.pumpAndSettle();
   await tester.tap(find.text('Administrador (demostración)'));
   await tester.pumpAndSettle();
   return s;
@@ -210,10 +212,18 @@ void main() {
         expect(find.textContaining('datos ficticios'), findsOneWidget);
         expect(find.textContaining('autenticación'), findsOneWidget);
 
-        await tester.tap(find.text('Mapa y disponibilidad'));
+        await tester.ensureVisible(find.text('Cliente demo A'));
+
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Cliente demo A'));
         await tester.pumpAndSettle();
         expect(find.byType(CrystalTable), findsNWidgets(22));
         await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(find.text('Administrador (demostración)'));
+
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('Administrador (demostración)'));
@@ -282,8 +292,8 @@ void main() {
       final created = store.book.activeFor(_friday, tableId)!;
       expect(store.book.forNight(_friday), hasLength(before + 1));
       expect(created.status, ReservationStatus.confirmed);
-      expect(created.holder.name, 'Titular demo nuevo');
-      expect(created.holder.idNumber, '0000000042');
+      expect(created.holder!.name, 'Titular demo nuevo');
+      expect(created.holder!.idNumber, '0000000042');
       expect(created.history.map((e) => e.type), [
         ReservationEventType.createdDirect,
       ]);
@@ -350,7 +360,7 @@ void main() {
         expect(
           store.book
               .forNight(_saturday)
-              .where((r) => r.holder.name == 'Titular demo nuevo'),
+              .where((r) => r.holder!.name == 'Titular demo nuevo'),
           isEmpty,
         );
       },
@@ -370,7 +380,7 @@ void main() {
         await tester.tap(find.byKey(ValueKey('pending-${vip.id}')));
         await tester.pumpAndSettle();
         expect(find.text('Reserva ${vip.id}'), findsOneWidget);
-        expect(find.text(vip.holder.name), findsOneWidget);
+        expect(find.text(vip.holder!.name), findsOneWidget);
 
         await _tapVisible(
           tester,
@@ -464,7 +474,7 @@ void main() {
       await _pick(tester, r.tableId);
 
       await _tapVisible(tester, find.byKey(const ValueKey('action-revoke')));
-      expect(find.textContaining(r.holder.name), findsWidgets);
+      expect(find.textContaining(r.holder!.name), findsWidgets);
       await _dialog(tester, confirm: false);
       expect(store.book.byId(r.id)!.status, ReservationStatus.confirmed);
 
@@ -718,7 +728,9 @@ void main() {
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Mapa y disponibilidad'));
+      await tester.ensureVisible(find.text('Cliente demo A'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cliente demo A'));
       await tester.pumpAndSettle();
 
       expect(_statusOf(tester, tableId), TableMapStatus.reserved);
@@ -747,7 +759,9 @@ void main() {
       await tester.pumpWidget(
         RumbaapApp(config: sagsaConfig, store: store, clock: clock.call),
       );
-      await tester.tap(find.text('Mapa y disponibilidad'));
+      await tester.ensureVisible(find.text('Cliente demo A'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cliente demo A'));
       await tester.pumpAndSettle();
       final tableId = _freeNormal(store, _friday);
 
@@ -778,11 +792,11 @@ void main() {
         find.byKey(ValueKey('table-${r.tableId}')),
       );
       expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
-      expect(node.label, isNot(contains(r.holder.name)));
+      expect(node.label, isNot(contains(r.holder!.name)));
       node.owner!.performAction(node.id, SemanticsAction.tap);
       await tester.pumpAndSettle();
       await _expandSheet(tester);
-      expect(find.text(r.holder.name), findsOneWidget);
+      expect(find.text(r.holder!.name), findsOneWidget);
       semantics.dispose();
     });
 

@@ -82,6 +82,100 @@ class ReservationBook {
     );
   }
 
+  /// Mesa normal: el cliente o el promotor pulsan «Reservar esta mesa» y
+  /// empieza el trámite (R14): la mesa queda En proceso hasta 10 min, sin
+  /// titular todavía. La comprobación y el bloqueo ocurren aquí, en una sola
+  /// operación.
+  Reservation startNormal({
+    required Night night,
+    required String tableId,
+    required ReservationOrigin origin,
+    String? createdBy,
+  }) {
+    assert(origin != ReservationOrigin.admin, 'El admin usa createDirect.');
+    _checkCanReserve(night, tableId, vip: false);
+    return _create(
+      night,
+      tableId,
+      null,
+      origin,
+      ReservationStatus.inProcess,
+      ReservationEventType.requested,
+      createdBy: createdBy,
+    );
+  }
+
+  /// Envío final del trámite normal (R13, R14): valida al titular (R12) y lo
+  /// confirma si el trámite sigue activo y sin vencer. Si algo falla no
+  /// cambia nada.
+  Reservation submitNormal(
+    String id, {
+    required ReservationHolder holder,
+    String? linkedAccountId,
+  }) {
+    final r = _get(id);
+    if (r.status == ReservationStatus.expired) {
+      throw const ReservationException(ReservationError.expired);
+    }
+    if (r.status != ReservationStatus.inProcess) {
+      throw const ReservationException(ReservationError.invalidTransition);
+    }
+    if (!isValidRequestHolder(holder)) {
+      throw const ReservationException(ReservationError.invalidHolder);
+    }
+    return _apply(
+      r,
+      ReservationStatus.confirmed,
+      ReservationEventType.completed,
+      holder: holder,
+      linkedAccountId: linkedAccountId,
+    );
+  }
+
+  /// Abandono expreso del trámite normal (R15): solo un trámite En proceso.
+  Reservation cancelInProcess(String id) => _transition(
+    id,
+    from: {ReservationStatus.inProcess},
+    to: ReservationStatus.cancelled,
+    event: ReservationEventType.cancelled,
+  );
+
+  /// VIP del cliente o del promotor (R16): la solicitud se crea solo con el
+  /// envío final válido y queda pendiente de pago, sin caducidad (R2).
+  Reservation submitVip({
+    required Night night,
+    required String tableId,
+    required ReservationHolder holder,
+    required ReservationOrigin origin,
+    String? createdBy,
+    String? linkedAccountId,
+  }) {
+    assert(origin != ReservationOrigin.admin, 'El admin usa createDirect.');
+    if (!isValidRequestHolder(holder)) {
+      throw const ReservationException(ReservationError.invalidHolder);
+    }
+    _checkCanReserve(night, tableId, vip: true);
+    return _create(
+      night,
+      tableId,
+      holder,
+      origin,
+      ReservationStatus.pendingPayment,
+      ReservationEventType.requested,
+      createdBy: createdBy,
+      linkedAccountId: linkedAccountId,
+    );
+  }
+
+  /// Reservas creadas por una identidad, de todas las noches.
+  List<Reservation> createdBy(String identityId) {
+    _expireOverdue();
+    return [
+      for (final r in _reservations.values)
+        if (r.createdBy == identityId) r,
+    ];
+  }
+
   /// Mesa normal: se completó el trámite y se confirma automáticamente (R1).
   Reservation completeRequest(String id) => _transition(
     id,
@@ -203,11 +297,13 @@ class ReservationBook {
   Reservation _create(
     Night night,
     String tableId,
-    ReservationHolder holder,
+    ReservationHolder? holder,
     ReservationOrigin origin,
     ReservationStatus status,
-    ReservationEventType event,
-  ) {
+    ReservationEventType event, {
+    String? createdBy,
+    String? linkedAccountId,
+  }) {
     final reservation = Reservation(
       id: 'R${++_sequence}',
       night: night,
@@ -216,6 +312,8 @@ class ReservationBook {
       origin: origin,
       status: status,
       history: [ReservationEvent(event, _clock().toUtc())],
+      createdBy: createdBy,
+      linkedAccountId: linkedAccountId,
     );
     _reservations[reservation.id] = reservation;
     return reservation;
@@ -237,11 +335,15 @@ class ReservationBook {
   Reservation _apply(
     Reservation r,
     ReservationStatus status,
-    ReservationEventType event,
-  ) {
+    ReservationEventType event, {
+    ReservationHolder? holder,
+    String? linkedAccountId,
+  }) {
     final updated = r.withEvent(
       status,
       ReservationEvent(event, _clock().toUtc()),
+      holder: holder,
+      linkedAccountId: linkedAccountId,
     );
     _reservations[r.id] = updated;
     return updated;
@@ -280,6 +382,15 @@ class ReservationBook {
   }
 
   static final _digits = RegExp(r'^\d+$');
+
+  /// R12: nombre y teléfono obligatorios; la cédula es opcional. Teléfono y
+  /// cédula (si se escribe) solo con dígitos, sin longitud ni formato.
+  static bool isValidRequestHolder(ReservationHolder h) =>
+      h.name.trim().isNotEmpty &&
+      _digits.hasMatch(h.phone ?? '') &&
+      (h.idNumber == null ||
+          h.idNumber!.isEmpty ||
+          _digits.hasMatch(h.idNumber!));
 
   /// R7: nombre, cédula y teléfono obligatorios; cédula y teléfono solo con
   /// dígitos, sin validar longitud ni formato.

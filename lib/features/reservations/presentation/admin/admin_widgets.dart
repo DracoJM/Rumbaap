@@ -131,6 +131,7 @@ class HolderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = reservation;
+    final holder = r.holder;
     final theme = Theme.of(context);
     Widget line(IconData icon, String text) => Padding(
       padding: const EdgeInsets.only(top: 6),
@@ -158,22 +159,35 @@ class HolderCard extends StatelessWidget {
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(r.holder.name, style: theme.textTheme.titleMedium),
+              Text(r.holderName, style: theme.textTheme.titleMedium),
               const _FictionalTag(),
             ],
           ),
-          line(
-            Icons.badge_outlined,
-            r.holder.idNumber == null
-                ? 'Sin cédula (reserva por nombre)'
-                : 'Cédula ${r.holder.idNumber}',
-          ),
-          line(
-            Icons.phone_outlined,
-            r.holder.phone == null
-                ? 'Sin teléfono'
-                : 'Teléfono ${r.holder.phone}',
-          ),
+          if (holder == null)
+            line(
+              Icons.hourglass_top_rounded,
+              'El titular se registra al enviar el trámite.',
+            )
+          else ...[
+            line(
+              Icons.badge_outlined,
+              (holder.idNumber ?? '').isEmpty
+                  ? 'Sin cédula (reserva por nombre)'
+                  : 'Cédula ${holder.idNumber}',
+            ),
+            line(
+              Icons.phone_outlined,
+              holder.phone == null
+                  ? 'Sin teléfono'
+                  : 'Teléfono ${holder.phone}',
+            ),
+            line(
+              Icons.link_rounded,
+              r.linkedAccountId == null
+                  ? 'Sin cuenta vinculada'
+                  : 'Cuenta ficticia vinculada: ${r.linkedAccountId}',
+            ),
+          ],
           line(
             Icons.confirmation_number_outlined,
             'Reserva ${r.id} · ${r.originLabel}',
@@ -303,7 +317,7 @@ class ReservationTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${table.displayName} · ${r.holder.name}',
+                          '${table.displayName} · ${r.holderName}',
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
                         const SizedBox(height: 2),

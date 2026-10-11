@@ -9,6 +9,9 @@ extension ReservationLabels on Reservation {
   /// Mesa de la reserva dentro de su local.
   VenueTable tableIn(Venue venue) => venue.tableById(tableId)!;
 
+  /// Nombre del titular, o aviso de que el trámite aún no lo tiene (R14).
+  String get holderName => holder?.name ?? 'Titular pendiente (sin enviar)';
+
   bool get wasRejected =>
       status == ReservationStatus.revoked &&
       history.last.type == ReservationEventType.rejected;
@@ -21,6 +24,7 @@ extension ReservationLabels on Reservation {
     ReservationStatus.revoked => wasRejected ? 'Rechazada' : 'Revocada',
     ReservationStatus.released => 'Liberada',
     ReservationStatus.expired => 'Expirada',
+    ReservationStatus.cancelled => 'Cancelada',
   };
 
   IconData get statusIcon => switch (status) {
@@ -31,6 +35,7 @@ extension ReservationLabels on Reservation {
     ReservationStatus.revoked => Icons.block_rounded,
     ReservationStatus.released => Icons.lock_open_rounded,
     ReservationStatus.expired => Icons.timer_off_outlined,
+    ReservationStatus.cancelled => Icons.cancel_outlined,
   };
 
   Color statusColorIn(StatusColors colors) => switch (status) {
@@ -40,7 +45,8 @@ extension ReservationLabels on Reservation {
     ReservationStatus.seated => colors.occupied,
     ReservationStatus.revoked ||
     ReservationStatus.released ||
-    ReservationStatus.expired => colors.unknown,
+    ReservationStatus.expired ||
+    ReservationStatus.cancelled => colors.unknown,
   };
 
   String get originLabel => switch (origin) {
@@ -61,6 +67,7 @@ String eventLabel(ReservationEventType type) => switch (type) {
   ReservationEventType.revoked => 'Revocada',
   ReservationEventType.released => 'Mesa liberada',
   ReservationEventType.expired => 'Expiró sin completarse',
+  ReservationEventType.cancelled => 'Trámite cancelado: mesa liberada',
 };
 
 /// Mensaje para una operación que el libro rechazó. Siempre indica que no se
@@ -81,6 +88,9 @@ String actionErrorMessage(ReservationError error) => switch (error) {
     'Revisa los datos del titular. No se hizo ningún cambio.',
   ReservationError.notFound =>
     'No se encontró la reserva. No se hizo ningún cambio.',
+  ReservationError.expired =>
+    'El trámite venció y la mesa quedó libre. Para reservar, inicia uno '
+        'nuevo. No se hizo ningún cambio.',
   ReservationError.unknownTable || ReservationError.wrongTableKind =>
     'La mesa no admite esta operación. No se hizo ningún cambio.',
 };

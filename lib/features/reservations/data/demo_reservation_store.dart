@@ -102,7 +102,8 @@ class DemoReservationStore extends ChangeNotifier
         // Los estados terminados no son activos; activeFor no los devuelve.
         ReservationStatus.revoked ||
         ReservationStatus.released ||
-        ReservationStatus.expired => TableAvailability.available,
+        ReservationStatus.expired ||
+        ReservationStatus.cancelled => TableAvailability.available,
       };
 
   /// Siembra reservas ficticias la primera vez que se consulta una noche, con

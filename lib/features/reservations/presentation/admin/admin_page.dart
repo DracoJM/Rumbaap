@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
+import '../../../session/demo_identities.dart';
+import '../../../session/session_panel.dart';
 import '../../../venues/venue_config.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/night_availability.dart';
@@ -20,7 +22,7 @@ import 'direct_reservation_page.dart';
 import 'reservation_actions.dart';
 import 'reservation_page.dart';
 
-enum AdminSection { map, reservations }
+enum AdminSection { map, reservations, more }
 
 /// Lista que muestra la sección Reservas.
 enum AdminList { pending, reservations, activity }
@@ -33,10 +35,18 @@ enum AdminList { pending, reservations, activity }
 /// [DemoReservationStore.adminView]. Mapa, listas y detalle salen de la misma
 /// consulta ([NightReservations]), así que coinciden.
 class AdminPage extends StatefulWidget {
-  const AdminPage({super.key, required this.store, this.clock = systemClock});
+  const AdminPage({
+    super.key,
+    required this.store,
+    this.clock = systemClock,
+    this.identity,
+  });
 
   final DemoReservationStore store;
   final Clock clock;
+
+  /// Identidad de la sesión de demostración; sin ella no se ofrece «Más».
+  final DemoIdentity? identity;
 
   @override
   State<AdminPage> createState() => _AdminPageState();
@@ -110,6 +120,7 @@ class _AdminPageState extends State<AdminPage> {
           body: switch (_section) {
             AdminSection.map => null,
             AdminSection.reservations => _listsSection(),
+            AdminSection.more => SessionPanel(identity: widget.identity!),
           },
           sheetBuilder: (context, animate) =>
               _section == AdminSection.map ? _sheet(animate) : null,
@@ -135,7 +146,14 @@ class _AdminPageState extends State<AdminPage> {
                 label: 'Entradas',
               ),
               const GlassTab(icon: Icons.local_bar_outlined, label: 'Pedidos'),
-              const GlassTab(icon: Icons.more_horiz_rounded, label: 'Más'),
+              GlassTab(
+                icon: Icons.more_horiz_rounded,
+                label: 'Más',
+                selected: _section == AdminSection.more,
+                onTap: widget.identity == null
+                    ? null
+                    : () => _select(AdminSection.more),
+              ),
             ],
           ),
         );
@@ -488,7 +506,7 @@ class _ActivityRow extends StatelessWidget {
                     ),
                     Text(
                       '${reservation.tableIn(VenueScope.of(context).venue).displayName} · '
-                      '${reservation.holder.name} · ${reservation.id}',
+                      '${reservation.holderName} · ${reservation.id}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppColors.textMuted,
                       ),

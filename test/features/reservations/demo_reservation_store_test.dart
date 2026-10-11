@@ -157,7 +157,7 @@ void main() {
       store.book.release(created[1].id);
       final before = {
         for (final r in store.book.forNight(night))
-          r.id: (r.tableId, r.holder.name, r.status, events(r)),
+          r.id: (r.tableId, r.holder!.name, r.status, events(r)),
       };
 
       final result = await store.availabilityFor(night);
@@ -165,7 +165,7 @@ void main() {
 
       final after = {
         for (final r in store.book.forNight(night))
-          r.id: (r.tableId, r.holder.name, r.status, events(r)),
+          r.id: (r.tableId, r.holder!.name, r.status, events(r)),
       };
       expect(after, before);
       expect(result.statusOf(normals[0].id), TableAvailability.available);

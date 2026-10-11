@@ -42,7 +42,7 @@ class _ReservationActionsState extends State<ReservationActions> {
   Reservation get r => widget.reservation;
 
   String get _subject =>
-      '${r.tableIn(widget.store.venue).displayName} · ${r.night.label}\nTitular: ${r.holder.name}';
+      '${r.tableIn(widget.store.venue).displayName} · ${r.night.label}\nTitular: ${r.holderName}';
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +111,8 @@ class _ReservationActionsState extends State<ReservationActions> {
       ),
       ReservationStatus.revoked ||
       ReservationStatus.released ||
-      ReservationStatus.expired => NoticeBox(
+      ReservationStatus.expired ||
+      ReservationStatus.cancelled => NoticeBox(
         icon: Icons.history_rounded,
         text:
             'Reserva terminada (${r.statusLabel.toLowerCase()}). No admite '

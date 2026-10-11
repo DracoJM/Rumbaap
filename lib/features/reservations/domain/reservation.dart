@@ -27,12 +27,15 @@ enum ReservationStatus {
   released,
 
   /// Mesa normal en proceso que no se completó a tiempo (R1).
-  expired;
+  expired,
+
+  /// Trámite normal abandonado expresamente por quien lo inició (R15).
+  cancelled;
 
   /// Una reserva activa bloquea la mesa en su noche (R3).
   bool get isActive => switch (this) {
     inProcess || pendingPayment || confirmed || seated => true,
-    revoked || released || expired => false,
+    revoked || released || expired || cancelled => false,
   };
 }
 
@@ -70,6 +73,7 @@ enum ReservationEventType {
   revoked,
   released,
   expired,
+  cancelled,
 }
 
 /// Cambio registrado en el historial de una reserva (trazabilidad).
@@ -93,28 +97,56 @@ class Reservation {
     required this.origin,
     required this.status,
     required List<ReservationEvent> history,
-  }) : history = List.unmodifiable(history);
+    this.createdBy,
+    this.linkedAccountId,
+  }) : history = List.unmodifiable(history) {
+    assert(
+      holder != null || hasPendingHolder,
+      'Solo un trámite normal no enviado puede no tener titular',
+    );
+  }
 
   final String id;
   final Night night;
   final String tableId;
-  final ReservationHolder holder;
+
+  /// Titular. Solo falta en un trámite normal que no se ha enviado: En
+  /// proceso, o Cancelado o Expirado sin haberse enviado (R14).
+  final ReservationHolder? holder;
   final ReservationOrigin origin;
   final ReservationStatus status;
   final List<ReservationEvent> history;
 
+  /// Identidad de demostración que creó la reserva; `null` en los datos
+  /// sembrados y en las del administrador.
+  final String? createdBy;
+
+  /// Cuenta ficticia vinculada por cédula (R12), si se encontró.
+  final String? linkedAccountId;
+
   DateTime get createdAt => history.first.at;
 
-  Reservation withEvent(ReservationStatus status, ReservationEvent event) =>
-      Reservation(
-        id: id,
-        night: night,
-        tableId: tableId,
-        holder: holder,
-        origin: origin,
-        status: status,
-        history: [...history, event],
-      );
+  bool get hasPendingHolder =>
+      status == ReservationStatus.inProcess ||
+      status == ReservationStatus.cancelled ||
+      status == ReservationStatus.expired;
+
+  Reservation withEvent(
+    ReservationStatus status,
+    ReservationEvent event, {
+    ReservationHolder? holder,
+    String? linkedAccountId,
+  }) => Reservation(
+    id: id,
+    night: night,
+    tableId: tableId,
+    holder: holder ?? this.holder,
+    origin: origin,
+    status: status,
+    history: [...history, event],
+    createdBy: createdBy,
+    linkedAccountId: linkedAccountId ?? this.linkedAccountId,
+  );
 }
 
 enum ReservationError {
@@ -137,8 +169,12 @@ enum ReservationError {
   /// La llegada solo se registra durante la noche en curso (R5, N6).
   outsideNight,
 
-  /// Datos del titular incompletos o con formato no válido (R7).
+  /// Datos del titular incompletos o con formato no válido (R7, R12).
   invalidHolder,
+
+  /// El trámite normal venció antes de enviarse (R1, R14): ya no se puede
+  /// confirmar; hay que iniciar uno nuevo.
+  expired,
 }
 
 class ReservationException implements Exception {
