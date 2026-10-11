@@ -88,6 +88,9 @@ No son reglas de negocio. Son formas técnicas de cumplir las reglas anteriores 
 | I17 | El formulario directo valida a la vista los campos vacíos y los caracteres que no son dígitos (sin filtrarlos en silencio) e ignora los espacios al inicio y al final. | R7 sin inventar longitud ni formato. |
 | I18 | La siembra de demostración incluye siempre una VIP pendiente de pago por noche sembrada (si el local tiene mesas VIP). | Poder demostrar la verificación manual del prepago (R2) en cualquier noche. Son datos ficticios; no cambia ninguna regla. |
 | I19 | El libro de reservas, el almacén y el mapa están acotados a un local: las mesas de otro local se rechazan y una consulta de otro local se trata como error. | Preparar varios locales sin mezclar datos (ADR 0004). R1–R8 y el horario siguen siendo los confirmados para Sagsa. |
+| I20 | Un trámite normal del cliente o del promotor puede no tener titular mientras está En proceso, y seguir sin él si termina Cancelado o Expirado sin enviarse (R14). Enviar, cancelar y expirar son operaciones únicas del libro: si fallan no dejan cambios parciales. | Exigir el titular solo al enviar, sin datos de relleno. |
+| I21 | Estado nuevo **Cancelada** para el abandono expreso del trámite normal (R15); no es activo y libera la mesa. | Distinguirlo de revocada, liberada y expirada en el historial. |
+| I22 | Cliente que reserva **para otra persona** (R9): nombre y teléfono obligatorios y cédula opcional, con las mismas validaciones que R12, sin vincular cuenta. A su nombre, el titular sale de su perfil ficticio y queda vinculado a su cuenta. | `HYPOTHESIS`: R9 no fija los campos; se aplicó el criterio de R12 a falta de decisión. |
 
 ## 3. Todavía no implementado
 
@@ -96,9 +99,9 @@ No son reglas de negocio. Son formas técnicas de cumplir las reglas anteriores 
 | Reglas R1–R8 en el dominio (`ReservationBook`) | Implementadas (Parte 2); las usa la vista del administrador |
 | Vista y acciones del administrador, pendientes VIP, reservas y actividad de la noche, diálogos de advertencia y doble confirmación | Implementadas en la Parte 3 (demostración; pendiente de revisión) |
 | Historial del administrador de noches ya terminadas | No implementado (M2 oculta las noches terminadas en el selector) |
-| Vista del promotor (N7, R12–R16) | Planificada: entrega 2 de la [propuesta](../propuesta-siguiente-incremento.md) |
-| Recorrido de reserva del cliente (N5, R9) y vista del mesero | Futuro. La consulta pasará a llamarse «Cliente (demostración)», de solo consulta (entrega 1) |
-| Búsqueda y vinculación de cuentas por cédula (R12) | Futuro; sin directorio de clientes ni autenticación |
+| Vista del promotor (N7, R12–R16) | Implementada en el prototipo (P23): trámite normal y VIP, resumen, envío, «Mis reservas» |
+| Recorrido de reserva del cliente (N5, R9) y vista del mesero | Implementados en el prototipo (P23): cliente con catálogo N5 y reserva a su nombre o de otra persona; personal localiza reservas y registra la llegada (R5) |
+| Búsqueda y vinculación de cuentas por cédula (R12) | Prototipo: directorio de cuentas **ficticias** (las identidades de cliente de demostración), vínculo solo por cédula exacta. Directorio real y autenticación: futuro |
 | Puntos de beneficio | Fuera de alcance (futuro) |
 | Cobro real, ruta de pago en la app y reembolsos | `NOT DECIDED` (proveedor de pagos) |
 | Autenticación y perfiles reales | `NOT DECIDED` |

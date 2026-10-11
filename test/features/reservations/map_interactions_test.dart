@@ -45,6 +45,8 @@ Future<DemoReservationStore> _open(
   await tester.pumpWidget(
     RumbaapApp(config: sagsaConfig, store: store, clock: fixedClock),
   );
+  await tester.ensureVisible(find.text(entry));
+  await tester.pumpAndSettle();
   await tester.tap(find.text(entry));
   if (reduceMotion) {
     await tester.pumpAndSettle();
@@ -56,7 +58,7 @@ Future<DemoReservationStore> _open(
 }
 
 const _admin = 'Administrador (demostración)';
-const _public = 'Mapa y disponibilidad';
+const _public = 'Cliente demo A';
 
 Finder _table(String id) => find.byKey(ValueKey('table-$id'));
 Finder _tab(String label) => find.byKey(ValueKey('tab-$label'));
@@ -311,7 +313,7 @@ void main() {
       await _semanticTap(tester, _tab('Mapa'));
       expect(find.byType(CrystalVenueMap), findsOneWidget);
 
-      for (final label in ['Entradas', 'Pedidos', 'Más']) {
+      for (final label in ['Entradas', 'Pedidos']) {
         final data = tester.getSemantics(_tab(label)).getSemanticsData();
         expect(data.hasAction(SemanticsAction.tap), isFalse, reason: label);
         expect(data.flagsCollection.isEnabled, isFalse, reason: label);

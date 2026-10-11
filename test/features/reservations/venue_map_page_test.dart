@@ -5,7 +5,6 @@ import 'package:rumbaap/theme/venues/sagsa.dart';
 import 'package:rumbaap/features/venues/venue_config.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
-import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/app/app_theme.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
@@ -14,7 +13,8 @@ import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/presentation/table_detail.dart';
 import 'package:rumbaap/features/reservations/presentation/table_presentation.dart';
 import 'package:rumbaap/features/reservations/presentation/map/crystal_table.dart';
-import 'package:rumbaap/features/reservations/presentation/venue_map_page.dart';
+import 'package:rumbaap/features/reservations/presentation/guest/guest_home_page.dart';
+import 'package:rumbaap/features/session/demo_identities.dart';
 
 import 'fakes.dart';
 
@@ -39,20 +39,28 @@ Future<void> _pumpApp(
     addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   }
   await tester.pumpWidget(
-    repository is DemoReservationStore
-        ? RumbaapApp(config: sagsaConfig, store: repository, clock: clock)
-        : _MapOnlyApp(repository: repository, clock: clock),
+    _MapOnlyApp(
+      repository: repository,
+      clock: clock,
+      changes: repository is DemoReservationStore ? repository : null,
+    ),
   );
 }
 
-/// La app recibe el almacén único de reservas. Para controlar a mano las
-/// respuestas de la consulta, el mapa se abre desde un inicio mínimo con la
-/// misma entrada «Mapa y disponibilidad».
+/// La consulta del mapa (perspectiva de cliente o promotor) sin almacén de
+/// reservas, sobre una fuente controlable: solo consulta, sin «Reservar».
+/// Usa el catálogo de noches del promotor (N7, M1–M3); el del cliente (N5)
+/// se prueba aparte.
 class _MapOnlyApp extends StatelessWidget {
-  const _MapOnlyApp({required this.repository, required this.clock});
+  const _MapOnlyApp({
+    required this.repository,
+    required this.clock,
+    this.changes,
+  });
 
   final NightAvailabilityRepository repository;
   final Clock clock;
+  final Listenable? changes;
 
   @override
   Widget build(BuildContext context) => VenueScope(
@@ -65,8 +73,13 @@ class _MapOnlyApp extends StatelessWidget {
             child: FilledButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) =>
-                      VenueMapPage(repository: repository, clock: clock),
+                  builder: (_) => GuestHomePage(
+                    identity: DemoIdentities.of(DemoProfile.promoter).first,
+                    venue: sagsaVenue,
+                    repository: repository,
+                    changes: changes,
+                    clock: clock,
+                  ),
                 ),
               ),
               child: const Text('Mapa y disponibilidad'),
@@ -173,7 +186,7 @@ void main() {
       await _openMap(tester);
 
       expect(
-        find.text('Datos de demostración · solo consulta'),
+        find.text('Datos ficticios · Promotor (demostración)'),
         findsOneWidget,
       );
       expect(find.byType(CrystalTable), findsNWidgets(22));

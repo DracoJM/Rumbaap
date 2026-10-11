@@ -20,6 +20,7 @@ class TableDetail extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     required this.animate,
+    this.action,
   });
 
   final VenueTable table;
@@ -29,6 +30,10 @@ class TableDetail extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
   final bool animate;
+
+  /// Acción de la perspectiva (p. ej. «Reservar esta mesa» del cliente);
+  /// `null` en la consulta sin acciones.
+  final SheetAction? action;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +47,7 @@ class TableDetail extends StatelessWidget {
       animate: animate,
       onToggle: onToggle,
       onClose: onClose,
+      action: action,
       details: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

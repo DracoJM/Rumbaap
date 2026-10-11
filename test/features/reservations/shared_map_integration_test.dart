@@ -17,6 +17,7 @@ import 'package:rumbaap/features/reservations/presentation/map/glass_tab_bar.dar
 import 'package:rumbaap/features/reservations/presentation/table_detail.dart';
 import 'package:rumbaap/features/reservations/presentation/table_presentation.dart';
 import 'package:rumbaap/features/reservations/presentation/venue_map_controller.dart';
+import 'package:rumbaap/features/session/demo_identities.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
 import 'package:rumbaap/features/venues/venue_config.dart';
@@ -98,6 +99,8 @@ Future<DemoReservationStore> _pumpApp(
 }
 
 Future<void> _open(WidgetTester tester, String entry) async {
+  await tester.ensureVisible(find.text(entry));
+  await tester.pumpAndSettle();
   await tester.tap(find.text(entry));
   await tester.pumpAndSettle();
 }
@@ -121,16 +124,18 @@ Future<void> _select(WidgetTester tester, String id) async {
 void main() {
   group('un solo mapa v7 para todas las perspectivas', () {
     testWidgets(
-      'consulta pública y administración usan el mismo componente y el '
-      'inicio solo ofrece esas dos entradas',
+      'cliente y administración usan el mismo componente; el inicio ofrece '
+      'las identidades ficticias de los cuatro perfiles',
       (tester) async {
         await _pumpApp(tester);
-        expect(
-          find.byWidgetPredicate((w) => w is ButtonStyleButton),
-          findsNWidgets(2),
-        );
+        for (final identity in DemoIdentities.all) {
+          expect(
+            find.byKey(ValueKey('identity-${identity.id}')),
+            findsOneWidget,
+          );
+        }
 
-        await _open(tester, 'Mapa y disponibilidad');
+        await _open(tester, 'Cliente demo A');
         expect(find.byType(CrystalVenueMap), findsOneWidget);
         expect(find.byType(CrystalTable), findsNWidgets(22));
         await _back(tester);
@@ -147,7 +152,7 @@ void main() {
       'la consulta pública no tiene acciones de administración ni titulares',
       (tester) async {
         final store = await _pumpApp(tester);
-        await _open(tester, 'Mapa y disponibilidad');
+        await _open(tester, 'Cliente demo A');
         final reserved = store.book
             .forNight(_friday)
             .firstWhere((r) => r.status == ReservationStatus.confirmed);
@@ -156,26 +161,29 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(TableDetail), findsOneWidget);
+        // Una mesa reservada no ofrece acción al cliente, y su barra no tiene
+        // secciones de administración.
         expect(find.byKey(const ValueKey('sheet-action')), findsNothing);
-        expect(find.byType(GlassTabBar), findsNothing);
+        expect(find.byKey(const ValueKey('tab-Reservas')), findsNothing);
+        expect(find.byKey(const ValueKey('tab-Entradas')), findsNothing);
         expect(find.byKey(const ValueKey('create-direct')), findsNothing);
         expect(find.textContaining('Titular demo'), findsNothing);
-        expect(find.textContaining(reserved.holder.phone!), findsNothing);
+        expect(find.textContaining(reserved.holder!.phone!), findsNothing);
         final semantics = tester.ensureSemantics();
         expect(
-          find.bySemanticsLabel(RegExp('Titular|${reserved.holder.phone}')),
+          find.bySemanticsLabel(RegExp('Titular|${reserved.holder!.phone}')),
           findsNothing,
         );
         semantics.dispose();
       },
     );
 
-    testWidgets('Entradas, Pedidos y Más se anuncian en desarrollo y no '
+    testWidgets('Entradas y Pedidos se anuncian en desarrollo y no '
         'navegan', (tester) async {
       await _pumpApp(tester);
       await _open(tester, 'Administrador (demostración)');
       final semantics = tester.ensureSemantics();
-      for (final label in ['Entradas', 'Pedidos', 'Más']) {
+      for (final label in ['Entradas', 'Pedidos']) {
         final tab = find.byKey(ValueKey('tab-$label'));
         // Si la barra no cabe, se desplaza: se trae la sección a la vista.
         await tester.ensureVisible(tab);
@@ -194,16 +202,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(CrystalVenueMap), findsOneWidget);
       }
-      expect(find.text(GlassTabBar.pendingNote), findsNWidgets(3));
+      expect(find.text(GlassTabBar.pendingNote), findsNWidgets(2));
       semantics.dispose();
     });
   });
 
   group('accesibilidad del mapa v7', () {
-    for (final entry in [
-      'Mapa y disponibilidad',
-      'Administrador (demostración)',
-    ]) {
+    for (final entry in ['Cliente demo A', 'Administrador (demostración)']) {
       testWidgets(
         '$entry: áreas táctiles etiquetadas y contraste de texto',
         (tester) async {
@@ -228,7 +233,7 @@ void main() {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await _pumpApp(tester);
       tester.view.physicalSize = const Size(320, 568);
-      await _open(tester, 'Mapa y disponibilidad');
+      await _open(tester, 'Cliente demo A');
       await _select(tester, 'VIP 1');
       await tester.tap(find.bySemanticsLabel('Ver detalle de la mesa'));
       await tester.pumpAndSettle();
@@ -292,7 +297,7 @@ void main() {
         expect(find.textContaining('Titular demo ficha'), findsWidgets);
 
         await _back(tester);
-        await _open(tester, 'Mapa y disponibilidad');
+        await _open(tester, 'Cliente demo A');
         expect(_statusOf(tester, free), TableMapStatus.reserved);
         expect(find.textContaining('Titular demo ficha'), findsNothing);
       },
@@ -354,7 +359,7 @@ void main() {
       'el mismo mapa dibuja un local con otras mesas sin mezclar datos',
       (tester) async {
         final store = await _pumpApp(tester, config: _otherConfig);
-        await _open(tester, 'Mapa y disponibilidad');
+        await _open(tester, 'Cliente demo A');
         expect(find.byType(CrystalTable), findsNWidgets(3));
         for (final id in ['A1', 'A2', 'P1']) {
           expect(find.byKey(ValueKey('table-$id')), findsOneWidget);

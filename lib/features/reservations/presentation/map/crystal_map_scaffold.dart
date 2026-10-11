@@ -133,6 +133,7 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
         night: c.night,
         venueNow: c.venueNow,
         canGoBack: c.hasPreviousNight,
+        canGoForward: c.hasNextNight,
         direction: _lastDelta,
         animate: _clock.animating,
         onChange: _showNight,
@@ -386,6 +387,7 @@ class _NightNavigator extends StatefulWidget {
     required this.night,
     required this.venueNow,
     required this.canGoBack,
+    required this.canGoForward,
     required this.direction,
     required this.animate,
     required this.onChange,
@@ -394,6 +396,7 @@ class _NightNavigator extends StatefulWidget {
   final Night? night;
   final DateTime venueNow;
   final bool canGoBack;
+  final bool canGoForward;
   final int direction;
   final bool animate;
   final ValueChanged<int> onChange;
@@ -433,7 +436,9 @@ class _NightNavigatorState extends State<_NightNavigator> {
               onHorizontalDragStart: (_) => _drag = 0,
               onHorizontalDragUpdate: (d) => _drag += d.delta.dx,
               onHorizontalDragEnd: (_) {
-                if (_drag < -_swipeThreshold) widget.onChange(1);
+                if (_drag < -_swipeThreshold && widget.canGoForward) {
+                  widget.onChange(1);
+                }
                 if (_drag > _swipeThreshold && widget.canGoBack) {
                   widget.onChange(-1);
                 }
@@ -498,7 +503,7 @@ class _NightNavigatorState extends State<_NightNavigator> {
           _NavButton(
             icon: Icons.chevron_right_rounded,
             tooltip: 'Noche siguiente',
-            onPressed: () => widget.onChange(1),
+            onPressed: widget.canGoForward ? () => widget.onChange(1) : null,
           ),
         ],
       ),

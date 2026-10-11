@@ -100,6 +100,32 @@ abstract final class NightSchedule {
     return candidates.reduce((a, b) => a.isBefore(b) ? a : b);
   }
 
+  /// Catálogo del cliente (N5): noches del fin de semana de su semana
+  /// calendario en curso, de lunes 00:00 a domingo, en hora de Colombia, sin
+  /// las ya terminadas. No usa el desfase de 03:00 de M1: el lunes a las
+  /// 00:00 se abre el fin de semana siguiente.
+  static List<Night> calendarWeekendNights(DateTime venueNow) {
+    final day = DateTime.utc(venueNow.year, venueNow.month, venueNow.day);
+    final monday = day.subtract(Duration(days: day.weekday - DateTime.monday));
+    return _weekend(
+      monday,
+    ).where((night) => !night.hasEnded(venueNow)).toList(growable: false);
+  }
+
+  /// Próximo cambio del catálogo del cliente: una apertura o un cierre de su
+  /// semana, o el lunes siguiente a las 00:00.
+  static DateTime nextCalendarChange(DateTime venueNow) {
+    final day = DateTime.utc(venueNow.year, venueNow.month, venueNow.day);
+    final nextMonday = day.add(Duration(days: 8 - day.weekday));
+    final candidates = [
+      for (final night in _weekend(
+        nextMonday.subtract(const Duration(days: 7)),
+      )) ...[night.opensAt, night.closesAt],
+      nextMonday,
+    ].where((t) => t.isAfter(venueNow));
+    return candidates.reduce((a, b) => a.isBefore(b) ? a : b);
+  }
+
   static List<Night> _weekend(DateTime monday) => [
     for (final weekday in weekendDays)
       Night(monday.add(Duration(days: weekday - DateTime.monday))),

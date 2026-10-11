@@ -8,6 +8,16 @@ import '../domain/venue_table.dart';
 
 enum LoadStatus { loading, ready, failed }
 
+/// Qué noches ofrece el mapa a cada perspectiva.
+enum NightCatalog {
+  /// Administración y promotor (N7): fin de semana operativo (M1–M3) y
+  /// fines de semana futuros.
+  operational,
+
+  /// Cliente (N5): solo el fin de semana de su semana calendario.
+  clientWeek,
+}
+
 /// Estado compartido de la consulta: fin de semana y noche elegidos,
 /// disponibilidad y mesa seleccionada. Solo lee; no decide reservas, pagos
 /// ni confirmaciones.
@@ -19,6 +29,7 @@ class VenueMapController extends ChangeNotifier {
   VenueMapController(
     this._repository, {
     required this.venue,
+    this.catalog = NightCatalog.operational,
     Clock clock = systemClock,
     Listenable? changes,
   }) : _clock = clock,
@@ -28,6 +39,7 @@ class VenueMapController extends ChangeNotifier {
 
   /// Local consultado: sus mesas son las únicas seleccionables.
   final Venue venue;
+  final NightCatalog catalog;
   final NightAvailabilityRepository _repository;
   final Clock _clock;
   final Listenable? _changes;
@@ -89,6 +101,8 @@ class VenueMapController extends ChangeNotifier {
   /// consulta: las reservas quedan ligadas a una noche concreta.
   Future<void> showWeek(int weeksAhead) async {
     if (weeksAhead < 0) return;
+    // El cliente no navega fuera de su semana calendario (N5).
+    if (catalog == NightCatalog.clientWeek && weeksAhead > 0) return;
     _weeksAhead = weeksAhead;
     _nights = _computeNights();
     if (_nights.isEmpty) {
@@ -125,6 +139,14 @@ class VenueMapController extends ChangeNotifier {
   bool get hasPreviousNight {
     final index = _nights.indexWhere((n) => n.id == _night?.id);
     return index > 0 || _weeksAhead > 0;
+  }
+
+  /// `true` si existe una noche siguiente: en el catálogo del cliente, solo
+  /// dentro de su semana.
+  bool get hasNextNight {
+    if (catalog == NightCatalog.operational) return true;
+    final index = _nights.indexWhere((n) => n.id == _night?.id);
+    return index >= 0 && index + 1 < _nights.length;
   }
 
   /// Pasa a la noche anterior ([delta] < 0) o siguiente ([delta] > 0). Al
@@ -262,11 +284,20 @@ class VenueMapController extends ChangeNotifier {
     final now = venueNow;
     _changeTimer?.cancel();
     if (!_disposed) {
-      _changeTimer = Timer(NightSchedule.nextChange(now).difference(now), () {
+      final next = catalog == NightCatalog.clientWeek
+          ? NightSchedule.nextCalendarChange(now)
+          : NightSchedule.nextChange(now);
+      _changeTimer = Timer(next.difference(now), () {
         refresh();
       });
     }
-    return NightSchedule.weekendNights(now, weeksAhead: _weeksAhead);
+    return switch (catalog) {
+      NightCatalog.operational => NightSchedule.weekendNights(
+        now,
+        weeksAhead: _weeksAhead,
+      ),
+      NightCatalog.clientWeek => NightSchedule.calendarWeekendNights(now),
+    };
   }
 
   void _resetNight(Night? night) {

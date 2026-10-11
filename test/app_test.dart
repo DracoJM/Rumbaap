@@ -24,7 +24,7 @@ void main() {
       await tester.pumpWidget(app());
 
       expect(find.text('Rumbaap'), findsOneWidget);
-      expect(find.text('Mapa y disponibilidad'), findsOneWidget);
+      expect(find.text('Cliente demo A'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.mobile(),

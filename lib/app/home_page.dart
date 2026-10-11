@@ -3,66 +3,114 @@ import 'package:flutter/material.dart';
 import '../features/reservations/data/demo_reservation_store.dart';
 import '../features/reservations/domain/night_schedule.dart';
 import '../features/reservations/presentation/admin/admin_page.dart';
-import '../features/reservations/presentation/venue_map_page.dart';
+import '../features/reservations/presentation/guest/guest_home_page.dart';
+import '../features/reservations/presentation/staff/staff_page.dart';
+import '../features/session/demo_identities.dart';
+import '../features/venues/venue_config.dart';
+import '../theme/night_neutrals.dart';
+import '../theme/venue_theme.dart';
 import 'app_theme.dart';
 
+/// Entrada del prototipo: elegir una identidad ficticia por perfil.
+///
+/// Cada identidad abre su propia navegación. Volver aquí (atrás o «Cambiar
+/// identidad») descarta la pila de esa sesión, con sus formularios y los
+/// titulares que mostraba; las reservas siguen en el almacén único del local.
 class HomePage extends StatelessWidget {
   const HomePage({super.key, required this.store, this.clock = systemClock});
 
   final DemoReservationStore store;
   final Clock clock;
 
+  void _enter(BuildContext context, DemoIdentity identity) {
+    final page = switch (identity.profile) {
+      DemoProfile.admin => AdminPage(
+        store: store,
+        clock: clock,
+        identity: identity,
+      ),
+      DemoProfile.staff => StaffPage(
+        store: store,
+        clock: clock,
+        identity: identity,
+      ),
+      DemoProfile.client || DemoProfile.promoter => GuestHomePage.withStore(
+        store: store,
+        clock: clock,
+        identity: identity,
+      ),
+    };
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final buttonStyle = FilledButton.styleFrom(
-      minimumSize: const Size(0, 52),
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-    );
+    final venue = VenueTheme.of(context);
+    final config = VenueScope.of(context);
+    final theme = Theme.of(context);
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Rumbaap',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 32),
-                  FilledButton.icon(
-                    style: buttonStyle,
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => VenueMapPage(
-                          repository: store,
-                          changes: store,
-                          clock: clock,
-                        ),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(-0.6, -0.9),
+            radius: 1.4,
+            colors: [
+              venue.primary.withValues(alpha: venue.ambientIntensity * 0.6),
+              venue.background,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Rumbaap',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: NightNeutrals.white,
                       ),
                     ),
-                    icon: const Icon(Icons.map_outlined),
-                    label: const Text('Mapa y disponibilidad'),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.tonalIcon(
-                    style: buttonStyle,
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => AdminPage(store: store, clock: clock),
+                    Text(
+                      config.venue.name,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: venue.vip,
+                        letterSpacing: 2,
                       ),
                     ),
-                    icon: const Icon(Icons.admin_panel_settings_outlined),
-                    label: const Text('Administrador (demostración)'),
-                  ),
-                  const SizedBox(height: 24),
-                  const _DemoNotice(),
-                ],
+                    const SizedBox(height: 20),
+                    Text(
+                      'Elige con quién entrar',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: NightNeutrals.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Prototipo con identidades de demostración.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: NightNeutrals.glass(0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    for (final profile in DemoProfile.values) ...[
+                      _ProfileGroup(
+                        profile: profile,
+                        onEnter: (identity) => _enter(context, identity),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    const SizedBox(height: 8),
+                    const _DemoNotice(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -70,6 +118,73 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProfileGroup extends StatelessWidget {
+  const _ProfileGroup({required this.profile, required this.onEnter});
+
+  final DemoProfile profile;
+  final ValueChanged<DemoIdentity> onEnter;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final venue = VenueTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      decoration: BoxDecoration(
+        color: NightNeutrals.glass(0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: NightNeutrals.glass(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            profile.label.toUpperCase(),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: venue.vip,
+              letterSpacing: 1.6,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            profile.summary,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: NightNeutrals.glass(0.7),
+            ),
+          ),
+          const SizedBox(height: 6),
+          for (final identity in DemoIdentities.of(profile))
+            ListTile(
+              key: ValueKey('identity-${identity.id}'),
+              contentPadding: EdgeInsets.zero,
+              minTileHeight: 52,
+              leading: CircleAvatar(
+                backgroundColor: venue.primary.withValues(alpha: 0.25),
+                child: Icon(_iconOf(profile), color: NightNeutrals.white),
+              ),
+              title: Text(
+                identity.name,
+                style: const TextStyle(color: NightNeutrals.white),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: NightNeutrals.white,
+              ),
+              onTap: () => onEnter(identity),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static IconData _iconOf(DemoProfile p) => switch (p) {
+    DemoProfile.client => Icons.person_outline_rounded,
+    DemoProfile.promoter => Icons.campaign_outlined,
+    DemoProfile.admin => Icons.admin_panel_settings_outlined,
+    DemoProfile.staff => Icons.room_service_outlined,
+  };
 }
 
 class _DemoNotice extends StatelessWidget {
@@ -97,8 +212,8 @@ class _DemoNotice extends StatelessWidget {
             child: Text(
               'Demostración: datos ficticios guardados solo en este '
               'teléfono mientras la app está abierta; se pierden al '
-              'cerrarla. El acceso de administrador no tiene autenticación '
-              'real.',
+              'cerrarla. Las sesiones son ficticias, sin contraseñas ni '
+              'autenticación real; la cédula no es una contraseña.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppColors.text,
                 height: 1.4,
