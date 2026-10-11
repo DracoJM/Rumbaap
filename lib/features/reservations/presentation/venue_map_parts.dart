@@ -21,10 +21,10 @@ class DemoDataTag extends StatelessWidget {
           color: AppColors.amber,
         ),
         const SizedBox(width: 4),
+        // El aviso se lee entero: con texto grande pasa a varias líneas.
         Flexible(
           child: Text(
             text,
-            overflow: TextOverflow.ellipsis,
             style: Theme.of(
               context,
             ).textTheme.labelSmall?.copyWith(color: AppColors.amberSoft),

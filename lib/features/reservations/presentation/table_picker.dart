@@ -113,12 +113,18 @@ class _TableRow extends StatelessWidget {
         ).colorScheme.primary.withValues(alpha: 0.18),
         leading: StatusIcon(status: status, size: 26),
         title: Text(table.displayName),
-        subtitle: Text(table.zoneLabel),
-        // Ancho acotado: con texto ampliado el estado salta de línea en lugar
-        // de ocupar toda la fila.
-        trailing: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 112),
-          child: Text(status.label, textAlign: TextAlign.end),
+        // El estado va bajo la zona y no a la derecha: con texto grande
+        // ocupa las líneas que necesite sin recortarse.
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(table.zoneLabel),
+            Text(
+              status.label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
         ),
         onTap: onTap,
       ),

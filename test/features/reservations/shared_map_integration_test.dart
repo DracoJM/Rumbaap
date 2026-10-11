@@ -177,6 +177,9 @@ void main() {
       final semantics = tester.ensureSemantics();
       for (final label in ['Entradas', 'Pedidos', 'Más']) {
         final tab = find.byKey(ValueKey('tab-$label'));
+        // Si la barra no cabe, se desplaza: se trae la sección a la vista.
+        await tester.ensureVisible(tab);
+        await tester.pumpAndSettle();
         expect(
           tester.getSemantics(tab),
           matchesSemantics(

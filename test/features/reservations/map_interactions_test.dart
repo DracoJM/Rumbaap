@@ -333,6 +333,23 @@ void main() {
         await _pick(tester, 'M07');
         expect(tester.takeException(), isNull);
 
+        // La ficha cerrada no recorta la mesa, su estado ni su acción.
+        final sheetTexts = find.descendant(
+          of: find.byType(TableSheet),
+          matching: find.byType(RichText),
+        );
+        expect(sheetTexts, findsWidgets);
+        for (final element in sheetTexts.evaluate()) {
+          final paragraph = element.renderObject! as RenderParagraph;
+          final text = paragraph.text.toPlainText();
+          // Se omiten los iconos (un glifo de la fuente de iconos) y el número
+          // dentro del disco, que no escalan a propósito.
+          final isIcon = text.runes.length == 1 && text.runes.first >= 0xE000;
+          if (text.trim().isEmpty || isIcon || text == '07') continue;
+          expect(paragraph.textScaler.scale(10), 20, reason: text);
+          expect(paragraph.didExceedMaxLines, isFalse, reason: text);
+        }
+
         final screen = Offset.zero & size;
         for (final label in [
           'Mapa',
@@ -370,6 +387,21 @@ void main() {
         }
         expect(tester.takeException(), isNull);
 
+        // Las secciones que no caben quedan en una fila que se desplaza:
+        // la barra no crece en alto sobre el plano.
+        expect(find.byKey(const ValueKey('tab-bar-scroll')), findsOneWidget);
+        final tabTops = {
+          for (final label in [
+            'Mapa',
+            'Reservas',
+            'Entradas',
+            'Pedidos',
+            'Más',
+          ])
+            tester.getRect(_tab(label)).top.roundToDouble(),
+        };
+        expect(tabTops, hasLength(1));
+
         await _semanticTap(tester, _tab('Reservas'));
         expect(find.byType(SegmentedButton<AdminList>), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -377,7 +409,7 @@ void main() {
       });
     }
 
-    test('con la escala normal las cinco secciones van en una fila', () {
+    test('el ancho de cada sección crece con la escala de texto', () {
       const tabs = [
         GlassTab(icon: Icons.map, label: 'Mapa', onTap: _noop),
         GlassTab(icon: Icons.map, label: 'Reservas', onTap: _noop),
@@ -385,19 +417,64 @@ void main() {
         GlassTab(icon: Icons.map, label: 'Pedidos'),
         GlassTab(icon: Icons.map, label: 'Más'),
       ];
-      // La fuente de los tests mide cada letra como un cuadrado del tamaño
-      // del texto: «Reservas» a 11 ocupa 88. Los anchos son en esa medida.
-      expect(
-        GlassTabBar.columnsFor(tabs, width: 500, scaler: TextScaler.noScaling),
-        5,
-      );
-      final big = GlassTabBar.columnsFor(
+      final normal = GlassTabBar.itemWidthFor(
         tabs,
-        width: 500,
+        scaler: TextScaler.noScaling,
+      );
+      final big = GlassTabBar.itemWidthFor(
+        tabs,
         scaler: const TextScaler.linear(2),
       );
-      expect(big, inInclusiveRange(1, 4));
+      // La palabra más ancha cabe entera: el ancho crece con el texto en
+      // lugar de partirla o reducirla.
+      expect(big, greaterThan(normal * 1.8));
     });
+  });
+
+  testWidgets('«Elegir mesa» con texto al 200 %: el estado de cada fila se '
+      'lee entero dentro de la fila', (tester) async {
+    await _open(tester, _admin, size: const Size(320, 568), textScale: 2);
+    await tester.tap(find.byTooltip('Elegir mesa'));
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('picker-VIP 1'));
+    final status = find.descendant(
+      of: row,
+      matching: find.text(TableMapStatus.pendingPayment.label),
+    );
+    final paragraph = tester.renderObject<RenderParagraph>(status);
+    expect(paragraph.textScaler.scale(10), 20);
+    expect(paragraph.didExceedMaxLines, isFalse);
+    final rowRect = tester.getRect(row);
+    final statusRect = tester.getRect(status);
+    expect(rowRect.intersect(statusRect), statusRect);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('el final de las listas de Reservas queda por encima de la '
+      'barra', (tester) async {
+    await _open(tester, _admin, size: const Size(360, 640));
+    await tester.tap(_tab('Reservas'));
+    await tester.pumpAndSettle();
+    final segment = find.descendant(
+      of: find.byType(SegmentedButton<AdminList>),
+      matching: find.text('Actividad'),
+    );
+    await tester.ensureVisible(segment);
+    await tester.pumpAndSettle();
+    await tester.tap(segment);
+    await tester.pumpAndSettle();
+    final last = find.textContaining('no es un registro de auditoría');
+    final list = find
+        .descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    // Hasta el final de la lista.
+    await tester.drag(list, const Offset(0, -20000));
+    await tester.pumpAndSettle();
+    final barTop = tester.getRect(find.byType(GlassTabBar)).top;
+    expect(tester.getRect(last).bottom, lessThanOrEqualTo(barTop));
   });
 
   group('tamaños táctiles efectivos en móvil pequeño (320 × 568)', () {

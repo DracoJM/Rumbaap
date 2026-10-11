@@ -60,6 +60,11 @@ class TableSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = status.colorIn(StatusColors.of(context));
+    // Con texto grande nada se recorta: los textos ocupan las líneas que
+    // necesiten y la acción baja a su propia fila, a lo ancho.
+    final largeText = MediaQuery.textScalerOf(context).scale(10) > 13;
+    final lines = largeText ? null : 1;
+    final overflow = largeText ? null : TextOverflow.ellipsis;
     final header = <Widget>[
       _TableDot(label: badge, color: color),
       const SizedBox(width: 12),
@@ -70,8 +75,8 @@ class TableSheet extends StatelessWidget {
           children: [
             Text(
               table.displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: lines,
+              overflow: overflow,
               style: const TextStyle(
                 fontSize: 17,
                 height: 1.15,
@@ -81,8 +86,8 @@ class TableSheet extends StatelessWidget {
             ),
             Text(
               status.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: lines,
+              overflow: overflow,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -117,16 +122,19 @@ class TableSheet extends StatelessWidget {
         radius: 24,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-          child: expanded
+          child: expanded || largeText
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(children: [...header, ?close, more]),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(2, 2, 8, 8),
-                      child: details,
-                    ),
+                    if (expanded)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 2, 8, 8),
+                        child: details,
+                      )
+                    else
+                      const SizedBox(height: 6),
                     if (action != null)
                       Padding(
                         padding: const EdgeInsets.only(right: 6, bottom: 6),
@@ -231,6 +239,7 @@ class GlassActionButton extends StatelessWidget {
         ? [Color.lerp(NightNeutrals.white, venueVip, 0.7)!, venueVip]
         : const [NightNeutrals.ctaTop, NightNeutrals.ctaBottom];
     final enabled = onPressed != null;
+    final largeText = MediaQuery.textScalerOf(context).scale(10) > 13;
     return Semantics(
       button: true,
       enabled: enabled,
@@ -255,11 +264,12 @@ class GlassActionButton extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              // Con texto grande ocupa las líneas que necesite.
               child: Text(
                 label,
                 textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: largeText ? null : 1,
+                overflow: largeText ? null : TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.1,

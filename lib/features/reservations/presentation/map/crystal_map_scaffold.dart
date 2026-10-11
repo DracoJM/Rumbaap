@@ -120,13 +120,15 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
         size.width > size.height;
     final sheet = widget.sheetBuilder(context, _clock.animating);
 
+    // La fila superior (volver, aviso y «Elegir mesa») siempre queda fija y a
+    // la vista: es el acceso a la alternativa accesible al plano.
+    final topBar = _TopBar(
+      demoLabel: widget.demoLabel,
+      onPickTable: widget.body == null
+          ? () => showTablePicker(context, c)
+          : null,
+    );
     final headerItems = <Widget>[
-      _TopBar(
-        demoLabel: widget.demoLabel,
-        onPickTable: widget.body == null
-            ? () => showTablePicker(context, c)
-            : null,
-      ),
       _NightNavigator(
         night: c.night,
         venueNow: c.venueNow,
@@ -144,18 +146,28 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
       if (c.availabilityStatus == LoadStatus.failed)
         InlineError(onRetry: c.retry),
     ];
-    // Con texto grande en horizontal la cabecera puede no caber: ocupa como
-    // mucho la mitad del alto y se desplaza, en lugar de desbordar.
+    // Con texto grande la cabecera crece mucho. Sobre el plano, se desplaza
+    // junto con él en lugar de quedar fija y tapar media pantalla; sobre las
+    // listas ocupa como mucho la mitad del alto y se desplaza.
+    final largeText = MediaQuery.textScalerOf(context).scale(10) > 13;
+    final headerInMap = largeText && widget.body == null;
     final header = <Widget>[
-      ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: size.height * 0.5),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: headerItems,
+      if (headerInMap)
+        topBar
+      else
+        ConstrainedBox(
+          // Sobre las listas, con texto grande, toda la cabecera cabe en el
+          // 40 % del alto y se desplaza, para dejar sitio a la lista.
+          constraints: BoxConstraints(
+            maxHeight: size.height * (widget.body != null ? 0.4 : 0.5),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [topBar, ...headerItems],
+            ),
           ),
         ),
-      ),
     ];
 
     Widget mapArea(double bottomPadding) {
@@ -165,22 +177,31 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
         children: [
           SingleChildScrollView(
             // Deja ver el final del plano por encima de la ficha.
-            padding: EdgeInsets.fromLTRB(12, 6, 12, bottomPadding + 8),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: CrystalMapScaffold.maxMapWidth,
+            padding: EdgeInsets.only(bottom: bottomPadding + 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (headerInMap) ...headerItems,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: CrystalMapScaffold.maxMapWidth,
+                      ),
+                      child: CrystalVenueMap(
+                        statusOf: _statusOf,
+                        selectedTableId: c.selectedTableId,
+                        onTableTap: c.toggleTable,
+                        clock: _clock,
+                        isDimmed: filter == null
+                            ? null
+                            : (t) => _statusOf(t) != filter,
+                      ),
+                    ),
+                  ),
                 ),
-                child: CrystalVenueMap(
-                  statusOf: _statusOf,
-                  selectedTableId: c.selectedTableId,
-                  onTableTap: c.toggleTable,
-                  clock: _clock,
-                  isDimmed: filter == null
-                      ? null
-                      : (t) => _statusOf(t) != filter,
-                ),
-              ),
+              ],
             ),
           ),
           if (c.availabilityStatus == LoadStatus.loading || c.isRefreshing)

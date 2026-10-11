@@ -253,13 +253,17 @@ class _AdminPageState extends State<AdminPage> {
           ),
         ),
         Expanded(
-          child:
-              body ??
-              switch (_list) {
-                AdminList.pending => _pendingSection(_data!),
-                AdminList.reservations => _reservationsSection(_data!),
-                AdminList.activity => _activitySection(_data!),
-              },
+          // El contexto de dentro del Scaffold del mapa: su relleno inferior
+          // incluye la barra de cristal.
+          child: Builder(
+            builder: (inner) =>
+                body ??
+                switch (_list) {
+                  AdminList.pending => _pendingSection(inner, _data!),
+                  AdminList.reservations => _reservationsSection(inner, _data!),
+                  AdminList.activity => _activitySection(inner, _data!),
+                },
+          ),
         ),
       ],
     );
@@ -296,7 +300,7 @@ class _AdminPageState extends State<AdminPage> {
 
   // ---------------------------------------------------------- Pendientes
 
-  Widget _pendingSection(NightReservations data) {
+  Widget _pendingSection(BuildContext inner, NightReservations data) {
     final vip = _byTable(
       data.reservations.where(
         (r) => r.status == ReservationStatus.pendingPayment,
@@ -306,7 +310,7 @@ class _AdminPageState extends State<AdminPage> {
       data.reservations.where((r) => r.status == ReservationStatus.inProcess),
     );
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      padding: _listPadding(inner, 4),
       children: [
         SectionLabel('Pagos VIP por verificar', count: vip.length),
         if (vip.isEmpty)
@@ -352,11 +356,11 @@ class _AdminPageState extends State<AdminPage> {
 
   // ----------------------------------------------- Reservas y actividad
 
-  Widget _reservationsSection(NightReservations data) {
+  Widget _reservationsSection(BuildContext inner, NightReservations data) {
     final active = _byTable(data.reservations.where((r) => r.status.isActive));
     final ended = _byTable(data.reservations.where((r) => !r.status.isActive));
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: _listPadding(inner, 8),
       children: [
         SectionLabel('Activas', count: active.length),
         if (active.isEmpty)
@@ -392,13 +396,13 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  Widget _activitySection(NightReservations data) {
+  Widget _activitySection(BuildContext inner, NightReservations data) {
     final events = [
       for (final r in data.reservations)
         for (final e in r.history) (reservation: r, event: e),
     ]..sort((a, b) => b.event.at.compareTo(a.event.at));
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: _listPadding(inner, 8),
       children: [
         SectionLabel('Actividad de la noche', count: events.length),
         if (events.isEmpty)
@@ -422,6 +426,12 @@ class _AdminPageState extends State<AdminPage> {
       ],
     );
   }
+
+  /// Relleno de las listas: abajo deja libre la barra de cristal, que va
+  /// encima de la lista (`extendBody`), para que la última fila se pueda
+  /// ver y tocar.
+  static EdgeInsets _listPadding(BuildContext inner, double top) =>
+      EdgeInsets.fromLTRB(16, top, 16, 24 + MediaQuery.paddingOf(inner).bottom);
 
   List<Reservation> _byTable(Iterable<Reservation> reservations) {
     final venue = widget.store.venue;

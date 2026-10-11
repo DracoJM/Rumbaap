@@ -44,9 +44,9 @@ class GlassTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Respeta el tamaño de texto del sistema: si las etiquetas no caben en
-    // una fila a esa escala, la barra pasa a varias filas en lugar de
-    // reducir el texto u ocultar etiquetas.
+    // Respeta el tamaño de texto del sistema: si las secciones no caben en
+    // una fila a esa escala, la fila se desplaza en horizontal en lugar de
+    // reducir el texto, ocultar etiquetas o crecer en alto sobre el plano.
     final scaler = MediaQuery.textScalerOf(context);
     return GlassPanel(
       radius: 28,
@@ -59,25 +59,25 @@ class GlassTabBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final columns = columnsFor(
-              tabs,
-              width: constraints.maxWidth,
-              scaler: scaler,
-            );
             Widget item(GlassTab tab) =>
                 _TabItem(key: ValueKey('tab-${tab.label}'), tab: tab);
-            if (columns >= tabs.length) {
+            final itemWidth = itemWidthFor(tabs, scaler: scaler);
+            if (itemWidth * tabs.length <= constraints.maxWidth) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [for (final tab in tabs) Expanded(child: item(tab))],
               );
             }
-            final width = constraints.maxWidth / columns;
-            return Wrap(
-              children: [
-                for (final tab in tabs)
-                  SizedBox(width: width, child: item(tab)),
-              ],
+            return SingleChildScrollView(
+              key: const ValueKey('tab-bar-scroll'),
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final tab in tabs)
+                    SizedBox(width: itemWidth, child: item(tab)),
+                ],
+              ),
             );
           },
         ),
@@ -85,12 +85,10 @@ class GlassTabBar extends StatelessWidget {
     );
   }
 
-  /// Columnas en las que caben las secciones sin partir ninguna palabra de
-  /// sus textos a la escala de texto efectiva: todas en una fila si caben;
-  /// si no, las que quepan (al menos una).
-  static int columnsFor(
+  /// Ancho de cada sección para que ninguna palabra de sus textos se parta
+  /// a la escala de texto efectiva.
+  static double itemWidthFor(
     List<GlassTab> tabs, {
-    required double width,
     required TextScaler scaler,
   }) {
     var widest = 0.0;
@@ -110,8 +108,7 @@ class GlassTabBar extends StatelessWidget {
       measure(tab.label, _labelStyle);
       if (tab.onTap == null) measure(pendingNote, _noteStyle);
     }
-    final needed = widest + 2 * _itemPadding + 2;
-    return (width / needed).floor().clamp(1, tabs.length);
+    return widest + 2 * _itemPadding + 2;
   }
 }
 
