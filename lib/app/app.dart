@@ -14,6 +14,7 @@ class RumbaapApp extends StatelessWidget {
     DemoReservationStore? store,
     DemoTicketStore? tickets,
     this.clock = systemClock,
+    this.simulatedTime = false,
   }) : store = store ?? DemoReservationStore(venue: config.venue, clock: clock),
        tickets =
            tickets ??
@@ -39,6 +40,10 @@ class RumbaapApp extends StatelessWidget {
   final DemoTicketStore tickets;
   final Clock clock;
 
+  /// La hora viene de `RUMBAAP_DEMO_NOW` (solo pruebas): se marca en
+  /// pantalla para que nunca se confunda con la real.
+  final bool simulatedTime;
+
   @override
   Widget build(BuildContext context) {
     // La configuración va por encima del Navigator para que también la
@@ -50,6 +55,13 @@ class RumbaapApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.build(config.theme),
         home: HomePage(store: store, tickets: tickets, clock: clock),
+        builder: simulatedTime
+            ? (context, child) => Banner(
+                message: 'Hora simulada',
+                location: BannerLocation.topEnd,
+                child: child!,
+              )
+            : null,
       ),
     );
   }
