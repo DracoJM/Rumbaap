@@ -1,21 +1,20 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../theme/night_neutrals.dart';
-import '../../../theme/status_colors.dart';
-import '../domain/admin_table_status.dart';
-import 'admin_map_labels.dart';
+import '../../../../theme/night_neutrals.dart';
+import '../../../../theme/status_colors.dart';
+import '../table_presentation.dart';
 import 'canvas_helpers.dart';
 
 /// Icono de estado: círculo oscuro con borde y pictograma del color del
 /// estado. El mismo dibujo se usa en el plano y en los chips, así que el
 /// estado no depende solo del color.
-void paintStatusBadge(Canvas canvas, AdminTableStatus status, Color color) {
+void paintStatusBadge(Canvas canvas, TableMapStatus status, Color color) {
   canvas.drawCircle(Offset.zero, 6.6, fill(NightNeutrals.badge));
   canvas.drawCircle(Offset.zero, 6.6, stroke(color, 1.1));
   Paint line(double w) =>
       stroke(color, w, cap: StrokeCap.round)..strokeJoin = StrokeJoin.round;
   switch (status) {
-    case AdminTableStatus.available:
+    case TableMapStatus.available:
       canvas.drawPath(
         Path()
           ..moveTo(-3.2, 0.2)
@@ -23,7 +22,7 @@ void paintStatusBadge(Canvas canvas, AdminTableStatus status, Color color) {
           ..lineTo(3.2, -2),
         line(1.6),
       );
-    case AdminTableStatus.reserved:
+    case TableMapStatus.reserved:
       canvas.drawRRect(
         rounded(const Rect.fromLTWH(-3.4, -2.8, 6.8, 6), 1),
         line(1.3),
@@ -38,7 +37,7 @@ void paintStatusBadge(Canvas canvas, AdminTableStatus status, Color color) {
           ..lineTo(1.6, -2),
         line(1.3),
       );
-    case AdminTableStatus.inProgress:
+    case TableMapStatus.pending:
       canvas.drawPath(
         Path()
           ..moveTo(-2.8, -3.6)
@@ -50,7 +49,7 @@ void paintStatusBadge(Canvas canvas, AdminTableStatus status, Color color) {
           ..cubicTo(2.2, 1.8, -2.2, 1, -2.2, 3.6),
         line(1.3),
       );
-    case AdminTableStatus.occupied:
+    case TableMapStatus.occupied:
       canvas.drawCircle(const Offset(-1.4, -1.4), 1.6, line(1.2));
       canvas.drawCircle(const Offset(2.1, -0.8), 1.2, line(1.1));
       canvas.drawPath(
@@ -62,7 +61,7 @@ void paintStatusBadge(Canvas canvas, AdminTableStatus status, Color color) {
           ..cubicTo(2.8, 1, 3.8, 1.7, 4.2, 3.4),
         line(1.2),
       );
-    case AdminTableStatus.vipPaymentPending:
+    case TableMapStatus.pendingPayment:
       canvas.drawRRect(
         rounded(const Rect.fromLTWH(-3.8, -2.6, 7.6, 5.2), 1),
         line(1.3),
@@ -72,7 +71,7 @@ void paintStatusBadge(Canvas canvas, AdminTableStatus status, Color color) {
         const Offset(3.8, -0.6),
         stroke(color, 1.3),
       );
-    case AdminTableStatus.unknown:
+    case TableMapStatus.unknown:
       paintLabel(
         canvas,
         '?',
@@ -89,7 +88,7 @@ void paintStatusBadge(Canvas canvas, AdminTableStatus status, Color color) {
 class StatusIcon extends StatelessWidget {
   const StatusIcon({super.key, required this.status, this.size = 16});
 
-  final AdminTableStatus status;
+  final TableMapStatus status;
   final double size;
 
   @override
@@ -107,7 +106,7 @@ class StatusIcon extends StatelessWidget {
 class _StatusIconPainter extends CustomPainter {
   const _StatusIconPainter(this.status, this.color);
 
-  final AdminTableStatus status;
+  final TableMapStatus status;
   final Color color;
 
   @override

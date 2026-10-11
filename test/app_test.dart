@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
 import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 
@@ -7,7 +9,12 @@ import 'features/reservations/fakes.dart';
 
 void main() {
   Widget app() => RumbaapApp(
-    store: DemoReservationStore(latency: Duration.zero, clock: fixedClock),
+    config: sagsaConfig,
+    store: DemoReservationStore(
+      venue: sagsaVenue,
+      latency: Duration.zero,
+      clock: fixedClock,
+    ),
     clock: fixedClock,
   );
 

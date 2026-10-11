@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 
-import '../../../theme/night_neutrals.dart';
-import '../../../theme/venue_theme.dart';
-import '../../reservations/domain/venue_table.dart';
-import '../domain/admin_table_status.dart';
-import 'admin_map_labels.dart';
+import '../../../../theme/night_neutrals.dart';
+import '../../../../theme/venue_theme.dart';
+import '../../domain/venue_table.dart';
+import '../table_presentation.dart';
 import 'canvas_helpers.dart';
-import 'crystal_map_geometry.dart';
+import 'crystal_layout.dart';
 import 'status_icon.dart';
 
 /// Mesa del plano: sofá en U, disco de cristal, número e icono de estado.
-/// Su tamaño es la zona táctil completa ([CrystalMapGeometry.hitRectOf]);
+/// Su tamaño es la zona táctil completa ([TablePlacement.hitRect]);
 /// el dibujo puede sobresalir de ella.
 class CrystalTable extends StatelessWidget {
   const CrystalTable({
     super.key,
     required this.table,
+    required this.placement,
     required this.status,
     required this.color,
     required this.selected,
@@ -25,7 +25,8 @@ class CrystalTable extends StatelessWidget {
   });
 
   final VenueTable table;
-  final AdminTableStatus status;
+  final TablePlacement placement;
+  final TableMapStatus status;
   final Color color;
   final bool selected;
   final bool dimmed;
@@ -34,12 +35,12 @@ class CrystalTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hit = CrystalMapGeometry.hitRectOf(table);
-    final center = CrystalMapGeometry.centerOf(table) - hit.topLeft;
+    final hit = placement.hitRect;
+    final center = placement.center - hit.topLeft;
     return Semantics(
       button: true,
       selected: selected,
-      label: '${table.adminName}, ${status.label}',
+      label: '${table.displayName}, ${status.label}',
       onTap: onTap,
       excludeSemantics: true,
       child: GestureDetector(
@@ -52,6 +53,7 @@ class CrystalTable extends StatelessWidget {
             size: hit.size,
             painter: CrystalTablePainter(
               table: table,
+              placement: placement,
               status: status,
               color: color,
               center: center,
@@ -67,6 +69,7 @@ class CrystalTable extends StatelessWidget {
 class CrystalTablePainter extends CustomPainter {
   const CrystalTablePainter({
     required this.table,
+    required this.placement,
     required this.status,
     required this.color,
     required this.center,
@@ -74,7 +77,8 @@ class CrystalTablePainter extends CustomPainter {
   });
 
   final VenueTable table;
-  final AdminTableStatus status;
+  final TablePlacement placement;
+  final TableMapStatus status;
   final Color color;
   final Offset center;
   final VenueTheme theme;
@@ -87,7 +91,7 @@ class CrystalTablePainter extends CustomPainter {
     canvas.translate(center.dx, center.dy);
 
     canvas.save();
-    canvas.rotate(CrystalMapGeometry.rotationOf(table));
+    canvas.rotate(placement.rotation);
     _furniture(canvas, spec, paths);
     canvas.restore();
 
@@ -119,7 +123,7 @@ class CrystalTablePainter extends CustomPainter {
     );
     paintLabel(
       canvas,
-      table.mapLabel,
+      placement.label,
       x: 0,
       baseline: table.isVip ? 2.5 : 3,
       size: table.isVip ? 7 : 8.6,
@@ -127,14 +131,7 @@ class CrystalTablePainter extends CustomPainter {
       color: NightNeutrals.white,
     );
 
-    // Icono al lado interior; en la tarima, hacia fuera de cada VIP.
-    final gap = spec.outer + (table.isVip ? 7 : 5);
-    final badgeX = switch (table.zone) {
-      TableZone.west => gap,
-      TableZone.east => -gap,
-      TableZone.vip => table.id == 'VIP 1' ? -gap : gap,
-    };
-    canvas.translate(badgeX, 0);
+    canvas.translate(spec.badgeGap * placement.badgeSide, 0);
     canvas.scale(0.82);
     paintStatusBadge(canvas, status, color);
     canvas.restore();
@@ -184,6 +181,7 @@ class CrystalTablePainter extends CustomPainter {
       old.status != status ||
       old.color != color ||
       old.table != table ||
+      old.placement != placement ||
       old.center != center ||
       old.theme != theme;
 }

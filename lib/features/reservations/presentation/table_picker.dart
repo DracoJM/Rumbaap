@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
+import '../../venues/venue_config.dart';
 import '../domain/venue_table.dart';
+import 'map/status_icon.dart';
 import 'table_presentation.dart';
 import 'venue_map_controller.dart';
 
@@ -16,7 +18,7 @@ Future<void> showTablePicker(
     useSafeArea: true,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.surfaceRaised,
     constraints: BoxConstraints(
       maxHeight: MediaQuery.sizeOf(context).height * 0.75,
     ),
@@ -66,7 +68,7 @@ class _TablePicker extends StatelessWidget {
             child: ListView(
               shrinkWrap: true,
               children: [
-                for (final table in VenueTables.all)
+                for (final table in VenueScope.of(context).venue.tables)
                   _TableRow(
                     table: table,
                     status: TableMapStatus.from(
@@ -112,8 +114,10 @@ class _TableRow extends StatelessWidget {
         key: ValueKey('picker-${table.id}'),
         minTileHeight: 56,
         selected: selected,
-        selectedTileColor: AppColors.violet.withValues(alpha: 0.18),
-        leading: Icon(status.icon, color: status.color),
+        selectedTileColor: Theme.of(
+          context,
+        ).colorScheme.primary.withValues(alpha: 0.18),
+        leading: StatusIcon(status: status, size: 26),
         title: Text(table.displayName),
         subtitle: Text(table.zoneLabel),
         // Ancho acotado: con texto ampliado el estado salta de línea en lugar

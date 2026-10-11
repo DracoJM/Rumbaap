@@ -20,10 +20,16 @@ class NightAvailability {
   NightAvailability({
     required this.nightId,
     required Map<String, TableAvailability> byTableId,
+    this.venueId,
     this.refreshAt,
   }) : _byTableId = Map.unmodifiable(byTableId);
 
   final String nightId;
+
+  /// Local al que pertenecen estos datos. Quien lo consulta comprueba que sea
+  /// el suyo para no mezclar mesas de locales distintos (`null` si la fuente
+  /// no lo indica).
+  final String? venueId;
 
   /// Instante real en que estos datos dejan de ser válidos sin intervención
   /// de nadie (p. ej. vence una reserva en proceso, R1). `null` si no hay.
@@ -54,6 +60,7 @@ class NightReservations extends NightAvailability {
     required super.nightId,
     required super.byTableId,
     required List<Reservation> reservations,
+    super.venueId,
     super.refreshAt,
   }) : reservations = List.unmodifiable(reservations);
 

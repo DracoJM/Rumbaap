@@ -3,22 +3,21 @@ import 'dart:math' as math;
 import 'package:flutter/animation.dart';
 import 'package:flutter/rendering.dart';
 
-import '../../../theme/night_neutrals.dart';
-import '../../../theme/venue_theme.dart';
+import '../../../../theme/night_neutrals.dart';
+import '../../../../theme/venue_theme.dart';
 import 'canvas_helpers.dart';
-import 'crystal_map_geometry.dart';
+import 'crystal_layout.dart';
 import 'map_clock.dart';
 import 'venue_static_painters.dart';
-
-typedef _G = CrystalMapGeometry;
 
 /// Capas animadas del plano. Solo cambian giro, escala, desplazamiento u
 /// opacidad de formas sencillas, sin desenfoques; repintan con [MapClock]
 /// sin reconstruir widgets. Sin animación muestran un estado fijo.
 abstract class _LightPainter extends CustomPainter {
-  _LightPainter(this.theme, this.clock) : super(repaint: clock);
+  _LightPainter(this.theme, this.layout, this.clock) : super(repaint: clock);
 
   final VenueTheme theme;
+  final CrystalLayout layout;
   final MapClock clock;
 
   double get t => clock.seconds;
@@ -26,21 +25,38 @@ abstract class _LightPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LightPainter old) =>
-      old.theme != theme || old.clock != clock;
+      old.theme != theme || old.layout != layout || old.clock != clock;
 }
 
 /// Conos de los bafles, destellos de las esquinas y baldosas de la pista.
 class FloorLightsPainter extends _LightPainter {
-  FloorLightsPainter(super.theme, super.clock);
+  FloorLightsPainter(super.theme, super.layout, super.clock);
 
   @override
   void paint(Canvas canvas, Size size) {
+    final th = theme;
+    if (layout.cornerSpeakers) _corners(canvas);
+    if (layout.danceFloor == null || !on) return;
+    final peak = th.lightIntensity * 0.35;
+    for (var k = 0; k < layout.litTiles.length; k++) {
+      final (row, col) = layout.litTiles[k];
+      final alpha = peak * pingPong(t + k * 0.6, 2.4);
+      if (alpha < 0.002) continue;
+      final color = k % 3 == 0 ? th.secondary : th.primary;
+      canvas.drawRRect(
+        tileRect(layout, row, col),
+        fill(color.withValues(alpha: alpha)),
+      );
+    }
+  }
+
+  void _corners(Canvas canvas) {
     final th = theme;
     final cone = on ? 1 + 0.06 * pingPong(t, 0.48) : 1.0;
     for (final mirrored in const [false, true]) {
       canvas.save();
       if (mirrored) {
-        canvas.translate(_G.size.width, 0);
+        canvas.translate(layout.size.width, 0);
         canvas.scale(-1, 1);
       }
       canvas.save();
@@ -73,43 +89,35 @@ class FloorLightsPainter extends _LightPainter {
       }
       canvas.restore();
     }
-
-    if (!on) return;
-    final peak = th.lightIntensity * 0.35;
-    for (var k = 0; k < _G.litTiles.length; k++) {
-      final (row, col) = _G.litTiles[k];
-      final alpha = peak * pingPong(t + k * 0.6, 2.4);
-      if (alpha < 0.002) continue;
-      final color = k % 3 == 0 ? th.secondary : th.primary;
-      canvas.drawRRect(
-        tileRect(row, col),
-        fill(color.withValues(alpha: alpha)),
-      );
-    }
   }
 }
 
 /// Dos haces de luz que salen de la cabina del DJ.
 class BeamsPainter extends _LightPainter {
-  BeamsPainter(super.theme, super.clock);
+  BeamsPainter(super.theme, super.layout, super.clock);
 
   static const _deg = math.pi / 180;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final booth = layout.djBooth;
+    if (booth == null) return;
     final left = on ? -18 + 24 * pingPong(t, 10) : 0.0;
     final right = on ? 18 - 24 * pingPong(t, 9) : 0.0;
+    // Salen del borde superior de la cabina y suben 212 unidades.
+    final base = Offset(booth.center.dx, booth.top + 2);
+    Offset at(double dx, double dy) => base.translate(dx, dy);
     _beam(
       canvas,
-      const [Offset(170, 562), Offset(110, 350), Offset(172, 350)],
-      const Offset(141, 562),
+      [at(-30, 0), at(-90, -212), at(-28, -212)],
+      at(-59, 0),
       left * _deg,
       theme.primary,
     );
     _beam(
       canvas,
-      const [Offset(230, 562), Offset(228, 350), Offset(290, 350)],
-      const Offset(259, 562),
+      [at(30, 0), at(28, -212), at(90, -212)],
+      at(59, 0),
       right * _deg,
       theme.secondary,
     );
@@ -145,7 +153,7 @@ class BeamsPainter extends _LightPainter {
 
 /// Tira LED, platos girando y ecualizador de la cabina.
 class BoothLightsPainter extends _LightPainter {
-  BoothLightsPainter(super.theme, super.clock);
+  BoothLightsPainter(super.theme, super.layout, super.clock);
 
   static const _eqDurations = [0.8, 0.6, 0.95, 0.7, 0.85];
   static const _eqDelays = [0.0, 0.35, 0.15, 0.5, 0.25];
@@ -153,12 +161,14 @@ class BoothLightsPainter extends _LightPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final th = theme;
-    _led(canvas);
+    final booth = layout.djBooth;
+    if (booth == null) return;
+    _led(canvas, booth);
 
     final spin = on ? loopPhase(t, 1.8) * 2 * math.pi : 0.0;
-    for (final cx in const [171.0, 229.0]) {
+    for (final center in platterCenters(booth)) {
       canvas.save();
-      canvas.translate(cx, 587);
+      canvas.translate(center.dx, center.dy);
       canvas.rotate(spin);
       canvas.drawCircle(Offset.zero, 11, fill(NightNeutrals.platterVinyl));
       final groove = stroke(NightNeutrals.glass(0.08), 1);
@@ -178,15 +188,24 @@ class BoothLightsPainter extends _LightPainter {
           : 0.6;
       final height = 20 * scale;
       canvas.drawRRect(
-        rounded(Rect.fromLTWH(190.5 + i * 4, 596 - height, 2.6, height), 1.2),
+        rounded(
+          Rect.fromLTWH(
+            booth.center.dx - 9.5 + i * 4,
+            booth.top + 36 - height,
+            2.6,
+            height,
+          ),
+          1.2,
+        ),
         fill(Color.lerp(th.primary, th.secondary, i / 4)!),
       );
     }
   }
 
-  void _led(Canvas canvas) {
-    const start = 152.0;
-    const end = 248.0;
+  void _led(Canvas canvas, Rect booth) {
+    final start = booth.left + 10;
+    final end = booth.right - 10;
+    final y = booth.top + 1;
     final paint = Paint()
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round
@@ -195,15 +214,15 @@ class BoothLightsPainter extends _LightPainter {
           theme.primary.withValues(alpha: 0.8),
           theme.secondary.withValues(alpha: 0.8),
         ],
-      ).createShader(const Rect.fromLTRB(start, 560, end, 562));
+      ).createShader(Rect.fromLTRB(start, y - 1, end, y + 1));
     // Guiones de 20 con huecos de 4 que avanzan 20 unidades por segundo.
     final shift = on ? (t * 20) % 24 : 0.0;
     canvas.save();
-    canvas.clipRect(const Rect.fromLTRB(start - 1, 558, end + 1, 564));
+    canvas.clipRect(Rect.fromLTRB(start - 1, y - 3, end + 1, y + 3));
     for (var x = start - 24 + shift; x < end; x += 24) {
       final a = math.max(x, start);
       final b = math.min(x + 20, end);
-      if (b > a) canvas.drawLine(Offset(a, 561), Offset(b, 561), paint);
+      if (b > a) canvas.drawLine(Offset(a, y), Offset(b, y), paint);
     }
     canvas.restore();
   }

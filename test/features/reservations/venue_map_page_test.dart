@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rumbaap/theme/venues/sagsa.dart';
+import 'package:rumbaap/features/venues/venue_config.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
 import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/app/app_theme.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'package:rumbaap/features/reservations/domain/night_availability.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
-import 'package:rumbaap/features/reservations/domain/venue_table.dart';
 import 'package:rumbaap/features/reservations/presentation/table_detail.dart';
 import 'package:rumbaap/features/reservations/presentation/table_presentation.dart';
-import 'package:rumbaap/features/reservations/presentation/table_widget.dart';
+import 'package:rumbaap/features/reservations/presentation/map/crystal_table.dart';
 import 'package:rumbaap/features/reservations/presentation/venue_map_page.dart';
 
 import 'fakes.dart';
@@ -37,7 +40,7 @@ Future<void> _pumpApp(
   }
   await tester.pumpWidget(
     repository is DemoReservationStore
-        ? RumbaapApp(store: repository, clock: clock)
+        ? RumbaapApp(config: sagsaConfig, store: repository, clock: clock)
         : _MapOnlyApp(repository: repository, clock: clock),
   );
 }
@@ -52,19 +55,22 @@ class _MapOnlyApp extends StatelessWidget {
   final Clock clock;
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    theme: AppTheme.build(),
-    home: Builder(
-      builder: (context) => Scaffold(
-        body: Center(
-          child: FilledButton(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    VenueMapPage(repository: repository, clock: clock),
+  Widget build(BuildContext context) => VenueScope(
+    config: sagsaConfig,
+    child: MaterialApp(
+      theme: AppTheme.build(sagsaTheme),
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: FilledButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      VenueMapPage(repository: repository, clock: clock),
+                ),
               ),
+              child: const Text('Mapa y disponibilidad'),
             ),
-            child: const Text('Mapa y disponibilidad'),
           ),
         ),
       ),
@@ -79,7 +85,12 @@ Future<void> _openMap(
 }) async {
   await _pumpApp(
     tester,
-    repository ?? DemoReservationStore(latency: Duration.zero, clock: clock),
+    repository ??
+        DemoReservationStore(
+          venue: sagsaVenue,
+          latency: Duration.zero,
+          clock: clock,
+        ),
     clock: clock,
   );
   await tester.tap(find.text('Mapa y disponibilidad'));
@@ -89,14 +100,14 @@ Future<void> _openMap(
 Finder _table(String id) => find.byKey(ValueKey('table-$id'));
 
 TableMapStatus _statusOf(WidgetTester tester, String id) =>
-    tester.widget<TableWidget>(_table(id)).status;
+    tester.widget<CrystalTable>(_table(id)).status;
 
 Finder _pickerRow(String id) => find.byKey(ValueKey('picker-$id'));
 
 /// Abre «Elegir mesa» y toca la fila de [id], desplazando la lista como lo
 /// haría la persona si la fila no está a la vista.
 Future<void> _pickFromList(WidgetTester tester, String id) async {
-  await tester.tap(find.text('Elegir mesa'));
+  await tester.tap(find.byTooltip('Elegir mesa'));
   await tester.pumpAndSettle();
   await tester.scrollUntilVisible(
     _pickerRow(id),
@@ -124,8 +135,24 @@ Future<void> _semanticTap(WidgetTester tester, Finder finder) async {
 }
 
 Map<String, TableMapStatus> _allStatuses(WidgetTester tester) => {
-  for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+  for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
 };
+
+/// Abre el detalle de la ficha (la ficha v7 empieza cerrada).
+Future<void> _expandDetail(WidgetTester tester) async {
+  await tester.tap(find.bySemanticsLabel('Ver detalle de la mesa'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _nextNight(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('Noche siguiente'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _previousNight(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('Noche anterior'));
+  await tester.pumpAndSettle();
+}
 
 Finder _inDetail(String text) =>
     find.descendant(of: find.byType(TableDetail), matching: find.text(text));
@@ -145,18 +172,27 @@ void main() {
     (tester) async {
       await _openMap(tester);
 
-      expect(find.text('Datos de demostración'), findsOneWidget);
-      expect(find.byType(TableWidget), findsNWidgets(22));
-      for (final table in VenueTables.all) {
+      expect(
+        find.text('Datos de demostración · solo consulta'),
+        findsOneWidget,
+      );
+      expect(find.byType(CrystalTable), findsNWidgets(22));
+      for (final table in sagsaVenue.tables) {
         expect(_table(table.id), findsOneWidget);
       }
-      // Fin de semana en curso según el reloj fijo.
-      for (final chip in ['Vie 9 oct', 'Sáb 10 oct', 'Dom 11 oct']) {
-        expect(find.text(chip), findsOneWidget);
+      // Fin de semana en curso según el reloj fijo, noche a noche.
+      for (final night in ['Vie 9 oct', 'Sáb 10 oct', 'Dom 11 oct']) {
+        expect(find.text(night), findsOneWidget);
+        expect(
+          find.text('8:30 p. m. – 3:00 a. m. (hora de Colombia)'),
+          findsOneWidget,
+        );
+        await _nextNight(tester);
       }
-      // Leyenda con texto para cada estado.
-      for (final status in TableMapStatus.values) {
-        expect(find.text(status.label), findsWidgets);
+      // Resumen con icono, conteo y texto para cada estado presente.
+      final statuses = _allStatuses(tester).values.toSet();
+      for (final status in statuses) {
+        expect(find.textContaining(status.summaryLabel), findsWidgets);
       }
 
       // Regresión: cerrar el mapa sin haber usado el zoom no lanza errores.
@@ -175,6 +211,9 @@ void main() {
 
       await tester.tap(_table('M05'));
       await tester.pumpAndSettle();
+      expect(_inDetail('Mesa M05'), findsOneWidget);
+      expect(_inDetail('Mesa normal'), findsNothing);
+      await _expandDetail(tester);
 
       expect(_inDetail('Mesa M05'), findsOneWidget);
       expect(_inDetail('Mesa normal'), findsOneWidget);
@@ -182,12 +221,12 @@ void main() {
       expect(_inDetail('Viernes 9 de octubre'), findsOneWidget);
       expect(_inDetail('Por confirmar'), findsOneWidget);
       expect(_inDetail(_statusOf(tester, 'M05').label), findsOneWidget);
-      expect(tester.widget<TableWidget>(_table('M05')).selected, isTrue);
+      expect(tester.widget<CrystalTable>(_table('M05')).selected, isTrue);
 
       await tester.tap(find.byTooltip('Cerrar detalle'));
       await tester.pumpAndSettle();
       expect(find.byType(TableDetail), findsNothing);
-      expect(tester.widget<TableWidget>(_table('M05')).selected, isFalse);
+      expect(tester.widget<CrystalTable>(_table('M05')).selected, isFalse);
     },
     variant: _iosAndAndroid,
   );
@@ -215,6 +254,7 @@ void main() {
 
       await tester.tap(_table('VIP 2'));
       await tester.pumpAndSettle();
+      await _expandDetail(tester);
 
       expect(_inDetail('VIP 2'), findsOneWidget);
       expect(_inDetail('Mesa VIP'), findsOneWidget);
@@ -232,27 +272,26 @@ void main() {
   ) async {
     await _openMap(tester);
     final firstNight = {
-      for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+      for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
     };
 
     await tester.tap(_table('M05'));
     await tester.pumpAndSettle();
     expect(find.byType(TableDetail), findsOneWidget);
 
-    await tester.tap(find.text('Sáb 10 oct'));
-    await tester.pumpAndSettle();
+    await _nextNight(tester);
 
+    expect(find.text('Sáb 10 oct'), findsOneWidget);
     expect(find.byType(TableDetail), findsNothing);
     final secondNight = {
-      for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+      for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
     };
     expect(secondNight, isNot(equals(firstNight)));
     expect(secondNight.values, isNot(contains(TableMapStatus.unknown)));
 
-    await tester.tap(find.text('Vie 9 oct'));
-    await tester.pumpAndSettle();
+    await _previousNight(tester);
     expect({
-      for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+      for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
     }, firstNight);
   });
 
@@ -267,7 +306,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Consultando disponibilidad…'), findsOneWidget);
-    for (final table in VenueTables.all) {
+    for (final table in sagsaVenue.tables) {
       expect(_statusOf(tester, table.id), TableMapStatus.unknown);
     }
   });
@@ -288,7 +327,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Reintentar'), findsOneWidget);
-    for (final table in VenueTables.all) {
+    for (final table in sagsaVenue.tables) {
       expect(_statusOf(tester, table.id), TableMapStatus.unknown);
     }
 
@@ -307,7 +346,7 @@ void main() {
         .request(nightA)
         .complete(
           availability(nightA, {
-            for (final t in VenueTables.all)
+            for (final t in sagsaVenue.tables)
               if (t.id != 'M03') t.id: TableAvailability.available,
           }),
         );
@@ -322,8 +361,7 @@ void main() {
       'se navega a fines de semana futuros y se vuelve al actual',
       (tester) async {
         await _openMap(tester);
-        final previous = find.byTooltip('Fin de semana anterior');
-        final next = find.byTooltip('Fin de semana siguiente');
+        // Sin noches pasadas (M3): no hay anterior a la primera.
         expect(
           tester
               .widget<IconButton>(
@@ -338,21 +376,27 @@ void main() {
 
         await tester.tap(_table('M05'));
         await tester.pumpAndSettle();
-        await tester.tap(next);
-        await tester.pumpAndSettle();
-
-        for (final chip in ['Vie 16 oct', 'Sáb 17 oct', 'Dom 18 oct']) {
-          expect(find.text(chip).hitTestable(), findsOneWidget);
+        for (var i = 0; i < 3; i++) {
+          await _nextNight(tester);
         }
+
+        expect(find.text('Vie 16 oct').hitTestable(), findsOneWidget);
         expect(find.text('Vie 9 oct'), findsNothing);
         expect(find.byType(TableDetail), findsNothing);
         expect(
           _allStatuses(tester).values,
           isNot(contains(TableMapStatus.unknown)),
         );
+        await _nextNight(tester);
+        expect(find.text('Sáb 17 oct'), findsOneWidget);
 
-        await tester.tap(previous);
-        await tester.pumpAndSettle();
+        // Hacia atrás vuelve a la última noche del fin de semana anterior.
+        await _previousNight(tester);
+        await _previousNight(tester);
+        expect(find.text('Dom 11 oct'), findsOneWidget);
+        for (var i = 0; i < 2; i++) {
+          await _previousNight(tester);
+        }
         expect(find.text('Vie 9 oct'), findsOneWidget);
       },
       variant: _iosAndAndroid,
@@ -368,8 +412,7 @@ void main() {
       expect(find.text('Vie 9 oct · En curso'), findsOneWidget);
       expect(_allStatuses(tester).values, contains(TableMapStatus.occupied));
 
-      await tester.tap(find.text('Sáb 10 oct'));
-      await tester.pumpAndSettle();
+      await _nextNight(tester);
       expect(
         _allStatuses(tester).values,
         isNot(contains(TableMapStatus.occupied)),
@@ -379,9 +422,11 @@ void main() {
     testWidgets('las noches terminadas no se ofrecen', (tester) async {
       // Domingo 11 de octubre, 4:00 p. m.: viernes y sábado ya cerraron.
       await _openMap(tester, clock: () => venueInstant(2026, 10, 11, 16));
-      expect(find.text('Vie 9 oct'), findsNothing);
-      expect(find.text('Sáb 10 oct'), findsNothing);
       expect(find.text('Dom 11 oct'), findsOneWidget);
+      await _previousNight(tester);
+      expect(find.text('Dom 11 oct'), findsOneWidget);
+      expect(find.text('Sáb 10 oct'), findsNothing);
+      expect(find.text('Vie 9 oct'), findsNothing);
     });
   });
 
@@ -401,6 +446,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.textContaining('Vie 9 oct'), findsNothing);
+        expect(find.text('Sáb 10 oct · En curso'), findsNothing);
         expect(find.text('Sáb 10 oct'), findsOneWidget);
         expect(
           _allStatuses(tester).values,
@@ -415,6 +461,7 @@ void main() {
       // Viernes 9, 8:00 p. m.: aún no abre.
       var now = venueInstant(2026, 10, 9, 20);
       final store = DemoReservationStore(
+        venue: sagsaVenue,
         latency: Duration.zero,
         clock: () => now,
       );
@@ -469,6 +516,7 @@ void main() {
       (tester) async {
         var now = fixedClock();
         final store = DemoReservationStore(
+          venue: sagsaVenue,
           latency: Duration.zero,
           clock: () => now,
         );
@@ -489,6 +537,7 @@ void main() {
       tester,
     ) async {
       final store = DemoReservationStore(
+        venue: sagsaVenue,
         latency: Duration.zero,
         clock: fixedClock,
       );
@@ -498,7 +547,7 @@ void main() {
           .forNight(friday)
           .firstWhere((r) => r.status == ReservationStatus.confirmed);
       store.book.revoke(reserved.id);
-      final free = VenueTables.all.firstWhere(
+      final free = sagsaVenue.tables.firstWhere(
         (t) => store.book.activeFor(friday, t.id) == null,
       );
       store.book.createDirect(
@@ -535,7 +584,7 @@ void main() {
             .request(nightA)
             .complete(
               availability(nightA, {
-                for (final t in VenueTables.all)
+                for (final t in sagsaVenue.tables)
                   t.id: TableAvailability.available,
                 'M03': TableAvailability.pending,
                 'VIP 1': TableAvailability.pending,
@@ -558,7 +607,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(_inDetail('Pendiente de pago'), findsOneWidget);
 
-        await tester.tap(find.text('Elegir mesa'));
+        await tester.tap(find.byTooltip('Elegir mesa'));
         await tester.pumpAndSettle();
         expect(
           find.bySemanticsLabel('Mesa M03, En proceso, Lado occidental'),
@@ -576,13 +625,17 @@ void main() {
     ) async {
       await _pumpApp(
         tester,
-        DemoReservationStore(latency: Duration.zero, clock: fixedClock),
+        DemoReservationStore(
+          venue: sagsaVenue,
+          latency: Duration.zero,
+          clock: fixedClock,
+        ),
         reduceMotion: false,
       );
       await tester.tap(find.text('Mapa y disponibilidad'));
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
-      expect(find.byType(TableWidget), findsNWidgets(22));
+      expect(find.byType(CrystalTable), findsNWidgets(22));
       expect(tester.binding.hasScheduledFrame, isTrue);
     });
 
@@ -591,7 +644,11 @@ void main() {
     ) async {
       await _pumpApp(
         tester,
-        DemoReservationStore(latency: Duration.zero, clock: fixedClock),
+        DemoReservationStore(
+          venue: sagsaVenue,
+          latency: Duration.zero,
+          clock: fixedClock,
+        ),
         reduceMotion: false,
       );
       await tester.tap(find.text('Mapa y disponibilidad'));
@@ -623,7 +680,11 @@ void main() {
     ) async {
       await _pumpApp(
         tester,
-        DemoReservationStore(latency: Duration.zero, clock: fixedClock),
+        DemoReservationStore(
+          venue: sagsaVenue,
+          latency: Duration.zero,
+          clock: fixedClock,
+        ),
         reduceMotion: false,
       );
       await tester.tap(find.text('Mapa y disponibilidad'));
@@ -681,11 +742,11 @@ void main() {
             tester.widget<TableDetail>(find.byType(TableDetail)).table.id,
             id,
           );
-          expect(tester.widget<TableWidget>(_table(id)).selected, isTrue);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isTrue);
 
           await _semanticTap(tester, _table(id));
           expect(find.byType(TableDetail), findsNothing);
-          expect(tester.widget<TableWidget>(_table(id)).selected, isFalse);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isFalse);
         }
 
         expect(_allStatuses(tester), before);
@@ -702,7 +763,7 @@ void main() {
         final before = _allStatuses(tester);
 
         for (final id in ['M01', 'VIP 2']) {
-          await tester.tap(find.text('Elegir mesa'));
+          await tester.tap(find.byTooltip('Elegir mesa'));
           await tester.pumpAndSettle();
           await _semanticTap(tester, _pickerRow(id));
 
@@ -711,10 +772,10 @@ void main() {
             tester.widget<TableDetail>(find.byType(TableDetail)).table.id,
             id,
           );
-          expect(tester.widget<TableWidget>(_table(id)).selected, isTrue);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isTrue);
 
           // Reelegirla desde la lista no la deselecciona.
-          await tester.tap(find.text('Elegir mesa'));
+          await tester.tap(find.byTooltip('Elegir mesa'));
           await tester.pumpAndSettle();
           await _semanticTap(tester, _pickerRow(id));
           expect(find.byType(BottomSheet), findsNothing);
@@ -722,7 +783,7 @@ void main() {
             tester.widget<TableDetail>(find.byType(TableDetail)).table.id,
             id,
           );
-          expect(tester.widget<TableWidget>(_table(id)).selected, isTrue);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isTrue);
         }
 
         expect(_allStatuses(tester), before);
@@ -739,7 +800,7 @@ void main() {
         (tester) async {
           await _openMap(tester);
           final before = {
-            for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+            for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
           };
 
           // Desde el mapa.
@@ -756,9 +817,9 @@ void main() {
           expect(fromList.table.id, fromMap.table.id);
           expect(fromList.status, fromMap.status);
           expect(fromList.nightLabel, fromMap.nightLabel);
-          expect(tester.widget<TableWidget>(_table(id)).selected, isTrue);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isTrue);
           expect({
-            for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+            for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
           }, before);
         },
         variant: _iosAndAndroid,
@@ -770,7 +831,7 @@ void main() {
       (tester) async {
         final semantics = tester.ensureSemantics();
         await _openMap(tester);
-        await tester.tap(find.text('Elegir mesa'));
+        await tester.tap(find.byTooltip('Elegir mesa'));
         await tester.pumpAndSettle();
 
         final row = _pickerRow('VIP 2');
@@ -807,11 +868,10 @@ void main() {
         await _pickFromList(tester, 'M05');
         expect(find.byType(TableDetail), findsOneWidget);
 
-        await tester.tap(find.text('Sáb 10 oct'));
-        await tester.pumpAndSettle();
+        await _nextNight(tester);
         expect(find.byType(TableDetail), findsNothing);
 
-        await tester.tap(find.text('Elegir mesa'));
+        await tester.tap(find.byTooltip('Elegir mesa'));
         await tester.pumpAndSettle();
         final sheet = find.byType(BottomSheet);
         expect(
@@ -854,32 +914,32 @@ void main() {
           expect(tester.takeException(), isNull);
 
           for (final id in ['VIP 1', 'M05']) {
+            // En horizontal el plano se desplaza: la persona baja hasta la
+            // mesa.
+            await tester.ensureVisible(_table(id));
+            await tester.pumpAndSettle();
             await tester.tap(_table(id));
             await tester.pumpAndSettle();
             expect(find.byType(TableDetail), findsOneWidget);
             expect(tester.takeException(), isNull);
           }
 
-          // Con el detalle abierto, la segunda noche sigue a la vista y se
+          await _expandDetail(tester);
+          expect(tester.takeException(), isNull);
+
+          // Con el detalle abierto, la noche siguiente sigue a la vista y se
           // puede tocar sin desplazar nada.
-          final saturday = find.text('Sáb 10 oct');
-          expect(saturday.hitTestable(), findsOneWidget);
+          final next = find.byTooltip('Noche siguiente');
+          expect(next.hitTestable(), findsOneWidget);
           final screen = Offset.zero & entry.value;
-          expect(
-            screen.intersect(tester.getRect(saturday)),
-            tester.getRect(saturday),
-          );
-          await tester.tap(saturday);
-          await tester.pumpAndSettle();
+          expect(screen.intersect(tester.getRect(next)), tester.getRect(next));
+          await _nextNight(tester);
+          expect(find.text('Sáb 10 oct'), findsOneWidget);
           expect(find.byType(TableDetail), findsNothing);
 
           await _pickFromList(tester, 'VIP 2');
           expect(_inDetail('VIP 2'), findsOneWidget);
-          expect(find.text('Elegir mesa').hitTestable(), findsOneWidget);
-          expect(tester.takeException(), isNull);
-
-          await tester.tap(find.byTooltip('Acercar'));
-          await tester.pumpAndSettle();
+          expect(find.byTooltip('Elegir mesa').hitTestable(), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
         variant: _iosAndAndroid,

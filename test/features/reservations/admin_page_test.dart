@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
 import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
-import 'package:rumbaap/features/reservations/domain/venue_table.dart';
 import 'package:rumbaap/features/reservations/presentation/admin/admin_page.dart';
 import 'package:rumbaap/features/reservations/presentation/table_presentation.dart';
-import 'package:rumbaap/features/reservations/presentation/table_widget.dart';
+import 'package:rumbaap/features/reservations/presentation/map/crystal_table.dart';
 
 import 'fakes.dart';
 
@@ -41,19 +42,56 @@ Future<DemoReservationStore> _openAdmin(
       const FakeAccessibilityFeatures(disableAnimations: true);
   addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   final s =
-      store ?? DemoReservationStore(latency: Duration.zero, clock: c.call);
-  await tester.pumpWidget(RumbaapApp(store: s, clock: c.call));
+      store ??
+      DemoReservationStore(
+        venue: sagsaVenue,
+        latency: Duration.zero,
+        clock: c.call,
+      );
+  await tester.pumpWidget(
+    RumbaapApp(config: sagsaConfig, store: s, clock: c.call),
+  );
   await tester.tap(find.text('Administrador (demostración)'));
   await tester.pumpAndSettle();
   return s;
 }
 
 TableMapStatus _statusOf(WidgetTester tester, String id) =>
-    tester.widget<TableWidget>(find.byKey(ValueKey('table-$id'))).status;
+    tester.widget<CrystalTable>(find.byKey(ValueKey('table-$id'))).status;
 
-/// Selecciona la mesa desde «Elegir mesa», como lo haría la persona.
+/// Abre el detalle de la ficha v7 si está cerrada.
+Future<void> _expandSheet(WidgetTester tester) async {
+  final more = find.bySemanticsLabel('Ver detalle de la mesa');
+  if (more.evaluate().isEmpty) return;
+  await tester.tap(more);
+  await tester.pumpAndSettle();
+}
+
+/// Abre una sección de la barra inferior («Mapa» o «Reservas»).
+Future<void> _tab(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(ValueKey('tab-$label')));
+  await tester.pumpAndSettle();
+}
+
+/// Abre una lista de la sección Reservas: «Pendientes», «Reservas» o
+/// «Actividad».
+Future<void> _list(WidgetTester tester, String label) async {
+  if (find.byType(SegmentedButton<AdminList>).evaluate().isEmpty) {
+    await _tab(tester, 'Reservas');
+  }
+  await tester.tap(
+    find.descendant(
+      of: find.byType(SegmentedButton<AdminList>),
+      matching: find.text(label),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+/// Selecciona la mesa desde «Elegir mesa», como lo haría la persona, y abre
+/// su ficha.
 Future<void> _pick(WidgetTester tester, String id) async {
-  await tester.tap(find.text('Elegir mesa'));
+  await tester.tap(find.byTooltip('Elegir mesa'));
   await tester.pumpAndSettle();
   final row = find.byKey(ValueKey('picker-$id'));
   await tester.scrollUntilVisible(
@@ -68,6 +106,7 @@ Future<void> _pick(WidgetTester tester, String id) async {
   await tester.pumpAndSettle();
   await tester.tap(row);
   await tester.pumpAndSettle();
+  await _expandSheet(tester);
 }
 
 /// Toca [finder] tras desplazarlo a la vista. Antes retira el aviso del
@@ -92,7 +131,7 @@ Future<void> _dialog(WidgetTester tester, {required bool confirm}) async {
   await tester.pumpAndSettle();
 }
 
-String _freeNormal(DemoReservationStore store, Night night) => VenueTables.all
+String _freeNormal(DemoReservationStore store, Night night) => sagsaVenue.tables
     .firstWhere((t) => !t.isVip && store.book.activeFor(night, t.id) == null)
     .id;
 
@@ -113,7 +152,7 @@ Future<Reservation> _pendingVip(
       .where((r) => r.status == ReservationStatus.pendingPayment)
       .firstOrNull;
   if (existing != null) return existing;
-  final table = VenueTables.all.firstWhere(
+  final table = sagsaVenue.tables.firstWhere(
     (t) => t.isVip && store.book.activeFor(night, t.id) == null,
   );
   final r = store.perform(
@@ -154,6 +193,7 @@ void main() {
       (tester) async {
         final clock = _Clock(fixedClock());
         final store = DemoReservationStore(
+          venue: sagsaVenue,
           latency: Duration.zero,
           clock: clock.call,
         );
@@ -162,13 +202,15 @@ void main() {
         addTearDown(
           tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
         );
-        await tester.pumpWidget(RumbaapApp(store: store, clock: clock.call));
+        await tester.pumpWidget(
+          RumbaapApp(config: sagsaConfig, store: store, clock: clock.call),
+        );
         expect(find.textContaining('datos ficticios'), findsOneWidget);
         expect(find.textContaining('autenticación'), findsOneWidget);
 
         await tester.tap(find.text('Mapa y disponibilidad'));
         await tester.pumpAndSettle();
-        expect(find.byType(TableWidget), findsNWidgets(22));
+        expect(find.byType(CrystalTable), findsNWidgets(22));
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
 
@@ -189,15 +231,14 @@ void main() {
 
     testWidgets('muestra la noche con el horario del local', (tester) async {
       await _openAdmin(tester);
+      expect(find.text('Vie 9 oct'), findsOneWidget);
       expect(
-        find.text(
-          'Viernes 9 de octubre · 8:30 p. m. – 3:00 a. m. (hora de Colombia)',
-        ),
+        find.text('8:30 p. m. – 3:00 a. m. (hora de Colombia)'),
         findsOneWidget,
       );
-      await tester.tap(find.byKey(const ValueKey('night-2026-10-10')));
+      await tester.tap(find.byTooltip('Noche siguiente'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Sábado 10 de octubre'), findsOneWidget);
+      expect(find.text('Sáb 10 oct'), findsOneWidget);
     });
   });
 
@@ -253,7 +294,7 @@ void main() {
       tester,
     ) async {
       final store = await _openAdmin(tester);
-      final vip = VenueTables.all.firstWhere(
+      final vip = sagsaVenue.tables.firstWhere(
         (t) => t.isVip && store.book.activeFor(_friday, t.id) == null,
       );
       await _pick(tester, vip.id);
@@ -322,8 +363,7 @@ void main() {
         final store = await _openAdmin(tester);
         final vip = await _pendingVip(tester, store, _friday);
 
-        await tester.tap(find.text('Pendientes'));
-        await tester.pumpAndSettle();
+        await _list(tester, 'Pendientes');
         expect(find.text('Pagos VIP por verificar'), findsOneWidget);
         await tester.tap(find.byKey(ValueKey('pending-${vip.id}')));
         await tester.pumpAndSettle();
@@ -353,8 +393,7 @@ void main() {
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
         expect(find.byKey(ValueKey('pending-${vip.id}')), findsNothing);
-        await tester.tap(find.text('Mapa'));
-        await tester.pumpAndSettle();
+        await _tab(tester, 'Mapa');
         expect(_statusOf(tester, vip.tableId), TableMapStatus.reserved);
       },
     );
@@ -574,8 +613,7 @@ void main() {
       final clock = _Clock(fixedClock());
       final store = await _openAdmin(tester, clock: clock);
       final r = _first(store, _friday, ReservationStatus.inProcess);
-      await tester.tap(find.text('Pendientes'));
-      await tester.pumpAndSettle();
+      await _list(tester, 'Pendientes');
       expect(find.byKey(ValueKey('pending-${r.id}')), findsOneWidget);
       expect(find.textContaining('Vence a las 3:10 p. m.'), findsOneWidget);
 
@@ -594,8 +632,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(ValueKey('pending-${r.id}')), findsNothing);
 
-      await tester.tap(find.text('Reservas'));
-      await tester.pumpAndSettle();
+      await _list(tester, 'Reservas');
       await tester.scrollUntilVisible(
         find.byKey(ValueKey('reservation-${r.id}')),
         80,
@@ -614,8 +651,7 @@ void main() {
       final clock = _Clock(fixedClock());
       final store = await _openAdmin(tester, clock: clock);
       final r = _first(store, _friday, ReservationStatus.inProcess);
-      await tester.tap(find.text('Pendientes'));
-      await tester.pumpAndSettle();
+      await _list(tester, 'Pendientes');
       await tester.tap(find.byKey(ValueKey('pending-${r.id}')));
       await tester.pumpAndSettle();
       expect(find.text('En proceso'), findsOneWidget);
@@ -635,10 +671,7 @@ void main() {
       store.perform((b) => b.release(r.id));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Reservas'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Actividad'));
-      await tester.pumpAndSettle();
+      await _list(tester, 'Actividad');
       expect(find.text('Mesa liberada'), findsOneWidget);
       await tester.tap(find.text('Mesa liberada'));
       await tester.pumpAndSettle();
@@ -686,6 +719,7 @@ void main() {
         'datos', (tester) async {
       final clock = _Clock(fixedClock());
       final store = DemoReservationStore(
+        venue: sagsaVenue,
         latency: Duration.zero,
         clock: clock.call,
       );
@@ -694,7 +728,9 @@ void main() {
       addTearDown(
         tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
       );
-      await tester.pumpWidget(RumbaapApp(store: store, clock: clock.call));
+      await tester.pumpWidget(
+        RumbaapApp(config: sagsaConfig, store: store, clock: clock.call),
+      );
       await tester.tap(find.text('Mapa y disponibilidad'));
       await tester.pumpAndSettle();
       final tableId = _freeNormal(store, _friday);
@@ -729,6 +765,7 @@ void main() {
       expect(node.label, isNot(contains(r.holder.name)));
       node.owner!.performAction(node.id, SemanticsAction.tap);
       await tester.pumpAndSettle();
+      await _expandSheet(tester);
       expect(find.text(r.holder.name), findsOneWidget);
       semantics.dispose();
     });
@@ -747,12 +784,9 @@ void main() {
           await _pick(tester, r.tableId);
           expect(find.byKey(const ValueKey('action-revoke')), findsOneWidget);
 
-          await tester.tap(find.text('Pendientes'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('Reservas'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('Mapa'));
-          await tester.pumpAndSettle();
+          await _list(tester, 'Pendientes');
+          await _list(tester, 'Reservas');
+          await _tab(tester, 'Mapa');
 
           final free = _freeNormal(store, _friday);
           await _pick(tester, free);
@@ -777,8 +811,7 @@ void main() {
       final store = await _openAdmin(tester);
       final r = _first(store, _friday, ReservationStatus.confirmed);
       await _pick(tester, r.tableId);
-      await tester.tap(find.text('Pendientes'));
-      await tester.pumpAndSettle();
+      await _list(tester, 'Pendientes');
       expect(tester.takeException(), isNull);
     });
   });

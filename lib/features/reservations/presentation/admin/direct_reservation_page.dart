@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../theme/venue_theme.dart';
+
 import '../../../../app/app_theme.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/night_schedule.dart';
@@ -88,7 +90,9 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
                       icon: table.isVip
                           ? Icons.payments_outlined
                           : Icons.event_available_rounded,
-                      color: table.isVip ? AppColors.amber : AppColors.violet,
+                      color: table.isVip
+                          ? VenueTheme.of(context).vip
+                          : Theme.of(context).colorScheme.primary,
                       text: table.isVip
                           ? 'Mesa VIP: quedará confirmada al crearla, sin otro '
                                 'paso de aprobación. Créala solo si ya '

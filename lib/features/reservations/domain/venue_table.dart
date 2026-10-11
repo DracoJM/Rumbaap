@@ -1,47 +1,60 @@
-/// Mesas físicas del establecimiento, independientes de cualquier noche.
+/// Local (discoteca) y sus mesas físicas, independientes de cualquier noche.
 ///
-/// Los IDs M01–M20 y VIP 1/VIP 2 vienen del prototipo de demostración y se
-/// conservan para continuidad del desarrollo; no son la numeración física
-/// oficial confirmada por el establecimiento.
+/// Cada local trae su propia configuración: mesas, zonas y tipos. Un ID de
+/// mesa como «M01» solo identifica una mesa dentro de su local; para
+/// distinguir locales se usa [Venue.id]. La configuración de cada local vive
+/// en `lib/features/venues/`.
 library;
 
 enum TableKind { regular, vip }
 
-/// Zona física donde está la mesa.
-enum TableZone { west, east, vip }
+/// Zona del local donde está la mesa, definida por la configuración del
+/// local.
+class VenueZone {
+  const VenueZone({required this.id, required this.label});
+
+  final String id;
+
+  /// Texto para mostrar, por ejemplo «Lado occidental».
+  final String label;
+}
 
 class VenueTable {
   const VenueTable({required this.id, required this.kind, required this.zone});
 
+  /// Identificador dentro del local.
   final String id;
   final TableKind kind;
-  final TableZone zone;
+  final VenueZone zone;
 
   bool get isVip => kind == TableKind.vip;
 }
 
-abstract final class VenueTables {
-  /// Orden: VIP de occidente a oriente; luego cada lado de norte a sur.
-  static final List<VenueTable> all = List.unmodifiable([
-    const VenueTable(id: 'VIP 1', kind: TableKind.vip, zone: TableZone.vip),
-    const VenueTable(id: 'VIP 2', kind: TableKind.vip, zone: TableZone.vip),
-    for (var i = 1; i <= 10; i++)
-      VenueTable(
-        id: 'M${i.toString().padLeft(2, '0')}',
-        kind: TableKind.regular,
-        zone: TableZone.west,
-      ),
-    for (var i = 11; i <= 20; i++)
-      VenueTable(id: 'M$i', kind: TableKind.regular, zone: TableZone.east),
-  ]);
+class Venue {
+  Venue({
+    required this.id,
+    required this.name,
+    required List<VenueTable> tables,
+  }) : tables = List.unmodifiable(tables) {
+    assert(
+      tables.map((t) => t.id).toSet().length == tables.length,
+      'IDs de mesa repetidos en el local $id',
+    );
+  }
 
-  static VenueTable? byId(String id) {
-    for (final table in all) {
-      if (table.id == id) return table;
+  final String id;
+  final String name;
+
+  /// Mesas en el orden en que se listan.
+  final List<VenueTable> tables;
+
+  VenueTable? tableById(String tableId) {
+    for (final table in tables) {
+      if (table.id == tableId) return table;
     }
     return null;
   }
 
-  static List<VenueTable> inZone(TableZone zone) =>
-      all.where((t) => t.zone == zone).toList(growable: false);
+  /// Posición de la mesa en [tables], para ordenar listas; -1 si no existe.
+  int orderOf(String tableId) => tables.indexWhere((t) => t.id == tableId);
 }

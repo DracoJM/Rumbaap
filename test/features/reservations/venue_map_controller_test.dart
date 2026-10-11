@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
 import 'package:rumbaap/features/reservations/domain/night_availability.dart';
 import 'package:rumbaap/features/reservations/presentation/venue_map_controller.dart';
 
@@ -11,7 +12,11 @@ void main() {
 
   setUp(() async {
     repository = ControlledRepository();
-    controller = VenueMapController(repository, clock: fixedClock);
+    controller = VenueMapController(
+      repository,
+      venue: sagsaVenue,
+      clock: fixedClock,
+    );
     controller.start();
     await pumpEventQueue();
   });
@@ -208,7 +213,8 @@ void main() {
     void startAt(DateTime instant) {
       now = instant;
       repo = ControlledRepository();
-      c = VenueMapController(repo, clock: () => now)..start();
+      c = VenueMapController(repo, venue: sagsaVenue, clock: () => now)
+        ..start();
     }
 
     tearDown(() => c.dispose());
@@ -278,8 +284,12 @@ void main() {
     setUp(() async {
       changes = ChangeNotifier();
       repo = ControlledRepository();
-      c = VenueMapController(repo, clock: fixedClock, changes: changes)
-        ..start();
+      c = VenueMapController(
+        repo,
+        venue: sagsaVenue,
+        clock: fixedClock,
+        changes: changes,
+      )..start();
       repo
           .request(nightA)
           .complete(availability(nightA, {'M01': TableAvailability.available}));
@@ -344,7 +354,7 @@ void main() {
       changes.notifyListeners();
       expect(repo.pending, hasLength(queries));
       // tearDown vuelve a llamar a dispose: se sustituye por uno nuevo.
-      c = VenueMapController(repo, clock: fixedClock);
+      c = VenueMapController(repo, venue: sagsaVenue, clock: fixedClock);
     });
   });
 }

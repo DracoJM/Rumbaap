@@ -18,6 +18,7 @@ enum LoadStatus { loading, ready, failed }
 class VenueMapController extends ChangeNotifier {
   VenueMapController(
     this._repository, {
+    required this.venue,
     Clock clock = systemClock,
     Listenable? changes,
   }) : _clock = clock,
@@ -25,6 +26,8 @@ class VenueMapController extends ChangeNotifier {
     _changes?.addListener(_onDataChanged);
   }
 
+  /// Local consultado: sus mesas son las únicas seleccionables.
+  final Venue venue;
   final NightAvailabilityRepository _repository;
   final Clock _clock;
   final Listenable? _changes;
@@ -70,7 +73,7 @@ class VenueMapController extends ChangeNotifier {
   DateTime get venueNow => VenueTime.of(_clock());
 
   VenueTable? get selectedTable =>
-      _selectedTableId == null ? null : VenueTables.byId(_selectedTableId!);
+      _selectedTableId == null ? null : venue.tableById(_selectedTableId!);
 
   /// `null` mientras carga, si falló la consulta o si falta el dato.
   TableAvailability? availabilityOf(String tableId) =>
@@ -117,6 +120,32 @@ class VenueMapController extends ChangeNotifier {
     return _load(still, keepSelection: true);
   }
 
+  /// `true` si existe una noche anterior a la mostrada en este mapa: en su
+  /// fin de semana o en uno anterior que no sea pasado (regla M3).
+  bool get hasPreviousNight {
+    final index = _nights.indexWhere((n) => n.id == _night?.id);
+    return index > 0 || _weeksAhead > 0;
+  }
+
+  /// Pasa a la noche anterior ([delta] < 0) o siguiente ([delta] > 0). Al
+  /// salir del fin de semana mostrado, pasa al anterior o al siguiente.
+  Future<void> showAdjacentNight(int delta) async {
+    if (delta == 0) return;
+    final index = _nights.indexWhere((n) => n.id == _night?.id);
+    final target = index + delta.sign;
+    if (index >= 0 && target >= 0 && target < _nights.length) {
+      return selectNight(_nights[target].id);
+    }
+    if (delta < 0) {
+      if (_weeksAhead == 0) return;
+      _weeksAhead -= 1;
+      _nights = _computeNights();
+      if (_nights.isEmpty) return showWeek(_weeksAhead);
+      return selectNight(_nights.last.id);
+    }
+    return showWeek(_weeksAhead + 1);
+  }
+
   /// Cambia de noche: limpia selección y datos antes de consultar.
   Future<void> selectNight(String nightId) async {
     final night = _byId(nightId);
@@ -135,9 +164,7 @@ class VenueMapController extends ChangeNotifier {
     try {
       final availability = await _repository.availabilityFor(night);
       if (!_isCurrent(query)) return;
-      if (availability.nightId != night.id) {
-        throw StateError('Respuesta de otra noche: ${availability.nightId}');
-      }
+      _checkResponse(availability, night);
       _availability = availability;
       _availabilityStatus = LoadStatus.ready;
       _scheduleDataRefresh(availability.refreshAt);
@@ -167,9 +194,7 @@ class VenueMapController extends ChangeNotifier {
     try {
       final availability = await _repository.availabilityFor(night);
       if (!_isCurrent(query)) return;
-      if (availability.nightId != night.id) {
-        throw StateError('Respuesta de otra noche: ${availability.nightId}');
-      }
+      _checkResponse(availability, night);
       _availability = availability;
       _availabilityStatus = LoadStatus.ready;
       _scheduleDataRefresh(availability.refreshAt);
@@ -182,6 +207,18 @@ class VenueMapController extends ChangeNotifier {
     _notify();
   }
 
+  /// Una respuesta de otra noche o de otro local se trata como error: nunca se
+  /// muestran estados que no corresponden a lo consultado.
+  void _checkResponse(NightAvailability availability, Night night) {
+    if (availability.nightId != night.id) {
+      throw StateError('Respuesta de otra noche: ${availability.nightId}');
+    }
+    final venueId = availability.venueId;
+    if (venueId != null && venueId != venue.id) {
+      throw StateError('Respuesta de otro local: $venueId');
+    }
+  }
+
   Future<void> retry() {
     final night = _night;
     return night == null ? showWeek(_weeksAhead) : selectNight(night.id);
@@ -189,14 +226,14 @@ class VenueMapController extends ChangeNotifier {
 
   /// Tocar la mesa ya seleccionada la deselecciona.
   void toggleTable(String tableId) {
-    if (VenueTables.byId(tableId) == null) return;
+    if (venue.tableById(tableId) == null) return;
     _selectedTableId = _selectedTableId == tableId ? null : tableId;
     _notify();
   }
 
   /// Selección explícita (p. ej. desde la lista): nunca deselecciona.
   void selectTable(String tableId) {
-    if (VenueTables.byId(tableId) == null || _selectedTableId == tableId) {
+    if (venue.tableById(tableId) == null || _selectedTableId == tableId) {
       return;
     }
     _selectedTableId = tableId;

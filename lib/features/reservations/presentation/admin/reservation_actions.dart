@@ -42,7 +42,7 @@ class _ReservationActionsState extends State<ReservationActions> {
   Reservation get r => widget.reservation;
 
   String get _subject =>
-      '${r.table.displayName} · ${r.night.label}\nTitular: ${r.holder.name}';
+      '${r.tableIn(widget.store.venue).displayName} · ${r.night.label}\nTitular: ${r.holder.name}';
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +166,7 @@ class _ReservationActionsState extends State<ReservationActions> {
     ],
     operation: (book, id) => book.markPrepaymentReceived(id),
     success:
-        'Prepago confirmado: ${r.table.displayName} queda reservada para el '
+        'Prepago confirmado: ${r.tableIn(widget.store.venue).displayName} queda reservada para el '
         '${r.night.label.toLowerCase()}.',
   );
 
@@ -183,7 +183,7 @@ class _ReservationActionsState extends State<ReservationActions> {
     ],
     operation: (book, id) => book.rejectRequest(id),
     success:
-        'Solicitud rechazada: ${r.table.displayName} queda disponible para el '
+        'Solicitud rechazada: ${r.tableIn(widget.store.venue).displayName} queda disponible para el '
         '${r.night.label.toLowerCase()}.',
   );
 
@@ -198,7 +198,8 @@ class _ReservationActionsState extends State<ReservationActions> {
       ),
     ],
     operation: (book, id) => book.markArrival(id),
-    success: 'Llegada registrada: ${r.table.displayName} queda ocupada.',
+    success:
+        'Llegada registrada: ${r.tableIn(widget.store.venue).displayName} queda ocupada.',
   );
 
   Future<void> _revoke() => _run(
@@ -214,7 +215,7 @@ class _ReservationActionsState extends State<ReservationActions> {
     ],
     operation: (book, id) => book.revoke(id),
     success:
-        'Reserva revocada: ${r.table.displayName} queda disponible para el '
+        'Reserva revocada: ${r.tableIn(widget.store.venue).displayName} queda disponible para el '
         '${r.night.label.toLowerCase()}.',
   );
 
@@ -233,7 +234,7 @@ class _ReservationActionsState extends State<ReservationActions> {
       _Step(
         title: '¿Confirmas la liberación?',
         message:
-            'Segunda confirmación: ${r.table.displayName} · '
+            'Segunda confirmación: ${r.tableIn(widget.store.venue).displayName} · '
             '${r.night.label}.\n\nEsta acción no se puede deshacer.',
         confirmLabel: 'Liberar mesa',
         destructive: true,
@@ -241,7 +242,7 @@ class _ReservationActionsState extends State<ReservationActions> {
     ],
     operation: (book, id) => book.release(id),
     success:
-        '${r.table.displayName} liberada para el '
+        '${r.tableIn(widget.store.venue).displayName} liberada para el '
         '${r.night.label.toLowerCase()}.',
   );
 

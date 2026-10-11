@@ -1,15 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/night_availability.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
-import 'package:rumbaap/features/reservations/domain/venue_table.dart';
 
 import 'fakes.dart';
 
 void main() {
-  DemoReservationStore storeAt(DateTime instant) =>
-      DemoReservationStore(latency: Duration.zero, clock: () => instant);
+  DemoReservationStore storeAt(DateTime instant) => DemoReservationStore(
+    venue: sagsaVenue,
+    latency: Duration.zero,
+    clock: () => instant,
+  );
 
   Future<List<TableAvailability?>> statuses(
     DemoReservationStore store,
@@ -17,7 +20,7 @@ void main() {
   ) async {
     final result = await store.availabilityFor(night);
     expect(result.nightId, night.id);
-    return [for (final t in VenueTables.all) result.statusOf(t.id)];
+    return [for (final t in sagsaVenue.tables) result.statusOf(t.id)];
   }
 
   final friday = Night(DateTime.utc(2026, 10, 9));
@@ -60,7 +63,7 @@ void main() {
   test('el mapa lee la misma fuente que las operaciones de reserva', () async {
     final store = storeAt(fixedClock());
     await store.availabilityFor(friday);
-    final free = VenueTables.all.firstWhere(
+    final free = sagsaVenue.tables.firstWhere(
       (t) => store.book.activeFor(friday, t.id) == null,
     );
     store.book.createDirect(
@@ -96,6 +99,7 @@ void main() {
   test('refreshAt anuncia el vencimiento de la reserva en proceso', () async {
     var now = fixedClock();
     final store = DemoReservationStore(
+      venue: sagsaVenue,
       latency: Duration.zero,
       clock: () => now,
     );
@@ -135,7 +139,7 @@ void main() {
         'siembra no rellena sus mesas', () async {
       final store = storeAt(fixedClock());
       final night = Night(DateTime.utc(2026, 10, 16));
-      final normals = VenueTables.all.where((t) => !t.isVip).toList();
+      final normals = sagsaVenue.tables.where((t) => !t.isVip).toList();
       expect(normals, hasLength(20));
       final created = [
         for (final (i, t) in normals.indexed)
@@ -176,7 +180,7 @@ void main() {
       final fresh = Night(DateTime.utc(2026, 10, 17));
       store.book.createDirect(
         night: busy,
-        tableId: VenueTables.all.first.id,
+        tableId: sagsaVenue.tables.first.id,
         holder: const ReservationHolder(
           name: 'Titular previo',
           idNumber: '1',
@@ -204,6 +208,7 @@ void main() {
       var now = fixedClock();
       var ticking = false;
       final store = DemoReservationStore(
+        venue: sagsaVenue,
         latency: Duration.zero,
         clock: () {
           if (ticking) now = now.add(const Duration(milliseconds: 1));

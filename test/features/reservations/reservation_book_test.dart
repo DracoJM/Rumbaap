@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'package:rumbaap/features/reservations/domain/reservation_book.dart';
@@ -22,7 +23,7 @@ void main() {
   setUp(() {
     // Miércoles 7 de octubre, 3:00 p. m. en el local.
     now = wednesdayAfternoon;
-    book = ReservationBook(clock: () => now);
+    book = ReservationBook(venue: sagsaVenue, clock: () => now);
   });
 
   Reservation requestNormal(Night night, String table) => book.requestNormal(

@@ -8,8 +8,9 @@ import '../domain/reservation.dart';
 import '../domain/reservation_book.dart';
 import '../domain/venue_table.dart';
 
-/// Almacén de DATOS DE DEMOSTRACIÓN: un único [ReservationBook] en memoria por
-/// ejecución de la app. La consulta pública lo lee como
+/// Almacén de DATOS DE DEMOSTRACIÓN de un local ([venue]): un único
+/// [ReservationBook] en memoria por local y ejecución de la app. Cada local
+/// tiene su propio almacén, así que sus datos no se mezclan. La consulta pública lo lee como
 /// [NightAvailabilityRepository] y la vista del administrador, mediante
 /// [adminView], con las reservas de cada noche. Navegar conserva reservas y
 /// cambios; cerrar la app los pierde.
@@ -23,10 +24,13 @@ import '../domain/venue_table.dart';
 class DemoReservationStore extends ChangeNotifier
     implements NightAvailabilityRepository {
   DemoReservationStore({
+    required this.venue,
     this.latency = const Duration(milliseconds: 350),
     Clock clock = systemClock,
   }) : _clock = clock,
-       book = ReservationBook(clock: clock);
+       book = ReservationBook(venue: venue, clock: clock);
+
+  final Venue venue;
 
   /// Retardo simulado para que la carga sea visible durante el desarrollo.
   final Duration latency;
@@ -64,7 +68,7 @@ class DemoReservationStore extends ChangeNotifier
     final refreshAt = book.nextExpiry(night);
     final reservations = book.forNight(night);
     final byTableId = {
-      for (final table in VenueTables.all)
+      for (final table in venue.tables)
         table.id: _availability(
           reservations
               .where((r) => r.tableId == table.id && r.status.isActive)
@@ -74,12 +78,14 @@ class DemoReservationStore extends ChangeNotifier
     if (!withReservations) {
       return NightAvailability(
         nightId: night.id,
+        venueId: venue.id,
         byTableId: byTableId,
         refreshAt: refreshAt,
       );
     }
     return NightReservations(
       nightId: night.id,
+      venueId: venue.id,
       byTableId: byTableId,
       reservations: reservations,
       refreshAt: refreshAt,
@@ -115,10 +121,10 @@ class DemoReservationStore extends ChangeNotifier
       night.date.year * 10000 + night.date.month * 100 + night.date.day,
     );
 
-    final normals = VenueTables.all.where((t) => !t.isVip).toList()
+    final normals = venue.tables.where((t) => !t.isVip).toList()
       ..shuffle(random);
     final confirmed = <Reservation>[];
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < math.min(5, normals.length); i++) {
       final r = book.requestNormal(
         night: night,
         tableId: normals[i].id,
@@ -128,16 +134,21 @@ class DemoReservationStore extends ChangeNotifier
       confirmed.add(book.completeRequest(r.id));
     }
     // Una reserva normal en proceso: vencerá a los 10 min (R1).
-    book.requestNormal(
-      night: night,
-      tableId: normals[5].id,
-      holder: _holder(5),
-      origin: ReservationOrigin.client,
-    );
+    if (normals.length > 5) {
+      book.requestNormal(
+        night: night,
+        tableId: normals[5].id,
+        holder: _holder(5),
+        origin: ReservationOrigin.client,
+      );
+    }
 
-    final vips = VenueTables.all.where((t) => t.isVip).toList()
-      ..shuffle(random);
-    if (random.nextDouble() < 0.6) {
+    // Siempre hay una VIP pendiente de pago para poder demostrar la
+    // verificación del prepago (R2). El sorteo se conserva para que la
+    // elección de mesas siga siendo la misma para la misma fecha.
+    final vips = venue.tables.where((t) => t.isVip).toList()..shuffle(random);
+    random.nextDouble();
+    if (vips.isNotEmpty) {
       book.requestVip(
         night: night,
         tableId: vips.first.id,

@@ -1,65 +1,57 @@
 import 'package:flutter/material.dart';
 
 import '../theme/status_colors.dart';
-import '../theme/venues/sagsa.dart';
+import '../theme/venue_theme.dart';
 
-/// Paleta nocturna: grafito, violeta de interfaz y ámbar ambiental.
-/// Adaptada del prototipo de demostración Rumbaap × Sagsa.
+/// Neutros y colores semánticos de la interfaz, comunes a todos los locales
+/// y armonizados con «Noche de cristal» v7. La marca de cada local (primario,
+/// dorado VIP, mobiliario) viene de su [VenueTheme], nunca de aquí.
 abstract final class AppColors {
-  static const background = Color(0xFF0B0A10);
-  static const surface = Color(0xFF14121B);
-  static const surfaceRaised = Color(0xFF1C1925);
-  static const border = Color(0xFF2E2A39);
-  static const borderStrong = Color(0xFF3D3849);
+  static const background = Color(0xFF0A0A12);
+  static const surface = Color(0xFF13131D);
+  static const surfaceRaised = Color(0xFF1B1B28);
+  static const border = Color(0xFF2A2A39);
+  static const borderStrong = Color(0xFF3A3A4C);
 
-  static const violet = Color(0xFF8B5CF6);
-  static const violetBright = Color(0xFFA78BFA);
+  /// Avisos y advertencias (mismo tono que «En proceso»).
+  static const amber = Color(0xFFE5C06A);
+  static const amberSoft = Color(0xFFF0D898);
 
-  static const amber = Color(0xFFF5A84A);
-  static const amberSoft = Color(0xFFFFCB8A);
+  static const text = Color(0xFFF2F1F7);
+  static const textMuted = Color(0xFFA3A2B5);
+  static const textFaint = Color(0xFF75748A);
 
-  static const text = Color(0xFFF4EFE8);
-  static const textMuted = Color(0xFFA9A3B3);
-  static const textFaint = Color(0xFF6F6880);
-
-  static const floor = Color(0xFF110E16);
-  static const wall = Color(0xFF1E1A24);
-  static const upholstery = Color(0xFFC9AE96);
-  static const upholsteryShade = Color(0xFF7A6553);
-  static const tabletop = Color(0xFF1B1714);
-  static const plant = Color(0xFF2F5A34);
-
-  static const danger = Color(0xFFF87171);
+  static const danger = Color(0xFFF08A8A);
 }
 
 abstract final class AppTheme {
-  static ThemeData build() {
+  /// Tema de la app para el local [venue]: su marca define el color
+  /// principal y el fondo; los estados de mesa salen de [StatusColors].
+  static ThemeData build(VenueTheme venue) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.violet,
+      seedColor: venue.primary,
       brightness: Brightness.dark,
       surface: AppColors.surface,
-      primary: AppColors.violet,
+      primary: venue.primary,
       onPrimary: Colors.white,
-      secondary: AppColors.amber,
+      secondary: venue.vip,
       error: AppColors.danger,
     );
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: AppColors.background,
+      scaffoldBackgroundColor: venue.background,
     );
     final text = base.textTheme.apply(
       bodyColor: AppColors.text,
       displayColor: AppColors.text,
     );
     return base.copyWith(
-      // Tema del local para las pantallas «Noche de cristal». Hoy solo hay
-      // un local; el resto de la app sigue con la paleta de AppColors.
-      extensions: [sagsaTheme, StatusColors.forVenue(sagsaTheme)],
+      extensions: [venue, StatusColors.forVenue(venue)],
       textTheme: text,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
+      appBarTheme: AppBarTheme(
+        backgroundColor: venue.background,
         foregroundColor: AppColors.text,
         surfaceTintColor: Colors.transparent,
       ),
@@ -70,9 +62,14 @@ abstract final class AppTheme {
       ),
       chipTheme: base.chipTheme.copyWith(
         backgroundColor: AppColors.surfaceRaised,
-        selectedColor: AppColors.violet.withValues(alpha: 0.35),
+        selectedColor: venue.primary.withValues(alpha: 0.35),
         side: const BorderSide(color: AppColors.borderStrong),
         labelStyle: const TextStyle(color: AppColors.text),
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.surfaceRaised,
+        contentTextStyle: TextStyle(color: AppColors.text),
       ),
     );
   }

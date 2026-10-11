@@ -3,31 +3,30 @@ import 'package:flutter/material.dart';
 import '../domain/night_availability.dart';
 import '../domain/night_schedule.dart';
 import '../domain/venue_table.dart';
+import '../../../theme/status_colors.dart';
 
 /// Estado tal como lo muestra el mapa. [unknown] cubre carga, error y datos
 /// faltantes: nunca se presenta como disponible.
 ///
 /// Una reserva pendiente se muestra distinto según la mesa: en una normal está
-/// «En proceso» (regla R1) y en una VIP, «Pendiente de pago» (regla R2).
-/// Comparten el color ámbar; la distinción es visual y textual. Aquí no se
-/// implementa la caducidad ni el pago.
+/// «En proceso» (regla R1) y en una VIP, «Pendiente de pago» (regla R2). Aquí
+/// no se implementa la caducidad ni el pago. Los colores salen de
+/// [StatusColors] y los iconos de `map/status_icon.dart`: nunca dependen solo
+/// del color.
 enum TableMapStatus {
-  available('Disponible', Icons.check_circle_rounded, Color(0xFF34D399)),
-  pending('En proceso', Icons.hourglass_top_rounded, Color(0xFFFBBF24)),
-  pendingPayment(
-    'Pendiente de pago',
-    Icons.payments_outlined,
-    Color(0xFFFBBF24),
-  ),
-  reserved('Reservada', Icons.event_rounded, Color(0xFF60A5FA)),
-  occupied('Ocupada', Icons.groups_rounded, Color(0xFFF472B6)),
-  unknown('Sin información', Icons.help_outline_rounded, Color(0xFF8A839A));
+  available('Disponible', 'Disponibles'),
+  pending('En proceso', 'En proceso'),
+  pendingPayment('Pendiente de pago', 'Pago VIP'),
+  reserved('Reservada', 'Reservadas'),
+  occupied('Ocupada', 'Ocupadas'),
+  unknown('Sin información', 'Sin info');
 
-  const TableMapStatus(this.label, this.icon, this.color);
+  const TableMapStatus(this.label, this.summaryLabel);
 
   final String label;
-  final IconData icon;
-  final Color color;
+
+  /// Nombre en plural del resumen por estado.
+  final String summaryLabel;
 
   static TableMapStatus from(
     TableAvailability? availability, {
@@ -40,8 +39,16 @@ enum TableMapStatus {
     null => unknown,
   };
 
-  /// Las reservas pendientes «respiran» en el mapa para llamar la atención.
   bool get isPending => this == pending || this == pendingPayment;
+
+  Color colorIn(StatusColors colors) => switch (this) {
+    available => colors.available,
+    pending => colors.inProgress,
+    pendingPayment => colors.vipPaymentPending,
+    reserved => colors.reserved,
+    occupied => colors.occupied,
+    unknown => colors.unknown,
+  };
 }
 
 extension VenueTableLabels on VenueTable {
@@ -49,11 +56,7 @@ extension VenueTableLabels on VenueTable {
 
   String get kindLabel => isVip ? 'Mesa VIP' : 'Mesa normal';
 
-  String get zoneLabel => switch (zone) {
-    TableZone.west => 'Lado occidental',
-    TableZone.east => 'Lado oriental',
-    TableZone.vip => 'Zona VIP elevada · norte',
-  };
+  String get zoneLabel => zone.label;
 }
 
 const _weekdays = [

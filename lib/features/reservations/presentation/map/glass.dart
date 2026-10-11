@@ -2,7 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
-import '../../../theme/night_neutrals.dart';
+import '../../../../theme/night_neutrals.dart';
 
 /// Superficie de cristal: desenfoque fijo del fondo con saturación, velo
 /// claro y borde con reflejo superior.

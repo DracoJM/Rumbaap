@@ -49,7 +49,7 @@ void main() {
   });
 
   test('el tema de la app registra el tema del local y sus estados', () {
-    final theme = AppTheme.build();
+    final theme = AppTheme.build(sagsaTheme);
     expect(theme.extension<VenueTheme>(), same(sagsaTheme));
     expect(theme.extension<StatusColors>()!.vipPaymentPending, sagsaTheme.vip);
   });

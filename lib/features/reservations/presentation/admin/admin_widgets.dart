@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
+import '../../../../theme/status_colors.dart';
+import '../../../../theme/venue_theme.dart';
+import '../../../venues/venue_config.dart';
 import '../../domain/reservation.dart';
 import '../table_presentation.dart';
 import 'admin_labels.dart';
@@ -89,7 +92,7 @@ class ReservationStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = reservation.statusColor;
+    final color = reservation.statusColorIn(StatusColors.of(context));
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
@@ -228,9 +231,9 @@ class ReservationHistory extends StatelessWidget {
                   margin: const EdgeInsets.only(top: 6),
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.violetBright,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -275,7 +278,7 @@ class ReservationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = reservation;
-    final table = r.table;
+    final table = r.tableIn(VenueScope.of(context).venue);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -306,7 +309,11 @@ class ReservationTile extends StatelessWidget {
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            Icon(r.statusIcon, size: 14, color: r.statusColor),
+                            Icon(
+                              r.statusIcon,
+                              size: 14,
+                              color: r.statusColorIn(StatusColors.of(context)),
+                            ),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
@@ -342,13 +349,13 @@ class _TableBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final venue = VenueTheme.of(context);
+    final accent = vip ? venue.vip : venue.primary;
     return Container(
       constraints: const BoxConstraints(minWidth: 44),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: (vip ? AppColors.amber : AppColors.violet).withValues(
-          alpha: 0.15,
-        ),
+        color: accent.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -356,7 +363,7 @@ class _TableBadge extends StatelessWidget {
         textAlign: TextAlign.center,
         style: TextStyle(
           fontWeight: FontWeight.w700,
-          color: vip ? AppColors.amberSoft : AppColors.violetBright,
+          color: Color.lerp(accent, Colors.white, 0.35),
         ),
       ),
     );

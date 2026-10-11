@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../domain/reservation.dart';
 import '../../domain/venue_table.dart';
-import '../table_presentation.dart';
+import '../../../../theme/status_colors.dart';
 
 /// Textos y colores de reservas para la vista del administrador.
 extension ReservationLabels on Reservation {
-  VenueTable get table => VenueTables.byId(tableId)!;
+  /// Mesa de la reserva dentro de su local.
+  VenueTable tableIn(Venue venue) => venue.tableById(tableId)!;
 
   bool get wasRejected =>
       status == ReservationStatus.revoked &&
@@ -23,23 +24,23 @@ extension ReservationLabels on Reservation {
   };
 
   IconData get statusIcon => switch (status) {
-    ReservationStatus.inProcess => TableMapStatus.pending.icon,
-    ReservationStatus.pendingPayment => TableMapStatus.pendingPayment.icon,
-    ReservationStatus.confirmed => TableMapStatus.reserved.icon,
-    ReservationStatus.seated => TableMapStatus.occupied.icon,
+    ReservationStatus.inProcess => Icons.hourglass_top_rounded,
+    ReservationStatus.pendingPayment => Icons.payments_outlined,
+    ReservationStatus.confirmed => Icons.event_rounded,
+    ReservationStatus.seated => Icons.groups_rounded,
     ReservationStatus.revoked => Icons.block_rounded,
     ReservationStatus.released => Icons.lock_open_rounded,
     ReservationStatus.expired => Icons.timer_off_outlined,
   };
 
-  Color get statusColor => switch (status) {
-    ReservationStatus.inProcess => TableMapStatus.pending.color,
-    ReservationStatus.pendingPayment => TableMapStatus.pendingPayment.color,
-    ReservationStatus.confirmed => TableMapStatus.reserved.color,
-    ReservationStatus.seated => TableMapStatus.occupied.color,
+  Color statusColorIn(StatusColors colors) => switch (status) {
+    ReservationStatus.inProcess => colors.inProgress,
+    ReservationStatus.pendingPayment => colors.vipPaymentPending,
+    ReservationStatus.confirmed => colors.reserved,
+    ReservationStatus.seated => colors.occupied,
     ReservationStatus.revoked ||
     ReservationStatus.released ||
-    ReservationStatus.expired => TableMapStatus.unknown.color,
+    ReservationStatus.expired => colors.unknown,
   };
 
   String get originLabel => switch (origin) {

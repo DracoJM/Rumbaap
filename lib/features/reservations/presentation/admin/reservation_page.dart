@@ -126,7 +126,7 @@ class _ReservationPageState extends State<ReservationPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                '${r.table.displayName} · ${r.table.kindLabel}',
+                '${r.tableIn(widget.store.venue).displayName} · ${r.tableIn(widget.store.venue).kindLabel}',
                 style: theme.textTheme.titleLarge,
               ),
               const SizedBox(height: 4),

@@ -1,20 +1,18 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
+import '../../../venues/venue_config.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/night_availability.dart';
 import '../../domain/night_schedule.dart';
 import '../../domain/reservation.dart';
 import '../../domain/reservation_book.dart';
 import '../../domain/venue_table.dart';
-import '../table_detail.dart';
-import '../table_picker.dart';
+import '../map/crystal_map_scaffold.dart';
+import '../map/glass_tab_bar.dart';
+import '../map/table_sheet.dart';
 import '../table_presentation.dart';
-import '../venue_map.dart';
 import '../venue_map_controller.dart';
-import '../venue_map_page.dart';
 import '../venue_map_parts.dart';
 import 'admin_labels.dart';
 import 'admin_widgets.dart';
@@ -22,13 +20,18 @@ import 'direct_reservation_page.dart';
 import 'reservation_actions.dart';
 import 'reservation_page.dart';
 
-enum AdminSection { map, pending, reservations }
+enum AdminSection { map, reservations }
 
-/// Vista del administrador (demostración, sin autenticación real): noche,
-/// mapa con acciones por mesa, pendientes y reservas/actividad de la noche.
+/// Lista que muestra la sección Reservas.
+enum AdminList { pending, reservations, activity }
+
+/// Vista del administrador (demostración, sin autenticación real) sobre el
+/// mapa v7 compartido: noche, mapa con acciones por mesa, pendientes y
+/// reservas/actividad de la noche.
 ///
-/// Lee el mismo almacén que la consulta pública. Mapa, listas y detalle
-/// salen de la misma consulta ([NightReservations]), así que coinciden.
+/// Lee el mismo almacén que la consulta pública, mediante
+/// [DemoReservationStore.adminView]. Mapa, listas y detalle salen de la misma
+/// consulta ([NightReservations]), así que coinciden.
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key, required this.store, this.clock = systemClock});
 
@@ -42,13 +45,15 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   late final VenueMapController _controller = VenueMapController(
     widget.store.adminView,
+    venue: widget.store.venue,
     clock: widget.clock,
     changes: widget.store,
   )..start();
 
   late final AppLifecycleListener _lifecycle;
   AdminSection _section = AdminSection.map;
-  bool _showActivity = false;
+  AdminList _list = AdminList.pending;
+  bool _sheetExpanded = false;
 
   @override
   void initState() {
@@ -91,10 +96,6 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final wide =
-        size.width >= VenueMapPage.sidePanelBreakpoint ||
-        size.width > size.height;
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, _) {
@@ -103,230 +104,161 @@ class _AdminPageState extends State<AdminPage> {
                 .where((r) => r.status == ReservationStatus.pendingPayment)
                 .length ??
             0;
-        final destinations = [
-          (Icons.map_outlined, Icons.map_rounded, 'Mapa', 0),
-          (
-            Icons.pending_actions_outlined,
-            Icons.pending_actions_rounded,
-            'Pendientes',
-            pendingVip,
+        return CrystalMapScaffold(
+          controller: _controller,
+          demoLabel: 'Datos ficticios · sin autenticación real',
+          body: switch (_section) {
+            AdminSection.map => null,
+            AdminSection.reservations => _listsSection(),
+          },
+          sheetBuilder: (context, animate) =>
+              _section == AdminSection.map ? _sheet(animate) : null,
+          bottomBar: GlassTabBar(
+            tabs: [
+              GlassTab(
+                icon: Icons.map_outlined,
+                label: 'Mapa',
+                selected: _section == AdminSection.map,
+                onTap: () => _select(AdminSection.map),
+              ),
+              GlassTab(
+                icon: Icons.event_available_outlined,
+                label: 'Reservas',
+                selected: _section == AdminSection.reservations,
+                badge: pendingVip,
+                onTap: () => _select(AdminSection.reservations),
+              ),
+              // Pendientes de desarrollo: se muestran sin simular su
+              // operación.
+              const GlassTab(
+                icon: Icons.confirmation_number_outlined,
+                label: 'Entradas',
+              ),
+              const GlassTab(icon: Icons.local_bar_outlined, label: 'Pedidos'),
+              const GlassTab(icon: Icons.more_horiz_rounded, label: 'Más'),
+            ],
           ),
-          (Icons.list_alt_outlined, Icons.list_alt_rounded, 'Reservas', 0),
-        ];
-        Widget icon(IconData data, int count) => Badge.count(
-          count: count,
-          isLabelVisible: count > 0,
-          child: Icon(data),
-        );
-        return Scaffold(
-          appBar: AppBar(
-            titleSpacing: 0,
-            title: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Administrador'),
-                DemoDataTag(text: 'Datos ficticios · sin autenticación real'),
-              ],
-            ),
-          ),
-          body: SafeArea(
-            top: false,
-            child: wide
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      NavigationRail(
-                        selectedIndex: _section.index,
-                        labelType: NavigationRailLabelType.all,
-                        onDestinationSelected: _select,
-                        destinations: [
-                          for (final (i, s, label, n) in destinations)
-                            NavigationRailDestination(
-                              icon: icon(i, n),
-                              selectedIcon: icon(s, n),
-                              label: Text(label),
-                            ),
-                        ],
-                      ),
-                      const VerticalDivider(width: 1),
-                      Expanded(child: _content()),
-                    ],
-                  )
-                : _content(),
-          ),
-          bottomNavigationBar: wide
-              ? null
-              : NavigationBar(
-                  height: 64,
-                  selectedIndex: _section.index,
-                  onDestinationSelected: _select,
-                  destinations: [
-                    for (final (i, s, label, n) in destinations)
-                      NavigationDestination(
-                        icon: icon(i, n),
-                        selectedIcon: icon(s, n),
-                        label: label,
-                      ),
-                  ],
-                ),
         );
       },
     );
   }
 
-  void _select(int index) =>
-      setState(() => _section = AdminSection.values[index]);
+  void _select(AdminSection section) => setState(() => _section = section);
 
-  Widget _content() {
+  // ------------------------------------------------------------- Ficha
+
+  Widget? _sheet(bool animate) {
     final c = _controller;
+    final table = c.selectedTable;
+    final night = c.night;
+    if (table == null || night == null) return null;
+    final data = _data;
+    final status = TableMapStatus.from(
+      c.availabilityOf(table.id),
+      table: table,
+    );
+    final active = data?.activeFor(table.id);
+    final ended = night.hasEnded(c.venueNow);
+    final busy = c.isRefreshing;
+
+    final SheetAction action;
+    if (data == null || status == TableMapStatus.unknown) {
+      // Sin datos no se ofrece reservar a ciegas: solo volver a consultar.
+      action = SheetAction(
+        label: 'Actualizar estado',
+        shortLabel: 'Actualizar',
+        onPressed: c.availabilityStatus == LoadStatus.failed ? c.retry : null,
+      );
+    } else if (active != null) {
+      action = SheetAction(
+        label: switch (status) {
+          TableMapStatus.pending => 'Revisar solicitud',
+          TableMapStatus.pendingPayment => 'Ver pago VIP',
+          TableMapStatus.occupied => 'Ver mesa',
+          _ => 'Ver reserva',
+        },
+        shortLabel: switch (status) {
+          TableMapStatus.pending => 'Revisar',
+          TableMapStatus.pendingPayment => 'Ver pago',
+          _ => 'Ver',
+        },
+        vip: table.isVip,
+        onPressed: () => _openReservation(active.id),
+      );
+    } else {
+      action = SheetAction(
+        label: table.isVip ? 'Crear reserva VIP' : 'Crear reserva',
+        shortLabel: 'Reservar',
+        vip: table.isVip,
+        onPressed: ended || busy ? null : () => _openDirectForm(night, table),
+      );
+    }
+
+    return TableSheet(
+      key: ValueKey('admin-sheet-${night.id}-${table.id}'),
+      table: table,
+      badge:
+          VenueScope.of(context).layout.placementOf(table.id)?.label ??
+          table.id,
+      status: status,
+      expanded: _sheetExpanded,
+      animate: animate,
+      onToggle: () => setState(() => _sheetExpanded = !_sheetExpanded),
+      onClose: c.clearSelection,
+      action: action,
+      details: _AdminTablePanel(
+        key: ValueKey('admin-panel-${night.id}-${table.id}'),
+        table: table,
+        night: night,
+        controller: c,
+        data: data,
+        store: widget.store,
+        clock: widget.clock,
+        onOpenReservation: _openReservation,
+        onCreate: () => _openDirectForm(night, table),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------- Listas
+
+  Widget _listsSection() {
+    final body = _listState();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        NightSelector(
-          nights: c.nights,
-          selectedId: c.night?.id,
-          venueNow: c.venueNow,
-          weeksAhead: c.weeksAhead,
-          onSelected: c.selectNight,
-          onWeekChanged: c.showWeek,
-        ),
-        if (c.night case final night?)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
-            child: Text(
-              '${night.label} · ${night.scheduleLabel} (hora de Colombia)',
-              key: const ValueKey('admin-night-header'),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: SegmentedButton<AdminList>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(
+                value: AdminList.pending,
+                label: Text('Pendientes'),
+              ),
+              ButtonSegment(
+                value: AdminList.reservations,
+                label: Text('Reservas'),
+              ),
+              ButtonSegment(
+                value: AdminList.activity,
+                label: Text('Actividad'),
+              ),
+            ],
+            selected: {_list},
+            onSelectionChanged: (s) => setState(() => _list = s.first),
           ),
+        ),
         Expanded(
-          child: switch (_section) {
-            AdminSection.map => _mapSection(),
-            AdminSection.pending => _listState() ?? _pendingSection(_data!),
-            AdminSection.reservations =>
-              _listState() ?? _reservationsSection(_data!),
-          },
+          child:
+              body ??
+              switch (_list) {
+                AdminList.pending => _pendingSection(_data!),
+                AdminList.reservations => _reservationsSection(_data!),
+                AdminList.activity => _activitySection(_data!),
+              },
         ),
       ],
-    );
-  }
-
-  // ---------------------------------------------------------------- Mapa
-
-  Widget _mapSection() {
-    final c = _controller;
-    final selected = c.selectedTable;
-    final night = c.night;
-    final panel = selected == null || night == null
-        ? null
-        : _AdminTablePanel(
-            key: ValueKey('admin-panel-${night.id}-${selected.id}'),
-            table: selected,
-            night: night,
-            controller: c,
-            data: _data,
-            store: widget.store,
-            clock: widget.clock,
-            onOpenReservation: _openReservation,
-            onCreate: () => _openDirectForm(night, selected),
-          );
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Panel lateral en tableta o con la pantalla en horizontal. No se usa
-        // la proporción de esta sección: en un teléfono pequeño en vertical,
-        // la noche y la barra de navegación la dejan más ancha que alta.
-        final size = MediaQuery.sizeOf(context);
-        final wide =
-            constraints.maxWidth >= VenueMapPage.sidePanelBreakpoint ||
-            size.width > size.height;
-        final mapArea = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Expanded(child: MapLegend()),
-                // Con el rail y el panel abiertos en horizontal queda poco
-                // ancho: el botón se encoge antes que desbordar.
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: PickTableButton(
-                      onPressed: () => showTablePicker(context, c),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (c.availabilityStatus == LoadStatus.failed)
-              InlineError(onRetry: c.retry),
-            Expanded(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: VenueMap(
-                      statusOf: (table) => TableMapStatus.from(
-                        c.availabilityOf(table.id),
-                        table: table,
-                      ),
-                      selectedTableId: c.selectedTableId,
-                      onTableTap: c.toggleTable,
-                    ),
-                  ),
-                  if (c.availabilityStatus == LoadStatus.loading ||
-                      c.isRefreshing)
-                    const Positioned(
-                      top: 8,
-                      left: 0,
-                      right: 0,
-                      child: Center(child: LoadingPill()),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        );
-        if (wide) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: mapArea),
-              if (panel != null)
-                SizedBox(
-                  width: math.min(360, constraints.maxWidth * 0.5),
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      color: AppColors.surface,
-                      border: Border(left: BorderSide(color: AppColors.border)),
-                    ),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
-                      child: panel,
-                    ),
-                  ),
-                ),
-            ],
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(child: mapArea),
-            if (panel != null)
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: constraints.maxHeight * 0.6,
-                ),
-                child: BottomSheetPanel(child: panel),
-              ),
-          ],
-        );
-      },
     );
   }
 
@@ -420,76 +352,63 @@ class _AdminPageState extends State<AdminPage> {
   Widget _reservationsSection(NightReservations data) {
     final active = _byTable(data.reservations.where((r) => r.status.isActive));
     final ended = _byTable(data.reservations.where((r) => !r.status.isActive));
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        SectionLabel('Activas', count: active.length),
+        if (active.isEmpty)
+          const NoticeBox(
+            icon: Icons.inbox_outlined,
+            text: 'No hay reservas activas en esta noche.',
+          ),
+        for (final r in active)
+          ReservationTile(
+            key: ValueKey('reservation-${r.id}'),
+            reservation: r,
+            subtitle: '${r.id} · ${r.originLabel}',
+            onTap: () => _openReservation(r.id),
+          ),
+        const SizedBox(height: 8),
+        SectionLabel(
+          'Terminadas (revocadas, rechazadas, liberadas o expiradas)',
+          count: ended.length,
+        ),
+        if (ended.isEmpty)
+          const NoticeBox(
+            icon: Icons.inbox_outlined,
+            text: 'Ninguna reserva de esta noche ha terminado.',
+          ),
+        for (final r in ended)
+          ReservationTile(
+            key: ValueKey('reservation-${r.id}'),
+            reservation: r,
+            subtitle: '${r.id} · ${r.originLabel}',
+            onTap: () => _openReservation(r.id),
+          ),
+      ],
+    );
+  }
+
+  Widget _activitySection(NightReservations data) {
     final events = [
       for (final r in data.reservations)
         for (final e in r.history) (reservation: r, event: e),
     ]..sort((a, b) => b.event.at.compareTo(a.event.at));
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(
-              value: false,
-              label: Text('Reservas'),
-              icon: Icon(Icons.list_alt_rounded),
-            ),
-            ButtonSegment(
-              value: true,
-              label: Text('Actividad'),
-              icon: Icon(Icons.history_rounded),
-            ),
-          ],
-          selected: {_showActivity},
-          onSelectionChanged: (s) => setState(() => _showActivity = s.first),
-        ),
-        const SizedBox(height: 8),
-        if (!_showActivity) ...[
-          SectionLabel('Activas', count: active.length),
-          if (active.isEmpty)
-            const NoticeBox(
-              icon: Icons.inbox_outlined,
-              text: 'No hay reservas activas en esta noche.',
-            ),
-          for (final r in active)
-            ReservationTile(
-              key: ValueKey('reservation-${r.id}'),
-              reservation: r,
-              subtitle: '${r.id} · ${r.originLabel}',
-              onTap: () => _openReservation(r.id),
-            ),
-          const SizedBox(height: 8),
-          SectionLabel(
-            'Terminadas (revocadas, rechazadas, liberadas o expiradas)',
-            count: ended.length,
+        SectionLabel('Actividad de la noche', count: events.length),
+        if (events.isEmpty)
+          const NoticeBox(
+            icon: Icons.inbox_outlined,
+            text: 'Todavía no hay actividad en esta noche.',
           ),
-          if (ended.isEmpty)
-            const NoticeBox(
-              icon: Icons.inbox_outlined,
-              text: 'Ninguna reserva de esta noche ha terminado.',
-            ),
-          for (final r in ended)
-            ReservationTile(
-              key: ValueKey('reservation-${r.id}'),
-              reservation: r,
-              subtitle: '${r.id} · ${r.originLabel}',
-              onTap: () => _openReservation(r.id),
-            ),
-        ] else ...[
-          SectionLabel('Actividad de la noche', count: events.length),
-          if (events.isEmpty)
-            const NoticeBox(
-              icon: Icons.inbox_outlined,
-              text: 'Todavía no hay actividad en esta noche.',
-            ),
-          for (final (:reservation, :event) in events)
-            _ActivityRow(
-              reservation: reservation,
-              event: event,
-              onTap: () => _openReservation(reservation.id),
-            ),
-        ],
+        for (final (:reservation, :event) in events)
+          _ActivityRow(
+            reservation: reservation,
+            event: event,
+            onTap: () => _openReservation(reservation.id),
+          ),
         const SizedBox(height: 8),
         Text(
           'Lista local de demostración; no es un registro de auditoría.',
@@ -501,10 +420,12 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  static List<Reservation> _byTable(Iterable<Reservation> reservations) {
-    final order = {for (final (i, t) in VenueTables.all.indexed) t.id: i};
+  List<Reservation> _byTable(Iterable<Reservation> reservations) {
+    final venue = widget.store.venue;
     return reservations.toList()..sort((a, b) {
-      final byTable = order[a.tableId]!.compareTo(order[b.tableId]!);
+      final byTable = venue
+          .orderOf(a.tableId)
+          .compareTo(venue.orderOf(b.tableId));
       return byTable != 0 ? byTable : a.createdAt.compareTo(b.createdAt);
     });
   }
@@ -553,7 +474,7 @@ class _ActivityRow extends StatelessWidget {
                       style: theme.textTheme.bodyMedium,
                     ),
                     Text(
-                      '${reservation.table.displayName} · '
+                      '${reservation.tableIn(VenueScope.of(context).venue).displayName} · '
                       '${reservation.holder.name} · ${reservation.id}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppColors.textMuted,
@@ -612,33 +533,12 @@ class _AdminTablePanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(table.displayName, style: theme.textTheme.headlineSmall),
-                  Text(
-                    '${table.kindLabel} · ${table.zoneLabel}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              tooltip: 'Cerrar detalle',
-              onPressed: controller.clearSelection,
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: StatusChip(status: status),
+        // Nombre, estado y cerrar ya están en la cabecera de la ficha.
+        Text(
+          '${table.kindLabel} · ${table.zoneLabel}',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: AppColors.textMuted,
+          ),
         ),
         const SizedBox(height: 12),
         if (data == null || status == TableMapStatus.unknown)
