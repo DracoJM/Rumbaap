@@ -31,6 +31,7 @@
   - Diferencia con el pedido: los identificadores no se reutilizan, para que una captura antigua nunca vuelva a ser válida y se conserve la trazabilidad.
 - **Límite que sigue vigente:** un QR vigente compartido puede usarlo primero otro portador. La comprobación física de la persona sigue siendo necesaria.
 - **Demo:** la imagen del QR es ficticia y no se puede escanear. La lectura es SIMULADA: se escribe la credencial.
+- **Pendiente de frontend:** el QR escaneable y la lectura con cámara no están hechos; la ilustración y la entrada manual no cierran ese recorrido. Ver [propuesta](../proposals/qr-escaneable-y-camara.md).
 
 ## Devoluciones y cambios
 
