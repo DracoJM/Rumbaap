@@ -9,6 +9,7 @@
 
 - Elegir una identidad abre su propia navegación sobre la entrada.
 - Volver, o «Cambiar identidad» en «Más», hace `popUntil(isFirst)`: se descarta la pila de esa sesión, con sus formularios y los titulares que mostraba.
+- Desde un trámite, «Cambiar identidad» (barra superior) es una salida más: con una normal En proceso pide la misma confirmación que «atrás». Seguir conserva el formulario y el plazo; salir la cancela (R15) y limpia la pila. Una VIP ya enviada no se toca.
 - Las reservas siguen en el **único almacén del local** (`DemoReservationStore`), compartido por todos los perfiles.
 
 ## Navegación por perfil
@@ -23,14 +24,14 @@
 No hay pantallas duplicadas para rellenar pestañas.
 
 - **Mapa:** todas las perspectivas usan el mapa v7 compartido (`CrystalMapScaffold`).
-- **Cliente y promotor:** leen la consulta pública, sin titulares ajenos. «Mis reservas» muestra solo lo que creó esa identidad (`ReservationBook.createdBy`).
+- **Cliente y promotor:** leen la consulta pública, sin titulares ajenos. «Mis reservas» pide al almacén la proyección propia (`DemoReservationStore.ownReservations`): solo lo que creó esa identidad (`createdBy`). La cuenta vinculada al titular (`linkedAccountId`) es otro dato y no la convierte en creadora (`NOT DECIDED: si el cliente vinculado ve la reserva que hizo un promotor`).
 - **Personal:** solo localiza reservas confirmadas y registra la llegada (R5) durante la noche en curso (N6), con confirmación. No revoca, no libera ni verifica prepagos.
 
 ## Trámite de reserva (`guest/reservation_flow_page.dart`)
 
 - **Mesa normal:**
   - Iniciar: «Reservar esta mesa» llama a `startNormal`, que comprueba la mesa y la bloquea en el almacén, En proceso y sin titular (R14).
-  - Datos y envío: el formulario pide al titular (R12, o el perfil del cliente). Tras revisar el resumen, «Enviar» llama a `submitNormal`, que confirma si el trámite sigue activo y sin vencer.
+  - Datos y envío: el formulario pide al titular (R12, o el perfil del cliente). Tras revisar el resumen, «Enviar» llama a `submitNormal`, que confirma si el trámite sigue activo, sin vencer y con la noche aún abierta (un trámite de las 02:55 enviado a las 03:00 no se confirma, I7).
   - Plazo: se muestra la hora límite. Volver del resumen o pasar a segundo plano no reinician el plazo.
   - Vencer: el trámite queda Expirado y no se puede confirmar.
   - Salir: pide confirmación y llama a `cancelInProcess`, que lo deja Cancelado y libera la mesa (R15).
@@ -45,4 +46,4 @@ No hay pantallas duplicadas para rellenar pestañas.
 - **Datos en memoria:** las sesiones y las reservas son ficticias y se pierden al cerrar la app.
 - **Sin pagos:** no hay cobro ni ruta de pago (`NOT DECIDED: proveedor de pagos`).
 - **Sin módulos de Entradas, Pedidos ni QR.**
-- **Plataformas:** iOS solo con pruebas de widgets (`TargetPlatform.iOS`); la validación nativa está pendiente.
+- **Plataformas:** los recorridos de la app se prueban con `TargetPlatformVariant.mobile()` (Android, iOS y Fuchsia); la validación nativa de iOS está pendiente.

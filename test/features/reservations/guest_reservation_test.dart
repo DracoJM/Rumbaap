@@ -6,9 +6,13 @@ import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'package:rumbaap/features/reservations/domain/reservation_book.dart';
 import 'package:rumbaap/features/reservations/presentation/admin/admin_page.dart';
+import 'package:rumbaap/features/reservations/presentation/guest/guest_home_page.dart';
 import 'package:rumbaap/features/reservations/presentation/guest/reservation_flow_page.dart';
+import 'package:rumbaap/features/reservations/presentation/map/crystal_map_scaffold.dart';
+import 'package:rumbaap/features/reservations/presentation/staff/staff_page.dart';
 import 'package:rumbaap/features/reservations/presentation/map/crystal_table.dart';
 import 'package:rumbaap/features/reservations/presentation/table_presentation.dart';
+import 'package:rumbaap/features/reservations/presentation/venue_map_controller.dart';
 import 'package:rumbaap/features/session/demo_identities.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
@@ -188,6 +192,80 @@ void main() {
     });
   });
 
+  test('un trámite normal iniciado a las 02:55 no se confirma si se envía a '
+      'las 03:00, con la noche ya cerrada (I7), y no cambia nada', () {
+    final clock = _Clock(venueInstant(2026, 10, 10, 2, 55));
+    final book = ReservationBook(venue: sagsaVenue, clock: clock.call);
+    final r = book.startNormal(
+      night: _friday,
+      tableId: 'M01',
+      origin: ReservationOrigin.client,
+      createdBy: 'cliente-a',
+    );
+    clock.now = venueInstant(2026, 10, 10, 3);
+    expect(
+      () => book.submitNormal(r.id, holder: _holder),
+      throwsA(
+        isA<ReservationException>().having(
+          (e) => e.error,
+          'error',
+          ReservationError.nightEnded,
+        ),
+      ),
+    );
+    final after = book.byId(r.id)!;
+    expect(after.status, ReservationStatus.inProcess);
+    expect(after.holder, isNull);
+    expect(after.history.length, r.history.length);
+  });
+
+  test('proyección propia: cada identidad recibe del almacén solo lo que '
+      'creó; la cuenta vinculada no convierte al cliente en creador', () {
+    final store = DemoReservationStore(
+      venue: sagsaVenue,
+      latency: Duration.zero,
+      clock: fixedClock,
+    );
+    final free = sagsaVenue.tables
+        .where((t) => !t.isVip && store.book.activeFor(_friday, t.id) == null)
+        .map((t) => t.id)
+        .toList();
+    final byPromoter = store.perform((b) {
+      final r = b.startNormal(
+        night: _friday,
+        tableId: free[0],
+        origin: ReservationOrigin.promoter,
+        createdBy: 'promotor-1',
+      );
+      return b.submitNormal(
+        r.id,
+        holder: const ReservationHolder(
+          name: 'Cliente demo A',
+          phone: '3000000001',
+          idNumber: '1000000001',
+        ),
+        linkedAccountId: 'cliente-a',
+      );
+    });
+    final byClientA = store.perform(
+      (b) => b.startNormal(
+        night: _friday,
+        tableId: free[1],
+        origin: ReservationOrigin.client,
+        createdBy: 'cliente-a',
+      ),
+    );
+    expect(byPromoter.createdBy, 'promotor-1');
+    expect(byPromoter.linkedAccountId, 'cliente-a');
+    expect(store.ownReservations('promotor-1').map((r) => r.id), [
+      byPromoter.id,
+    ]);
+    expect(store.ownReservations('cliente-a').map((r) => r.id), [byClientA.id]);
+    expect(store.ownReservations('cliente-b'), isEmpty);
+    // Los datos sembrados no pertenecen a ninguna identidad.
+    expect(store.ownReservations('admin-1'), isEmpty);
+  });
+
   group('catálogo de noches del cliente (N5)', () {
     test('semana calendario: del lunes 5 al domingo 11 se ofrecen 9, 10 y '
         '11', () {
@@ -331,7 +409,7 @@ void main() {
             .status,
         TableMapStatus.reserved,
       );
-    });
+    }, variant: TargetPlatformVariant.mobile());
 
     testWidgets('entrada y trámite con texto al 200 % en móvil pequeño, sin '
         'desbordes', (tester) async {
@@ -385,26 +463,28 @@ void main() {
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.mobile());
 
-    testWidgets('cliente: VIP a su nombre crea la solicitud solo al enviar', (
-      tester,
-    ) async {
-      final store = await pumpApp(tester);
-      await enter(tester, 'cliente-b');
-      // Deja libre una VIP para el recorrido.
-      final vip = sagsaVenue.tables.firstWhere(
-        (t) => t.isVip && store.book.activeFor(_friday, t.id) == null,
-      );
-      await pick(tester, vip.id);
-      await tapKey(tester, 'sheet-action');
-      expect(store.book.activeFor(_friday, vip.id), isNull);
-      await tapKey(tester, 'flow-review');
-      expect(find.text('Cuenta vinculada: Cliente demo B'), findsOneWidget);
-      await tapKey(tester, 'flow-submit');
-      final r = store.book.activeFor(_friday, vip.id)!;
-      expect(r.status, ReservationStatus.pendingPayment);
-      expect(r.holder!.name, 'Cliente demo B');
-      expect(r.origin, ReservationOrigin.client);
-    });
+    testWidgets(
+      'cliente: VIP a su nombre crea la solicitud solo al enviar',
+      (tester) async {
+        final store = await pumpApp(tester);
+        await enter(tester, 'cliente-b');
+        // Deja libre una VIP para el recorrido.
+        final vip = sagsaVenue.tables.firstWhere(
+          (t) => t.isVip && store.book.activeFor(_friday, t.id) == null,
+        );
+        await pick(tester, vip.id);
+        await tapKey(tester, 'sheet-action');
+        expect(store.book.activeFor(_friday, vip.id), isNull);
+        await tapKey(tester, 'flow-review');
+        expect(find.text('Cuenta vinculada: Cliente demo B'), findsOneWidget);
+        await tapKey(tester, 'flow-submit');
+        final r = store.book.activeFor(_friday, vip.id)!;
+        expect(r.status, ReservationStatus.pendingPayment);
+        expect(r.holder!.name, 'Cliente demo B');
+        expect(r.origin, ReservationOrigin.client);
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
 
     testWidgets('salir del trámite normal pide confirmar; seguir conserva el '
         'plazo y salir lo cancela y libera la mesa', (tester) async {
@@ -443,24 +523,26 @@ void main() {
       expect(find.byType(ReservationFlowPage), findsNothing);
       expect(store.book.byId(r.id)!.status, ReservationStatus.cancelled);
       expect(store.book.activeFor(_friday, tableId), isNull);
-    });
+    }, variant: TargetPlatformVariant.mobile());
 
-    testWidgets('si el trámite vence con el resumen abierto, no se confirma', (
-      tester,
-    ) async {
-      final clock = _Clock(fixedClock());
-      final store = await pumpApp(tester, clock: clock.call);
-      await enter(tester, 'cliente-a');
-      final tableId = freeNormal(store);
-      await pick(tester, tableId);
-      await tapKey(tester, 'sheet-action');
-      await tapKey(tester, 'flow-review');
-      clock.now = clock.now.add(ReservationBook.inProcessTimeout);
-      await tapKey(tester, 'flow-submit');
-      expect(find.byKey(const ValueKey('flow-expired')), findsOneWidget);
-      expect(store.book.activeFor(_friday, tableId), isNull);
-      await tester.pumpWidget(const SizedBox());
-    });
+    testWidgets(
+      'si el trámite vence con el resumen abierto, no se confirma',
+      (tester) async {
+        final clock = _Clock(fixedClock());
+        final store = await pumpApp(tester, clock: clock.call);
+        await enter(tester, 'cliente-a');
+        final tableId = freeNormal(store);
+        await pick(tester, tableId);
+        await tapKey(tester, 'sheet-action');
+        await tapKey(tester, 'flow-review');
+        clock.now = clock.now.add(ReservationBook.inProcessTimeout);
+        await tapKey(tester, 'flow-submit');
+        expect(find.byKey(const ValueKey('flow-expired')), findsOneWidget);
+        expect(store.book.activeFor(_friday, tableId), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
 
     testWidgets('cambiar de identidad vuelve a la entrada sin la pila ni los '
         'formularios de la sesión anterior', (tester) async {
@@ -473,7 +555,7 @@ void main() {
       expect(find.byType(AdminPage), findsNothing);
       expect(find.text('Promotor demo'), findsOneWidget); // solo en la lista
       expect(find.byType(ReservationFlowPage), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.mobile());
 
     testWidgets('el cliente no ve titulares ajenos en «Mis reservas» ni '
         'acciones administrativas', (tester) async {
@@ -485,7 +567,7 @@ void main() {
       for (final key in ['action-revoke', 'action-release', 'create-direct']) {
         expect(find.byKey(ValueKey(key)), findsNothing);
       }
-    });
+    }, variant: TargetPlatformVariant.mobile());
 
     testWidgets('personal: localiza una reserva y registra la llegada solo en '
         'la noche en curso', (tester) async {
@@ -504,21 +586,243 @@ void main() {
       await tapKey(tester, 'staff-arrive-${r.id}');
       await tapKey(tester, 'dialog-confirm');
       expect(store.book.byId(r.id)!.status, ReservationStatus.seated);
-    });
+    }, variant: TargetPlatformVariant.mobile());
 
-    testWidgets('personal: antes de abrir la llegada está desactivada', (
+    testWidgets(
+      'personal: antes de abrir la llegada está desactivada',
+      (tester) async {
+        final store = await pumpApp(tester);
+        await enter(tester, 'personal-1');
+        final r = store.book
+            .forNight(_friday)
+            .firstWhere((r) => r.status == ReservationStatus.confirmed);
+        final button = tester.widget<ButtonStyleButton>(
+          find.byKey(ValueKey('staff-arrive-${r.id}')),
+        );
+        expect(button.onPressed, isNull);
+        expect(store.book.byId(r.id)!.status, ReservationStatus.confirmed);
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    VenueMapController mapOf(WidgetTester tester) => tester
+        .widget<CrystalMapScaffold>(find.byType(CrystalMapScaffold))
+        .controller;
+
+    Future<void> backToEntry(WidgetTester tester) async {
+      Navigator.of(
+        tester.element(find.byType(CrystalMapScaffold)),
+      ).popUntil((r) => r.isFirst);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('lunes 02:00 (Colombia): el cliente ya aplica N5 (semana '
+        'siguiente) y el administrador mantiene el domingo (M1); el '
+        'promotor puede pasar a semanas futuras y el cliente no', (
+      tester,
+    ) async {
+      await pumpApp(tester, clock: () => venueInstant(2026, 10, 12, 2));
+      await enter(tester, 'cliente-a');
+      final client = mapOf(tester);
+      expect(client.nights.map((n) => n.id), [
+        '2026-10-16',
+        '2026-10-17',
+        '2026-10-18',
+      ]);
+      expect(client.nights.map((n) => n.id), isNot(contains('2026-10-11')));
+      client.showWeek(1).ignore();
+      await tester.pumpAndSettle();
+      expect(client.nights.first.id, '2026-10-16');
+      await backToEntry(tester);
+
+      await enter(tester, 'admin-1');
+      expect(mapOf(tester).nights.map((n) => n.id), contains('2026-10-11'));
+      await backToEntry(tester);
+
+      await enter(tester, 'promotor-1');
+      final promoter = mapOf(tester);
+      expect(promoter.nights.map((n) => n.id), contains('2026-10-11'));
+      promoter.showWeek(1).ignore();
+      await tester.pumpAndSettle();
+      expect(promoter.nights.map((n) => n.id), contains('2026-10-16'));
+      await tester.pumpWidget(const SizedBox());
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets('con la app abierta, el catálogo del cliente cambia al '
+        'llegar el lunes 00:00 sin reiniciar', (tester) async {
+      final clock = _Clock(
+        venueInstant(2026, 10, 11, 23, 59).add(const Duration(seconds: 30)),
+      );
+      await pumpApp(tester, clock: clock.call);
+      await enter(tester, 'cliente-a');
+      final client = mapOf(tester);
+      expect(client.nights.map((n) => n.id), ['2026-10-11']);
+      clock.now = clock.now.add(const Duration(seconds: 31));
+      await tester.pump(const Duration(seconds: 31));
+      await tester.pumpAndSettle();
+      expect(client.nights.map((n) => n.id), [
+        '2026-10-16',
+        '2026-10-17',
+        '2026-10-18',
+      ]);
+      await tester.pumpWidget(const SizedBox());
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets('todas las perspectivas usan la misma instancia del almacén; '
+        'lo creado persiste al cambiar de identidad y no se muestra a otra', (
       tester,
     ) async {
       final store = await pumpApp(tester);
-      await enter(tester, 'personal-1');
-      final r = store.book
+      await enter(tester, 'cliente-a');
+      final guest = tester.widget<GuestHomePage>(find.byType(GuestHomePage));
+      expect(identical(guest.store, store), isTrue);
+      final tableId = freeNormal(store);
+      await pick(tester, tableId);
+      await tapKey(tester, 'sheet-action');
+      await tapKey(tester, 'flow-review');
+      await tapKey(tester, 'flow-submit');
+      final mine = store.book.activeFor(_friday, tableId)!;
+      expect(mine.status, ReservationStatus.confirmed);
+      expect(mine.createdBy, 'cliente-a');
+      await tapKey(tester, 'flow-show-mine');
+      await backToEntry(tester);
+
+      await enter(tester, 'cliente-b');
+      await tapKey(tester, 'tab-Mis reservas');
+      expect(find.byKey(ValueKey('mine-${mine.id}')), findsNothing);
+      await tapKey(tester, 'tab-Mapa');
+      // Ficha pública de la mesa de A y de una sembrada: sin titulares.
+      final seeded = store.book
           .forNight(_friday)
           .firstWhere((r) => r.status == ReservationStatus.confirmed);
-      final button = tester.widget<ButtonStyleButton>(
-        find.byKey(ValueKey('staff-arrive-${r.id}')),
+      for (final id in [tableId, seeded.tableId]) {
+        await pick(tester, id);
+        expect(find.textContaining('Cliente demo A'), findsNothing);
+        expect(find.textContaining('3000000001'), findsNothing);
+        expect(find.textContaining('Titular demo'), findsNothing);
+        for (final key in [
+          'action-revoke',
+          'action-release',
+          'create-direct',
+        ]) {
+          expect(find.byKey(ValueKey(key)), findsNothing);
+        }
+      }
+      await backToEntry(tester);
+
+      await enter(tester, 'personal-1');
+      final staff = tester.widget<StaffPage>(find.byType(StaffPage));
+      expect(identical(staff.store, store), isTrue);
+      await backToEntry(tester);
+
+      await enter(tester, 'cliente-a');
+      await tapKey(tester, 'tab-Mis reservas');
+      expect(find.byKey(ValueKey('mine-${mine.id}')), findsOneWidget);
+      expect(store.book.byId(mine.id)!.status, ReservationStatus.confirmed);
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets('cambiar de identidad desde el trámite pide confirmar: seguir '
+        'conserva formulario y plazo; aceptar cancela y limpia la pila', (
+      tester,
+    ) async {
+      final store = await pumpApp(tester);
+      await enter(tester, 'promotor-1');
+      final tableId = freeNormal(store);
+      await pick(tester, tableId);
+      await tapKey(tester, 'sheet-action');
+      final r = store.book.activeFor(_friday, tableId)!;
+      await tester.enterText(
+        find.byKey(const ValueKey('flow-name')),
+        'Titular escrito',
       );
-      expect(button.onPressed, isNull);
-      expect(store.book.byId(r.id)!.status, ReservationStatus.confirmed);
-    });
+
+      await tapKey(tester, 'flow-switch-identity');
+      expect(find.text('¿Salir del trámite?'), findsOneWidget);
+      await tapKey(tester, 'leave-cancel');
+      expect(find.byType(ReservationFlowPage), findsOneWidget);
+      expect(find.text('Titular escrito'), findsOneWidget);
+      expect(store.book.byId(r.id)!.status, ReservationStatus.inProcess);
+      expect(store.book.byId(r.id)!.createdAt, r.createdAt);
+
+      for (final s in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(s);
+      }
+      await tester.pump();
+      expect(store.book.byId(r.id)!.status, ReservationStatus.inProcess);
+      expect(find.text('Titular escrito'), findsOneWidget);
+
+      await tapKey(tester, 'flow-switch-identity');
+      await tapKey(tester, 'leave-confirm');
+      expect(find.byType(ReservationFlowPage), findsNothing);
+      expect(find.byType(GuestHomePage), findsNothing);
+      expect(find.byKey(const ValueKey('identity-admin-1')), findsOneWidget);
+      expect(store.book.byId(r.id)!.status, ReservationStatus.cancelled);
+      expect(store.book.activeFor(_friday, tableId), isNull);
+
+      await enter(tester, 'promotor-1');
+      expect(find.byType(ReservationFlowPage), findsNothing);
+      expect(find.text('Titular escrito'), findsNothing);
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets(
+      'una VIP enviada no se cancela al cambiar de identidad',
+      (tester) async {
+        final store = await pumpApp(tester);
+        await enter(tester, 'cliente-b');
+        final vip = sagsaVenue.tables.firstWhere(
+          (t) => t.isVip && store.book.activeFor(_friday, t.id) == null,
+        );
+        await pick(tester, vip.id);
+        await tapKey(tester, 'sheet-action');
+        await tapKey(tester, 'flow-review');
+        await tapKey(tester, 'flow-submit');
+        final r = store.book.activeFor(_friday, vip.id)!;
+        await tapKey(tester, 'flow-switch-identity');
+        expect(find.text('¿Salir del trámite?'), findsNothing);
+        expect(find.byKey(const ValueKey('identity-admin-1')), findsOneWidget);
+        expect(store.book.byId(r.id)!.status, ReservationStatus.pendingPayment);
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    testWidgets('el segundo plano no reinicia el plazo: el trámite vence a su '
+        'hora original', (tester) async {
+      final clock = _Clock(fixedClock());
+      final store = await pumpApp(tester, clock: clock.call);
+      await enter(tester, 'cliente-a');
+      final tableId = freeNormal(store);
+      await pick(tester, tableId);
+      await tapKey(tester, 'sheet-action');
+      for (final s in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(s);
+      }
+      clock.now = clock.now.add(const Duration(minutes: 9));
+      for (final s in [
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(s);
+      }
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(const ValueKey('flow-expired')), findsNothing);
+      clock.now = clock.now.add(const Duration(minutes: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('flow-expired')), findsOneWidget);
+      expect(store.book.activeFor(_friday, tableId), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }, variant: TargetPlatformVariant.mobile());
   });
 }

@@ -27,7 +27,7 @@ class MyReservations extends StatelessWidget {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        final mine = store.book.createdBy(identity.id)
+        final mine = store.ownReservations(identity.id)
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         return ListView(
           padding: EdgeInsets.fromLTRB(

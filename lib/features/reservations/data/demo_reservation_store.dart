@@ -48,6 +48,11 @@ class DemoReservationStore extends ChangeNotifier
   Future<NightAvailability> availabilityFor(Night night) =>
       _snapshot(night, withReservations: false);
 
+  /// Proyección propia del cliente o del promotor: solo las reservas que creó
+  /// esa identidad, nunca la colección del administrador.
+  List<Reservation> ownReservations(String identityId) =>
+      book.createdBy(identityId);
+
   /// Ejecuta una operación del libro y, si tiene éxito, avisa a las vistas.
   /// Si la operación lanza [ReservationException], no cambia nada ni avisa.
   T perform<T>(T Function(ReservationBook book) operation) {

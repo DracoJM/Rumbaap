@@ -2,15 +2,16 @@ import 'night_schedule.dart';
 import 'reservation.dart';
 import 'venue_table.dart';
 
-/// Registro de reservas de un local ([venue]) con las reglas R1–R8, en
+/// Registro de reservas de un local ([venue]) con las reglas R1–R16, en
 /// memoria y con reloj inyectable. Solo admite mesas de ese local: los datos
 /// de locales distintos nunca comparten registro.
 ///
-/// Las reglas R1–R8 y el horario son las confirmadas para Sagsa, hoy el único
+/// Las reglas y el horario son las confirmadas para Sagsa, hoy el único
 /// local configurado. PENDIENTE (fuera de alcance): parametrizarlas por local
 /// cuando exista un segundo local con reglas propias. No conoce roles: quién puede ejecutar cada operación lo
-/// decidirá la perspectiva que la use (administrador hoy; por ejemplo, el
-/// mesero también registrará llegadas, R5).
+/// decide la perspectiva que la use (administración, cliente, promotor o
+/// personal). Tampoco calcula el vínculo de cuenta (R12): la vista lo
+/// obtiene por cédula exacta y lo pasa como `linkedAccountId`.
 ///
 /// PENDIENTE (fuera de alcance): persistencia y datos compartidos (backend),
 /// liberación automática de las 11 p. m., unión transaccional de las dos VIP
@@ -119,6 +120,11 @@ class ReservationBook {
     }
     if (r.status != ReservationStatus.inProcess) {
       throw const ReservationException(ReservationError.invalidTransition);
+    }
+    // Un trámite iniciado antes del cierre no se confirma después (I7): la
+    // noche ya terminó.
+    if (r.night.hasEnded(VenueTime.of(_clock()))) {
+      throw const ReservationException(ReservationError.nightEnded);
     }
     if (!isValidRequestHolder(holder)) {
       throw const ReservationException(ReservationError.invalidHolder);

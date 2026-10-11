@@ -16,7 +16,7 @@ Estados: `VALIDATED` (decidido por el equipo), `NOT DECIDED` (pendiente).
 | N2 | La hora de referencia es la del establecimiento: Colombia, UTC−5. | VALIDATED |
 | N3 | Se opera en las noches del fin de semana: **viernes, sábado y domingo**. | VALIDATED |
 | N4 | Las noches se calculan a partir del fin de semana actual, y debe haber forma de seleccionar noches futuras. Más adelante, el promotor podrá añadir eventos. | VALIDATED |
-| N5 | **Cliente:** solo ve y reserva las noches del fin de semana de su **semana calendario** en curso (de lunes a domingo). Las noches del fin de semana siguiente se abren el lunes de esa semana (por ejemplo, del 5 al 11 de octubre de 2026 se reservan el 9, 10 y 11; el 16, 17 y 18 se abren el lunes 12). | VALIDATED, pendiente de implementar (vista de cliente) |
+| N5 | **Cliente:** solo ve y reserva las noches del fin de semana de su **semana calendario** en curso (de lunes a domingo). Las noches del fin de semana siguiente se abren el lunes de esa semana (por ejemplo, del 5 al 11 de octubre de 2026 se reservan el 9, 10 y 11; el 16, 17 y 18 se abren el lunes 12). | VALIDATED |
 | N6 | Una mesa solo puede estar **Ocupada** durante la noche en curso (entre la apertura y el cierre). | VALIDATED |
 | N7 | **Promotor:** ve también noches futuras, con el mismo selector de noches que el administrador (M1–M3) y sin un límite temporal nuevo. Eso no le da acciones ni datos del administrador (prepago, llegada, revocar, liberar, reservas ajenas). El cliente mantiene N5. Crear eventos y gestionar promotores siguen fuera de alcance. | VALIDATED (2026-10-10) |
 

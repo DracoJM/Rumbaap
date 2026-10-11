@@ -168,6 +168,15 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     return true;
   }
 
+  /// Cambiar de identidad desde el trámite también es salir: pide la misma
+  /// confirmación (R15). Si se acepta, cancela el trámite normal activo y
+  /// vuelve a la entrada, limpiando la pila. Una VIP enviada no se toca.
+  Future<void> _switchIdentity() async {
+    final navigator = Navigator.of(context);
+    if (!await _confirmLeave() || !mounted) return;
+    navigator.popUntil((route) => route.isFirst);
+  }
+
   void _toSummary() {
     setState(() => _error = null);
     if (_isClient && !_forOther) {
@@ -236,7 +245,8 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_activeNormal,
+      // Desde el resumen, «atrás» siempre vuelve al formulario, también en VIP.
+      canPop: !_activeNormal && _step != _Step.summary,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final navigator = Navigator.of(context);
@@ -250,6 +260,14 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.table.isVip ? 'Solicitud VIP' : 'Reservar mesa'),
+          actions: [
+            IconButton(
+              key: const ValueKey('flow-switch-identity'),
+              tooltip: 'Cambiar identidad',
+              icon: const Icon(Icons.switch_account_outlined),
+              onPressed: _switchIdentity,
+            ),
+          ],
         ),
         body: SafeArea(
           child: ListView(

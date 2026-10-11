@@ -75,10 +75,8 @@ abstract final class NightSchedule {
   ///
   /// Regla M2 del mapa de consulta: no incluye las noches ya terminadas. No
   /// impide un futuro historial del administrador.
-  ///
-  /// PENDIENTE (fuera de alcance): el catálogo del cliente (regla N5) se
-  /// calculará con la semana calendario de lunes a domingo, sin reutilizar
-  /// el desfase de 03:00 de [currentWeekStart].
+  /// El catálogo del cliente (N5) no usa esta función, sino
+  /// [calendarWeekendNights], sin el desfase de 03:00 de [currentWeekStart].
   static List<Night> weekendNights(DateTime venueNow, {int weeksAhead = 0}) {
     assert(weeksAhead >= 0);
     return _weekend(

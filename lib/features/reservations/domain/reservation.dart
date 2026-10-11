@@ -39,11 +39,9 @@ enum ReservationStatus {
   };
 }
 
-/// Procedencia de la reserva.
-///
-/// PENDIENTE (fuera de alcance): las vistas de cliente (R9), promotor (R10)
-/// y personal no existen todavía; hoy solo crea reservas el administrador y
-/// los datos de demostración.
+/// Procedencia de la reserva: qué perspectiva la creó. Es distinta de la
+/// identidad creadora ([Reservation.createdBy]) y de la cuenta vinculada al
+/// titular ([Reservation.linkedAccountId]).
 enum ReservationOrigin { client, promoter, admin }
 
 /// Titular de la reserva.
