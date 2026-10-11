@@ -100,7 +100,13 @@ class MyReservationDetailPage extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         row('Local', store.venue.name),
-        row('Noche', '${r.night.label} · ${r.night.scheduleLabel}'),
+        // El año es el de la noche reservada, no el del reloj: el promotor
+        // puede reservar noches de años futuros.
+        row(
+          'Noche',
+          '${r.night.label} de ${r.night.date.year} · '
+              '${r.night.scheduleLabel}',
+        ),
         row('Mesa', '${table.displayName} · ${table.kindLabel}'),
         row('Reserva', r.id),
         row('Titular', r.holderName),

@@ -4,7 +4,7 @@ Reglas de trabajo de Claude Code en este repositorio. Versión 1.
 
 ## 1. Contexto
 
-- Rumbaap es un **producto de software real** orientado inicialmente al sector de entretenimiento nocturno. No es un prototipo.
+- Rumbaap es un **producto de software real** orientado inicialmente al sector de entretenimiento nocturno. El objetivo es un producto real; el prototipo de la fase actual es un paso hacia él, no un fin en sí mismo.
 - **Fase actual (aprobada por Juanmi, D16):** prototipo frontend funcional y presentable, con datos y sesiones ficticios, para presentar los recorridos al cliente y obtener su aprobación. Base de datos, autenticación, pagos y servicios remotos reales se abordan después de esa aprobación explícita. El código se escribe con calidad de producto, aunque los datos y las sesiones sean de demostración.
 - **Sagsa** actúa como cliente/design partner inicial para la elicitación y la validación, pero las decisiones de arquitectura no deben acoplar innecesariamente el producto a un único establecimiento. Esto no autoriza a desarrollar funcionalidades multiempresa ni arquitectura SaaS especulativa (sección 13).
 - La elicitación de requisitos **sigue en curso**. Lo no aprobado explícitamente por el equipo no es un requisito.

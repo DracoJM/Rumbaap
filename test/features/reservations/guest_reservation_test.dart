@@ -982,6 +982,11 @@ void main() {
       expect(find.byKey(ValueKey('mine-detail-${r.id}')), findsOneWidget);
       expect(find.text('Reservada'), findsOneWidget);
       expect(find.text('Sagsa'), findsOneWidget);
+      // Fecha completa con el año de la noche reservada.
+      expect(
+        find.textContaining('Viernes 9 de octubre de 2026'),
+        findsOneWidget,
+      );
       expect(find.text('Titular escrito'), findsOneWidget);
       expect(find.text('Vinculada a tu cuenta'), findsOneWidget);
       for (final key in [
@@ -1042,6 +1047,27 @@ void main() {
       expect(r.linkedAccountId, 'cliente-b');
       expect(r.createdBy, 'cliente-a');
       expect(r.holder!.name, 'Titular escrito');
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets('la ficha muestra el año de la noche reservada, no el del '
+        'reloj', (tester) async {
+      final store = await pumpApp(tester);
+      // Viernes 8 de enero de 2027, reservado con el reloj en 2026.
+      final future = Night(DateTime.utc(2027, 1, 8));
+      final r = store.perform((b) {
+        final started = b.startNormal(
+          night: future,
+          tableId: 'M01',
+          origin: ReservationOrigin.promoter,
+          createdBy: 'promotor-1',
+        );
+        return b.submitNormal(started.id, holder: _holder);
+      });
+      await enter(tester, 'promotor-1');
+      await tapKey(tester, 'tab-Mis reservas');
+      await tapKey(tester, 'mine-${r.id}');
+      expect(find.textContaining('Viernes 8 de enero de 2027'), findsOneWidget);
+      expect(find.textContaining('de 2026'), findsNothing);
     }, variant: TargetPlatformVariant.mobile());
 
     testWidgets('el segundo plano no reinicia el plazo: el trámite vence a su '
