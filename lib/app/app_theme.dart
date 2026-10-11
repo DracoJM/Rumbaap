@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../theme/status_colors.dart';
+import '../theme/venues/sagsa.dart';
+
 /// Paleta nocturna: grafito, violeta de interfaz y ámbar ambiental.
 /// Adaptada del prototipo de demostración Rumbaap × Sagsa.
 abstract final class AppColors {
@@ -51,6 +54,9 @@ abstract final class AppTheme {
       displayColor: AppColors.text,
     );
     return base.copyWith(
+      // Tema del local para las pantallas «Noche de cristal». Hoy solo hay
+      // un local; el resto de la app sigue con la paleta de AppColors.
+      extensions: [sagsaTheme, StatusColors.forVenue(sagsaTheme)],
       textTheme: text,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.background,

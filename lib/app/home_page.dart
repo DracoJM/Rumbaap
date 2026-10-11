@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/admin_map/presentation/admin_map_page.dart';
 import '../features/reservations/data/demo_reservation_store.dart';
 import '../features/reservations/domain/night_schedule.dart';
 import '../features/reservations/presentation/admin/admin_page.dart';
@@ -59,6 +60,20 @@ class HomePage extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.admin_panel_settings_outlined),
                     label: const Text('Administrador (demostración)'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 52),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                    ),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AdminMapPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('Mapa del administrador'),
                   ),
                   const SizedBox(height: 24),
                   const _DemoNotice(),
