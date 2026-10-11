@@ -13,7 +13,12 @@ void main() {
   final friday = Night(DateTime.utc(2026, 10, 9));
   final saturday = Night(DateTime.utc(2026, 10, 10));
 
-  const client = ReservationHolder(name: 'Titular demo A', idNumber: '0001');
+  // Titular de solicitud con los datos que exige R12 (nombre y teléfono).
+  const client = ReservationHolder(
+    name: 'Titular demo A',
+    idNumber: '0001',
+    phone: '0000000001',
+  );
   const direct = ReservationHolder(
     name: 'Titular demo B',
     idNumber: '0002',
@@ -129,9 +134,10 @@ void main() {
         r.createdAt.add(ReservationBook.inProcessTimeout),
       );
       expect(book.activeFor(friday, 'M01'), isNull);
+      // Mismo error que el envío del trámite (submitNormal): ya venció.
       expect(
         () => book.completeRequest(r.id),
-        throwsReservation(ReservationError.invalidTransition),
+        throwsReservation(ReservationError.expired),
       );
     });
 

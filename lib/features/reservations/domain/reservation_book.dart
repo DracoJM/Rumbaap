@@ -72,6 +72,9 @@ class ReservationBook {
     required ReservationOrigin origin,
   }) {
     assert(origin != ReservationOrigin.admin, 'El admin usa createDirect.');
+    if (!isValidRequestHolder(holder)) {
+      throw const ReservationException(ReservationError.invalidHolder);
+    }
     _checkCanReserve(night, tableId, vip: false);
     return _create(
       night,
@@ -182,13 +185,42 @@ class ReservationBook {
     ];
   }
 
-  /// Mesa normal: se completó el trámite y se confirma automáticamente (R1).
-  Reservation completeRequest(String id) => _transition(
-    id,
-    from: {ReservationStatus.inProcess},
-    to: ReservationStatus.confirmed,
-    event: ReservationEventType.completed,
-  );
+  /// Reservas que una identidad creó o que están adjudicadas a su cuenta
+  /// ficticia ([Reservation.linkedAccountId]), sin duplicados. No cambia
+  /// quién la creó.
+  List<Reservation> createdByOrLinkedTo(String identityId) {
+    _expireOverdue();
+    return [
+      for (final r in _reservations.values)
+        if (r.createdBy == identityId || r.linkedAccountId == identityId) r,
+    ];
+  }
+
+  /// Ruta anterior a R14 (siembra y tests del administrador): confirma un
+  /// trámite que ya tiene titular. Aplica las mismas comprobaciones que
+  /// [submitNormal], para que no sirva de atajo: sin titular válido, vencido o
+  /// con la noche cerrada no confirma.
+  Reservation completeRequest(String id) {
+    final r = _get(id);
+    if (r.status == ReservationStatus.expired) {
+      throw const ReservationException(ReservationError.expired);
+    }
+    if (r.status != ReservationStatus.inProcess) {
+      throw const ReservationException(ReservationError.invalidTransition);
+    }
+    if (r.night.hasEnded(VenueTime.of(_clock()))) {
+      throw const ReservationException(ReservationError.nightEnded);
+    }
+    final holder = r.holder;
+    if (holder == null || !isValidRequestHolder(holder)) {
+      throw const ReservationException(ReservationError.invalidHolder);
+    }
+    return _apply(
+      r,
+      ReservationStatus.confirmed,
+      ReservationEventType.completed,
+    );
+  }
 
   /// Mesa VIP: solicitud pendiente de pago, sin caducidad (R2).
   Reservation requestVip({
@@ -198,6 +230,9 @@ class ReservationBook {
     required ReservationOrigin origin,
   }) {
     assert(origin != ReservationOrigin.admin, 'El admin usa createDirect.');
+    if (!isValidRequestHolder(holder)) {
+      throw const ReservationException(ReservationError.invalidHolder);
+    }
     _checkCanReserve(night, tableId, vip: true);
     return _create(
       night,
@@ -234,6 +269,7 @@ class ReservationBook {
     required Night night,
     required String tableId,
     required ReservationHolder holder,
+    String? linkedAccountId,
   }) {
     if (!_isValidDirectHolder(holder)) {
       throw const ReservationException(ReservationError.invalidHolder);
@@ -246,6 +282,7 @@ class ReservationBook {
       ReservationOrigin.admin,
       ReservationStatus.confirmed,
       ReservationEventType.createdDirect,
+      linkedAccountId: linkedAccountId,
     );
   }
 
