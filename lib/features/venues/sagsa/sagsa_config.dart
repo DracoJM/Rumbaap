@@ -1,5 +1,6 @@
 import '../../../theme/venues/sagsa.dart';
 import '../../reservations/domain/venue_table.dart';
+import '../../tickets/domain/ticket.dart';
 import '../venue_config.dart';
 import 'sagsa_layout.dart';
 import 'sagsa_venue.dart';
@@ -32,4 +33,9 @@ final sagsaConfig = VenueConfig(
       ],
     ),
   },
+  // Entrada de DEMOSTRACIÓN para recorrer la venta: nombre y precio
+  // ficticios, no son los de Sagsa. Aforo: sin configurar (NOT DECIDED).
+  ticketProducts: const [
+    TicketProduct(id: 'general', name: 'Entrada general', demoPrice: 50000),
+  ],
 );

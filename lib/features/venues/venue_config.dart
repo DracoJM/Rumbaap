@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../theme/venue_theme.dart';
 import '../reservations/domain/venue_table.dart';
 import '../reservations/presentation/map/crystal_layout.dart';
+import '../tickets/domain/ticket.dart';
 
 /// Todo lo que la app necesita saber de un local para mostrarlo: identidad,
 /// mesas y zonas ([venue]), tema, distribución del mapa y condiciones
@@ -15,6 +16,8 @@ class VenueConfig {
     required this.theme,
     required this.layout,
     required this.terms,
+    this.ticketProducts = const [],
+    this.capacity,
   }) {
     assert(
       venue.tables.every((t) => layout.placementOf(t.id) != null),
@@ -34,6 +37,14 @@ class VenueConfig {
   final Map<TableKind, TableTerms> terms;
 
   TableTerms termsOf(VenueTable table) => terms[table.kind]!;
+
+  /// Entradas a la venta en la demo. Nombres y precios son de
+  /// DEMOSTRACIÓN, no política del local.
+  final List<TicketProduct> ticketProducts;
+
+  /// Aforo del local, configurable por local. `null`: no configurado
+  /// (`NOT DECIDED`). La ocupación física no se deduce de las entradas.
+  final int? capacity;
 }
 
 /// Capacidad y condiciones de un tipo de mesa, tal como las confirmó el

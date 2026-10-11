@@ -7,6 +7,10 @@ library;
 
 enum DemoProfile { client, promoter, admin, staff }
 
+/// Responsabilidad del personal en la demo. Cada una ve solo sus tareas;
+/// no hay autenticación real.
+enum StaffRole { security, cashier, waiter }
+
 class DemoIdentity {
   const DemoIdentity({
     required this.id,
@@ -14,6 +18,7 @@ class DemoIdentity {
     required this.profile,
     this.idNumber,
     this.phone,
+    this.staffRole,
   });
 
   final String id;
@@ -23,6 +28,9 @@ class DemoIdentity {
   /// Cédula de la cuenta ficticia (solo clientes).
   final String? idNumber;
   final String? phone;
+
+  /// Solo para el perfil de personal.
+  final StaffRole? staffRole;
 }
 
 abstract final class DemoIdentities {
@@ -52,9 +60,22 @@ abstract final class DemoIdentities {
       profile: DemoProfile.admin,
     ),
     DemoIdentity(
+      id: 'seguridad-1',
+      name: 'Seguridad demo',
+      profile: DemoProfile.staff,
+      staffRole: StaffRole.security,
+    ),
+    DemoIdentity(
+      id: 'caja-1',
+      name: 'Caja demo',
+      profile: DemoProfile.staff,
+      staffRole: StaffRole.cashier,
+    ),
+    DemoIdentity(
       id: 'personal-1',
       name: 'Mesero demo',
       profile: DemoProfile.staff,
+      staffRole: StaffRole.waiter,
     ),
   ];
 
@@ -95,6 +116,21 @@ extension DemoProfileLabels on DemoProfile {
       'Reserva para tus clientes, también en noches futuras.',
     DemoProfile.admin =>
       'Gestiona reservas, pagos VIP por verificar, llegadas y mesas.',
-    DemoProfile.staff => 'Busca una reserva y registra la llegada.',
+    DemoProfile.staff =>
+      'Seguridad valida entradas, Caja entrega manillas y el mesero '
+          'registra llegadas a mesas.',
   };
 }
+
+extension StaffRoleLabels on StaffRole {
+  String get label => switch (this) {
+    StaffRole.security => 'Seguridad',
+    StaffRole.cashier => 'Caja',
+    StaffRole.waiter => 'Mesero / barra',
+  };
+}
+
+/// Código del QR PERSONAL de una cuenta ficticia: solo identifica la cuenta.
+/// No es un pago, no prueba la edad y no es una entrada.
+String personalQrCode(DemoIdentity identity) =>
+    'QRP-${identity.id.toUpperCase()}';
