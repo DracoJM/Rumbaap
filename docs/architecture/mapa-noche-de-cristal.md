@@ -53,11 +53,24 @@
 
   El plano es un gráfico denso y sus franjas no se declaran como áreas de 48 dp. La alternativa accesible es «Elegir mesa» (botón de lista arriba a la derecha, siempre a la vista), con filas de al menos 48 dp.
 - **Controles:** volver, «Elegir mesa», flechas de noche, chips del resumen, acciones y botones de la ficha y pestañas miden al menos 48 × 48 dp; un test los mide en 320 × 568.
-- **Texto ampliado:** la barra inferior usa la escala de texto del sistema sin límite propio.
-  - Si a esa escala las cinco secciones no caben sin partir palabras, pasa a varias filas (`GlassTabBar.columnsFor`); con el tamaño normal es la fila única de v7.
-  - Con texto grande, la cabecera ocupa como mucho la mitad del alto y se desplaza.
-  - La ficha cede alto a la barra. Ficha y barra juntas no pasan del 80 % de la pantalla; si no caben, se desplazan.
-  - Los segmentos de Reservas van en una fila desplazable y «Elegir mesa» es una sola lista desplazable.
+- **Texto ampliado (200 %):** la interfaz usa la escala de texto del sistema sin límite propio; nada se reduce, se oculta ni se recorta con «…». Verificado en tests y en el emulador Android con 320 × 568 dp y fuente al 200 %.
+  - **Barra inferior:** con el tamaño normal es la fila única de v7. Si las cinco secciones no caben sin partir palabras (`GlassTabBar.itemWidthFor`), sigue en una fila que se desplaza en horizontal; no crece en filas sobre el plano.
+  - **Cabecera:** la fila superior (volver, aviso de datos ficticios y «Elegir mesa») queda fija. Con texto grande, la noche y el resumen se desplazan junto con el plano; sobre las listas, la cabecera ocupa como mucho el 40 % del alto.
+  - **Ficha cerrada:** la mesa y su estado ocupan las líneas que necesiten y la acción pasa a su propia fila, a lo ancho.
+  - **Alto de ficha y barra:** juntas no pasan del 80 % de la pantalla; la ficha cede alto y se desplaza.
+  - **Listas:** las de Reservas dejan libre el alto de la barra, así su última fila se ve y se toca. Los segmentos van en una fila desplazable.
+  - **«Elegir mesa»:** es una sola lista desplazable, cabecera incluida; el estado de cada fila va bajo la zona, sin recortarse.
+
+## Cobertura de tests de estas interacciones
+
+`test/features/reservations/map_interactions_test.dart` sustituye la cobertura de la antigua pantalla de demostración con el componente actual:
+- **Noche:** deslizar sobre la fecha cambia de noche y no retrocede antes de la primera.
+- **Filtro:** el chip del resumen atenúa las demás mesas a 0,2, anuncia `toggled` y se quita, sin cambiar estados ni reservas.
+- **Animación:** las luces avanzan sin reconstruir el mapa ni las mesas.
+- **Ficha abierta:** el final del plano es alcanzable en el teléfono, en consulta y en administración.
+- **Activación semántica:** `SemanticsAction.tap` real sobre una VIP, sobre la acción de la ficha y sobre las pestañas Mapa y Reservas. Las secciones en desarrollo no publican `tap` y están deshabilitadas.
+- **Texto al 200 %:** escala efectiva 2,0 y etiquetas sin partir en la barra y la ficha; estado legible en «Elegir mesa»; final de las listas por encima de la barra.
+- **Tamaños táctiles:** medidos en 320 × 568.
 
 ## Pendiente
 
