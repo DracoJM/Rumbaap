@@ -33,31 +33,85 @@ class GlassTabBar extends StatelessWidget {
 
   final List<GlassTab> tabs;
 
+  static const _labelStyle = TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+  );
+  static const _noteStyle = TextStyle(fontSize: 8.5);
+
+  /// Relleno horizontal de cada sección, a cada lado.
+  static const _itemPadding = 4.0;
+
   @override
   Widget build(BuildContext context) {
-    // El texto crece hasta un 130 %: con más, cinco etiquetas no caben.
-    return MediaQuery.withClampedTextScaling(
-      maxScaleFactor: 1.3,
-      child: GlassPanel(
-        radius: 32,
-        blur: 20,
-        saturation: 1.6,
-        tint: const [0.1, 0.1],
-        borderAlpha: 0.16,
-        highlightAlpha: 0.35,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-          child: Row(
-            children: [
-              for (final tab in tabs)
-                Expanded(
-                  child: _TabItem(key: ValueKey('tab-${tab.label}'), tab: tab),
-                ),
-            ],
-          ),
+    // Respeta el tamaño de texto del sistema: si las etiquetas no caben en
+    // una fila a esa escala, la barra pasa a varias filas en lugar de
+    // reducir el texto u ocultar etiquetas.
+    final scaler = MediaQuery.textScalerOf(context);
+    return GlassPanel(
+      radius: 28,
+      blur: 20,
+      saturation: 1.6,
+      tint: const [0.1, 0.1],
+      borderAlpha: 0.16,
+      highlightAlpha: 0.35,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = columnsFor(
+              tabs,
+              width: constraints.maxWidth,
+              scaler: scaler,
+            );
+            Widget item(GlassTab tab) =>
+                _TabItem(key: ValueKey('tab-${tab.label}'), tab: tab);
+            if (columns >= tabs.length) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [for (final tab in tabs) Expanded(child: item(tab))],
+              );
+            }
+            final width = constraints.maxWidth / columns;
+            return Wrap(
+              children: [
+                for (final tab in tabs)
+                  SizedBox(width: width, child: item(tab)),
+              ],
+            );
+          },
         ),
       ),
     );
+  }
+
+  /// Columnas en las que caben las secciones sin partir ninguna palabra de
+  /// sus textos a la escala de texto efectiva: todas en una fila si caben;
+  /// si no, las que quepan (al menos una).
+  static int columnsFor(
+    List<GlassTab> tabs, {
+    required double width,
+    required TextScaler scaler,
+  }) {
+    var widest = 0.0;
+    void measure(String text, TextStyle style) {
+      for (final word in text.split(' ')) {
+        final painter = TextPainter(
+          text: TextSpan(text: word, style: style),
+          textDirection: TextDirection.ltr,
+          textScaler: scaler,
+        )..layout();
+        if (painter.width > widest) widest = painter.width;
+        painter.dispose();
+      }
+    }
+
+    for (final tab in tabs) {
+      measure(tab.label, _labelStyle);
+      if (tab.onTap == null) measure(pendingNote, _noteStyle);
+    }
+    final needed = widest + 2 * _itemPadding + 2;
+    return (width / needed).floor().clamp(1, tabs.length);
   }
 }
 
@@ -88,7 +142,10 @@ class _TabItem extends StatelessWidget {
         onTap: tab.onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 52),
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 5),
+          padding: const EdgeInsets.symmetric(
+            horizontal: GlassTabBar._itemPadding,
+            vertical: 5,
+          ),
           decoration: tab.selected
               ? BoxDecoration(
                   color: NightNeutrals.glass(0.16),
@@ -107,22 +164,18 @@ class _TabItem extends StatelessWidget {
                 child: Icon(tab.icon, size: 22, color: ink),
               ),
               const SizedBox(height: 2),
+              // Sin cortar el texto: las palabras caben enteras (ver
+              // columnsFor) y la etiqueta puede ocupar dos líneas.
               Text(
                 tab.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: ink,
-                ),
+                textAlign: TextAlign.center,
+                style: GlassTabBar._labelStyle.copyWith(color: ink),
               ),
               if (!enabled)
                 Text(
                   GlassTabBar.pendingNote,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 8.5, color: ink),
+                  textAlign: TextAlign.center,
+                  style: GlassTabBar._noteStyle.copyWith(color: ink),
                 ),
             ],
           ),

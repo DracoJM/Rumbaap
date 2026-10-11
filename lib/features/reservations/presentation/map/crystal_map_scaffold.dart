@@ -38,6 +38,10 @@ class CrystalMapScaffold extends StatefulWidget {
   /// haría mucho más alto que la pantalla.
   static const maxMapWidth = 560.0;
 
+  /// Alto máximo de la ficha en el teléfono, como parte de la pantalla: deja
+  /// a la vista una franja del plano por la que desplazarse hasta su final.
+  static const sheetMaxShare = 0.42;
+
   final VenueMapController controller;
 
   /// Aviso de datos ficticios, siempre visible.
@@ -116,7 +120,7 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
         size.width > size.height;
     final sheet = widget.sheetBuilder(context, _clock.animating);
 
-    final header = <Widget>[
+    final headerItems = <Widget>[
       _TopBar(
         demoLabel: widget.demoLabel,
         onPickTable: widget.body == null
@@ -139,6 +143,19 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
         ),
       if (c.availabilityStatus == LoadStatus.failed)
         InlineError(onRetry: c.retry),
+    ];
+    // Con texto grande en horizontal la cabecera puede no caber: ocupa como
+    // mucho la mitad del alto y se desplaza, en lugar de desbordar.
+    final header = <Widget>[
+      ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: size.height * 0.5),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: headerItems,
+          ),
+        ),
+      ),
     ];
 
     Widget mapArea(double bottomPadding) {
@@ -213,7 +230,11 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
                             ),
                             if (bar != null) ...[
                               const SizedBox(height: 8),
-                              bar,
+                              // Con texto grande la barra puede necesitar
+                              // más alto del que queda: se desplaza.
+                              Flexible(
+                                child: SingleChildScrollView(child: bar),
+                              ),
                             ],
                           ],
                         ),
@@ -260,26 +281,40 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
               padding: const EdgeInsets.symmetric(horizontal: 10),
               // Ficha y barra comparten una sola lectura del fondo.
               child: BackdropGroup(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (sheet != null)
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: size.height * 0.55,
+                // Con texto grande la barra crece: la ficha cede el alto que
+                // falte y se desplaza dentro de su espacio, así ficha y barra
+                // nunca tapan toda la pantalla.
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: size.height * 0.8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (sheet != null)
+                        Flexible(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight:
+                                  size.height *
+                                  CrystalMapScaffold.sheetMaxShare,
+                            ),
+                            child: SingleChildScrollView(child: sheet),
+                          ),
                         ),
-                        child: SingleChildScrollView(child: sheet),
-                      ),
-                    if (bar != null) ...[
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: bar,
-                      ),
+                      if (bar != null) ...[
+                        const SizedBox(height: 8),
+                        // Con texto muy grande la barra puede necesitar más
+                        // alto del disponible: entonces se desplaza.
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: bar,
+                          ),
+                        ),
+                      ],
+                      SizedBox(height: bottomInset > 0 ? bottomInset : 10),
                     ],
-                    SizedBox(height: bottomInset > 0 ? bottomInset : 10),
-                  ],
+                  ),
                 ),
               ),
             ),

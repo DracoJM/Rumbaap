@@ -79,12 +79,14 @@ Future<void> _list(WidgetTester tester, String label) async {
   if (find.byType(SegmentedButton<AdminList>).evaluate().isEmpty) {
     await _tab(tester, 'Reservas');
   }
-  await tester.tap(
-    find.descendant(
-      of: find.byType(SegmentedButton<AdminList>),
-      matching: find.text(label),
-    ),
+  final segment = find.descendant(
+    of: find.byType(SegmentedButton<AdminList>),
+    matching: find.text(label),
   );
+  // La fila de segmentos se desplaza en horizontal si no cabe.
+  await tester.ensureVisible(segment);
+  await tester.pumpAndSettle();
+  await tester.tap(segment);
   await tester.pumpAndSettle();
 }
 
@@ -636,6 +638,13 @@ void main() {
       await tester.scrollUntilVisible(
         find.byKey(ValueKey('reservation-${r.id}')),
         80,
+        // La lista de la sección, no la fila de segmentos ni la cabecera.
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       expect(
         find.descendant(
@@ -682,6 +691,13 @@ void main() {
       await tester.scrollUntilVisible(
         find.textContaining('no es un registro de auditoría'),
         80,
+        // La lista de la sección, no la fila de segmentos ni la cabecera.
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
     });
   });

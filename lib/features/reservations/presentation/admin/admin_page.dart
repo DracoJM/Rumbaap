@@ -227,22 +227,25 @@ class _AdminPageState extends State<AdminPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
+        // Una línea por segmento: con texto grande la fila se desplaza en
+        // horizontal en lugar de crecer en alto y quitar sitio a la lista.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: SegmentedButton<AdminList>(
             showSelectedIcon: false,
             segments: const [
               ButtonSegment(
                 value: AdminList.pending,
-                label: Text('Pendientes'),
+                label: Text('Pendientes', softWrap: false),
               ),
               ButtonSegment(
                 value: AdminList.reservations,
-                label: Text('Reservas'),
+                label: Text('Reservas', softWrap: false),
               ),
               ButtonSegment(
                 value: AdminList.activity,
-                label: Text('Actividad'),
+                label: Text('Actividad', softWrap: false),
               ),
             ],
             selected: {_list},

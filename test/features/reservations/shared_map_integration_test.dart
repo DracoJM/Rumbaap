@@ -278,6 +278,13 @@ void main() {
         await tester.scrollUntilVisible(
           find.byKey(ValueKey('reservation-${created.id}')),
           80,
+          // La lista de la sección, no la fila de segmentos ni la cabecera.
+          scrollable: find
+              .descendant(
+                of: find.byType(ListView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
         );
         expect(find.textContaining('Titular demo ficha'), findsWidgets);
 

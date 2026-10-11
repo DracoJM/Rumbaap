@@ -43,9 +43,10 @@ class _TablePicker extends StatelessWidget {
     final theme = Theme.of(context);
     return ListenableBuilder(
       listenable: controller,
-      builder: (context, _) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
+      // Una sola lista con la cabecera dentro: con texto grande o en
+      // horizontal, todas las filas siguen siendo alcanzables.
+      builder: (context, _) => ListView(
+        shrinkWrap: true,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -64,23 +65,16 @@ class _TablePicker extends StatelessWidget {
             ),
           ),
           const Divider(),
-          Flexible(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final table in VenueScope.of(context).venue.tables)
-                  _TableRow(
-                    table: table,
-                    status: TableMapStatus.from(
-                      controller.availabilityOf(table.id),
-                      table: table,
-                    ),
-                    selected: table.id == controller.selectedTableId,
-                    onTap: () => onPicked(table.id),
-                  ),
-              ],
+          for (final table in VenueScope.of(context).venue.tables)
+            _TableRow(
+              table: table,
+              status: TableMapStatus.from(
+                controller.availabilityOf(table.id),
+                table: table,
+              ),
+              selected: table.id == controller.selectedTableId,
+              onTap: () => onPicked(table.id),
             ),
-          ),
         ],
       ),
     );
