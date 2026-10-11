@@ -11,6 +11,11 @@ import 'admin_widgets.dart';
 
 /// Acciones del administrador sobre una reserva, según su estado (R2, R4–R6).
 ///
+/// Cada estado ofrece una sola salida, para no mostrar dos acciones con el
+/// mismo efecto: pendiente de pago → rechazar; Reservada → revocar; Ocupada →
+/// finalizar el uso y liberar la mesa. El libro sigue admitiendo liberar una
+/// Reservada (R6), pero la vista no lo ofrece porque equivale a revocarla.
+///
 /// Cada acción conserva el ID de la reserva: su mesa y su noche no dependen
 /// de lo que se esté mostrando. Tras cada confirmación se comprueba que la
 /// reserva siga exactamente en el estado en que se abrió el recorrido, y el
@@ -97,7 +102,6 @@ class _ReservationActionsState extends State<ReservationActions> {
           icon: Icons.block_rounded,
           onPressed: enabled ? _revoke : null,
         ),
-        _releaseButton(enabled),
       ]),
       ReservationStatus.seated => _column([_releaseButton(enabled)]),
       ReservationStatus.inProcess => NoticeBox(
@@ -151,7 +155,7 @@ class _ReservationActionsState extends State<ReservationActions> {
     key: const ValueKey('action-release'),
     onPressed: enabled ? _release : null,
     icon: const Icon(Icons.lock_open_rounded),
-    label: const Text('Liberar mesa'),
+    label: const Text('Finalizar uso y liberar mesa'),
   );
 
   Future<void> _confirmPrepayment() => _run(
@@ -223,13 +227,11 @@ class _ReservationActionsState extends State<ReservationActions> {
   Future<void> _release() => _run(
     steps: [
       _Step(
-        title: 'Liberar mesa',
-        message: r.status == ReservationStatus.seated
-            ? '$_subject\n\nLa mesa está OCUPADA. Liberarla la dejará '
-                  'disponible para nuevas reservas de esta noche aunque haya '
-                  'personas usándola.'
-            : '$_subject\n\nLa mesa tiene una reserva confirmada. Liberarla '
-                  'anulará esa reserva y dejará la mesa disponible.',
+        title: 'Finalizar uso y liberar mesa',
+        message:
+            '$_subject\n\nLa mesa está OCUPADA. Finaliza el uso solo cuando '
+            'el grupo la haya dejado: la mesa quedará disponible para nuevas '
+            'reservas de esta noche. No implica devolver ningún pago.',
         confirmLabel: 'Continuar',
       ),
       _Step(
@@ -243,8 +245,8 @@ class _ReservationActionsState extends State<ReservationActions> {
     ],
     operation: (book, id) => book.release(id),
     success:
-        '${r.tableIn(widget.store.venue).displayName} liberada para el '
-        '${r.night.label.toLowerCase()}.',
+        'Uso finalizado: ${r.tableIn(widget.store.venue).displayName} queda '
+        'disponible para el ${r.night.label.toLowerCase()}.',
   );
 
   Future<void> _run({

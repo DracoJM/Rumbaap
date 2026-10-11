@@ -48,8 +48,9 @@ Inicio
 | Reserva directa (R7) | Desde una mesa disponible y una noche no terminada. Pide nombre, cédula y teléfono; cédula y teléfono solo con dígitos, sin longitud ni formato. Teclado numérico o de teléfono. Queda confirmada, también en VIP, con un aviso de verificar el prepago antes. Cancelar no cambia nada y un segundo toque no crea otra reserva. Si la mesa se ocupó o la noche terminó, se explica y no se crea. |
 | VIP pendiente (R2) | Confirmar el prepago verificado o rechazar, cada uno con su confirmación. Sin vencimiento. El rechazo queda como evento «rechazada», distinto de «revocada». `NOT DECIDED: proveedor de pagos`. |
 | Llegada (R5, N6) | Solo una reserva confirmada de la noche en curso, de 8:30 p. m. a 3:00 a. m. Fuera de ese horario el botón está desactivado y se explica cuándo estará disponible. La operación del dominio no comprueba el rol. |
-| Revocar (R4) | Advertencia con la reserva, la mesa, la noche y el titular afectados. |
-| Liberar (R6) | Advertencia (que destaca si la mesa está ocupada) y segunda confirmación. Cancelar en cualquier paso no cambia nada. No se borra la reserva: queda terminada con su historial. |
+| Una salida por estado (P24) | Para no mostrar dos acciones con el mismo efecto: pendiente de pago → «Rechazar solicitud»; Reservada (normal o VIP) → «Revocar reserva»; Ocupada → «Finalizar uso y liberar mesa». El libro sigue admitiendo liberar una Reservada (R6), pero la vista no lo ofrece. No se registra ninguna devolución de prepago. |
+| Revocar (R4) | Advertencia con la reserva, la mesa, la noche y el titular afectados. Si el estado cambia con el aviso abierto (por ejemplo, llega el titular), no se aplica y se explica. |
+| Finalizar uso y liberar (R6) | Solo con la mesa Ocupada. Advertencia (hacerlo cuando el grupo haya dejado la mesa; no implica devolver pagos) y segunda confirmación. Cancelar en cualquier paso no cambia nada. No se borra la reserva: queda terminada con su historial. |
 | Pendientes | Sobre todo VIP por verificar. Las normales en proceso se muestran con su hora de vencimiento y sin botón de aprobación; vencen solas también con la vista abierta. |
 | Reservas y actividad | Solo lectura. Activas y terminadas (revocadas, rechazadas, liberadas o expiradas), y actividad de la noche en hora de Colombia. Se indica que es una lista local de demostración, no un registro de auditoría. |
 

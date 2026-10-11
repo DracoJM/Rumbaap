@@ -536,9 +536,61 @@ void main() {
       expect(find.textContaining('cambió mientras decidías'), findsOneWidget);
     });
 
-    // Liberar admite Reservada y Ocupada (R6), pero el aviso de cada una es
-    // distinto: un cambio entre ambas con el diálogo abierto debe detener el
-    // recorrido (I13) y obligar a empezarlo con la advertencia correcta.
+    // Cada estado ofrece una sola salida: dos botones con el mismo efecto
+    // (revocar y liberar una Reservada) confundían al administrador (P24).
+    testWidgets('una sola acción de salida por estado: pendiente rechaza, '
+        'Reservada revoca y Ocupada finaliza el uso', (tester) async {
+      final clock = _Clock(venueInstant(2026, 10, 9, 23));
+      final store = await _openAdmin(tester, clock: clock);
+      Future<void> expectActions(
+        Reservation r, {
+        required List<String> present,
+        required List<String> absent,
+      }) async {
+        await _pick(tester, r.tableId);
+        for (final key in present) {
+          expect(find.byKey(ValueKey(key)), findsOneWidget, reason: key);
+        }
+        for (final key in absent) {
+          expect(find.byKey(ValueKey(key)), findsNothing, reason: key);
+        }
+      }
+
+      final normal = store.book
+          .forNight(_friday)
+          .firstWhere(
+            (r) =>
+                r.status == ReservationStatus.confirmed &&
+                !r.tableId.startsWith('VIP'),
+          );
+      await expectActions(
+        normal,
+        present: ['action-revoke', 'action-arrival'],
+        absent: ['action-release', 'action-reject'],
+      );
+      final seated = _first(store, _friday, ReservationStatus.seated);
+      await expectActions(
+        seated,
+        present: ['action-release'],
+        absent: ['action-revoke', 'action-arrival'],
+      );
+      expect(find.text('Finalizar uso y liberar mesa'), findsOneWidget);
+      final pending = _first(store, _friday, ReservationStatus.pendingPayment);
+      await expectActions(
+        pending,
+        present: ['action-confirm-prepayment', 'action-reject'],
+        absent: ['action-release', 'action-revoke'],
+      );
+      // VIP confirmada: la misma salida única que una normal.
+      store.perform((b) => b.markPrepaymentReceived(pending.id));
+      await tester.pumpAndSettle();
+      await expectActions(
+        store.book.byId(pending.id)!,
+        present: ['action-revoke'],
+        absent: ['action-release'],
+      );
+    }, variant: TargetPlatformVariant.mobile());
+
     void expectStillSeatedAfterArrival(
       WidgetTester tester,
       DemoReservationStore store,
@@ -552,38 +604,31 @@ void main() {
       );
       expect(
         after.history.map((e) => e.type),
-        isNot(contains(ReservationEventType.released)),
+        isNot(contains(ReservationEventType.revoked)),
       );
       expect(_statusOf(tester, r.tableId), TableMapStatus.occupied);
       expect(find.textContaining('cambió mientras decidías'), findsOneWidget);
-      expect(find.text('¿Confirmas la liberación?'), findsNothing);
     }
 
     testWidgets(
-      'liberar: si llega el titular con el primer aviso abierto, se detiene; '
-      'después se puede liberar la Ocupada con su propia advertencia',
+      'revocar: si llega el titular con el aviso abierto, se detiene; '
+      'después solo se ofrece finalizar el uso, con su propia advertencia',
       (tester) async {
         final clock = _Clock(venueInstant(2026, 10, 9, 23));
         final store = await _openAdmin(tester, clock: clock);
         final r = _first(store, _friday, ReservationStatus.confirmed);
         await _pick(tester, r.tableId);
 
-        await _tapVisible(tester, find.byKey(const ValueKey('action-release')));
-        expect(find.textContaining('reserva confirmada'), findsOneWidget);
+        await _tapVisible(tester, find.byKey(const ValueKey('action-revoke')));
         store.perform((b) => b.markArrival(r.id));
         await tester.pump();
         await _dialog(tester, confirm: true);
         expectStillSeatedAfterArrival(tester, store, r);
 
-        // Nuevo recorrido sobre la Ocupada: advertencia propia; cancelar no
-        // cambia nada y las dos confirmaciones la liberan una sola vez.
+        expect(find.byKey(const ValueKey('action-revoke')), findsNothing);
         await _tapVisible(tester, find.byKey(const ValueKey('action-release')));
         expect(find.textContaining('OCUPADA'), findsOneWidget);
-        await _dialog(tester, confirm: false);
-        expect(store.book.byId(r.id)!.status, ReservationStatus.seated);
-
-        await _tapVisible(tester, find.byKey(const ValueKey('action-release')));
-        expect(find.textContaining('OCUPADA'), findsOneWidget);
+        expect(find.textContaining('No implica devolver'), findsOneWidget);
         await _dialog(tester, confirm: true);
         await _dialog(tester, confirm: true);
         final after = store.book.byId(r.id)!;
@@ -598,22 +643,27 @@ void main() {
     );
 
     testWidgets(
-      'liberar: si llega el titular con la segunda confirmación abierta, no '
-      'se libera y se conserva la llegada',
+      'finalizar uso: si otra vista la libera con la segunda confirmación '
+      'abierta, no se aplica dos veces y se explica',
       (tester) async {
         final clock = _Clock(venueInstant(2026, 10, 9, 23));
         final store = await _openAdmin(tester, clock: clock);
-        final r = _first(store, _friday, ReservationStatus.confirmed);
+        final r = _first(store, _friday, ReservationStatus.seated);
         await _pick(tester, r.tableId);
 
         await _tapVisible(tester, find.byKey(const ValueKey('action-release')));
-        expect(find.textContaining('reserva confirmada'), findsOneWidget);
         await _dialog(tester, confirm: true);
         expect(find.text('¿Confirmas la liberación?'), findsOneWidget);
-        store.perform((b) => b.markArrival(r.id));
+        store.perform((b) => b.release(r.id));
         await tester.pump();
         await _dialog(tester, confirm: true);
-        expectStillSeatedAfterArrival(tester, store, r);
+        final after = store.book.byId(r.id)!;
+        expect(after.status, ReservationStatus.released);
+        expect(
+          after.history.where((e) => e.type == ReservationEventType.released),
+          hasLength(1),
+        );
+        expect(find.textContaining('cambió mientras decidías'), findsOneWidget);
       },
       variant: TargetPlatformVariant.mobile(),
     );
