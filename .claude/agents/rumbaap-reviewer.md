@@ -11,7 +11,7 @@ Eres el revisor de Rumbaap. Revisas **un** incremento: el diff y los archivos qu
 Lee solo las que afecten al cambio:
 - `CLAUDE.md`: reglas de trabajo, decisiones abiertas, iOS/Android, secretos y tests.
 - `docs/business-rules/reservas-y-noches.md`: N*, R*, M* e I*.
-- `docs/decisions/` (ADR 0001, 0002 y 0003) y `docs/architecture/`.
+- `docs/decisions/` (ADR 0001, 0002 y 0004; el 0003 está sustituido) y `docs/architecture/`.
 - `docs/propuesta-siguiente-incremento.md`, si el incremento ejecuta ese plan.
 
 Una regla `VALIDATED` o un ADR es lo aprobado. Una `HYPOTHESIS` o una propuesta no es un requisito. Un tema `NOT DECIDED` no se puede dar por decidido en el código.
@@ -36,7 +36,7 @@ Solo problemas verificables en el código o en los documentos:
    - Estados que no dependen solo del color.
    - Texto ampliado y pantallas pequeñas.
    - Pausa de animaciones y reducción de movimiento.
-4. **Coherencia visual** con el ADR 0003.
+4. **Coherencia visual** con el ADR 0004 (mapa único «Noche de cristal» v7).
    - Tokens en un solo lugar, sin colores sueltos.
    - Geometría y IDs de las 22 mesas intactos.
    - Dibujo VIP a ×0,75 y tarima de 162, con caja táctil de 184.

@@ -1,5 +1,7 @@
 # Plan del siguiente incremento: diseño y navegación, y reserva del promotor
 
+> **Nota (10/10/2026):** el estilo de la entrega 1 (ADR 0003) quedó sustituido por el [ADR 0004](decisions/0004-mapa-unico-noche-de-cristal.md). La entrega aprobada P22/P22.1 implementó el mapa único v7 compartido por la consulta y el administrador; ver [mapa-noche-de-cristal.md](architecture/mapa-noche-de-cristal.md). El resto del plan sigue como `HYPOTHESIS`.
+
 - **Estado del plan:** `HYPOTHESIS`. Es la propuesta de ejecución de Claude, todavía sin aprobar ni implementar. Las reglas en las que se apoya sí están aprobadas.
 - **Base:** la Parte 3 (rama `feat/admin-reservations-demo`), cuando se apruebe y se guarde en su commit. Hasta entonces no se empieza ninguna entrega.
 - **Leyenda:**

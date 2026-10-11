@@ -86,6 +86,8 @@ No son reglas de negocio. Son formas técnicas de cumplir las reglas anteriores 
 | I15 | El administrador usa el mismo selector de noches que el mapa (M1–M3). Una reserva se puede abrir por su ID desde las listas y la actividad, también si ya terminó. | No se añadió un navegador de noches pasadas (fuera del encargo). |
 | I16 | Las horas se muestran en hora de Colombia; los instantes guardados siguen siendo UTC reales. | N2. |
 | I17 | El formulario directo valida a la vista los campos vacíos y los caracteres que no son dígitos (sin filtrarlos en silencio) e ignora los espacios al inicio y al final. | R7 sin inventar longitud ni formato. |
+| I18 | La siembra de demostración incluye siempre una VIP pendiente de pago por noche sembrada (si el local tiene mesas VIP). | Poder demostrar la verificación manual del prepago (R2) en cualquier noche. Son datos ficticios; no cambia ninguna regla. |
+| I19 | El libro de reservas, el almacén y el mapa están acotados a un local: las mesas de otro local se rechazan y una consulta de otro local se trata como error. | Preparar varios locales sin mezclar datos (ADR 0004). R1–R8 y el horario siguen siendo los confirmados para Sagsa. |
 
 ## 3. Todavía no implementado
 

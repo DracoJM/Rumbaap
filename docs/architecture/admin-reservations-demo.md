@@ -2,7 +2,7 @@
 
 - **Estado:** Parte 3 del plan del [ADR 0002](../decisions/0002-perspectiva-administrador-y-reservas.md). Demostración con datos ficticios en memoria y **sin autenticación real** (R11).
 - **Reglas:** [reglas de noches y reservas](../business-rules/reservas-y-noches.md) (R1–R8, I11–I17). Este documento describe la implementación; no decide reglas.
-- **Base:** [mapa y consulta por noche](reservations-venue-map.md). Comparte el almacén, el controlador y el mapa.
+- **Base:** [mapa y consulta por noche](reservations-venue-map.md) y [mapa único v7](mapa-noche-de-cristal.md). Comparte el almacén, el controlador y el mapa.
 
 ## Navegación
 
@@ -10,18 +10,22 @@
 Inicio
 ├── Mapa y disponibilidad        (consulta pública: estados y condiciones, sin datos personales)
 └── Administrador (demostración)
-    ├── [noche: selector de fin de semana + fecha y horario 8:30 p. m.–3:00 a. m.]
-    ├── Mapa        → panel de mesa (titular, acciones, reservas anteriores)
-    │                 └── Crear reserva directa → formulario
-    ├── Pendientes  → pagos VIP por verificar; normales en proceso (solo informativas)
-    └── Reservas    → activas y terminadas | actividad de la noche
-                      └── (cualquier fila) → Reserva <ID>: titular, acciones, actividad
+    ├── [noche: flechas o deslizar · horario 8:30 p. m.–3:00 a. m.]
+    ├── [resumen por estado: tocar filtra el plano]
+    ├── Mapa      → ficha de cristal de la mesa
+    │               ├── acción corta: Reservar · Ver · Revisar · Ver pago · Actualizar
+    │               │   └── reserva directa (mesa libre) o Reserva <ID> (con reserva)
+    │               └── abierta: titular, acciones, reservas anteriores
+    ├── Reservas  → Pendientes | Reservas (activas y terminadas) | Actividad
+    │               └── (cualquier fila) → Reserva <ID>: titular, acciones, actividad
+    └── Entradas · Pedidos · Más  → «En desarrollo», sin acción
 ```
 
-- En el teléfono, las secciones van en una barra de navegación inferior; en horizontal o en tableta, en un rail lateral.
-- El panel de mesa es una hoja inferior en vertical y un panel lateral en horizontal o en tableta.
-- Atrás del sistema cierra cada ruta en orden.
-- No hay selector de cuentas ni perfiles: el inicio solo avisa de que los datos son ficticios y de que no hay autenticación real.
+- **Barra inferior:** en el teléfono, la barra de cristal va bajo la ficha. En horizontal o en tableta, ficha y barra van en una columna lateral.
+- **Pagos VIP por verificar:** su número aparece sobre «Reservas».
+- **Sin datos:** sin datos o con error, la ficha no ofrece reservar. Solo ofrece «Actualizar estado» (reintentar) cuando la consulta falló.
+- **Atrás:** el botón Atrás y el del sistema cierran cada ruta en orden.
+- **Sin perfiles:** no hay selector de cuentas ni perfiles. El inicio solo avisa de que los datos son ficticios y de que no hay autenticación real.
 
 ## Estructura (`lib/features/reservations/`)
 
@@ -30,8 +34,8 @@ Inicio
 | `data/demo_reservation_store.dart` | Almacén único por ejecución (`ChangeNotifier`). `perform` ejecuta una operación del libro y avisa a las vistas. `adminView` devuelve `NightReservations`. |
 | `domain/night_availability.dart` | `NightReservations`: estados más reservas de la noche, tomados en la misma consulta. |
 | `presentation/venue_map_controller.dart` | Escucha los cambios del almacén (`changes`). Vuelve a consultar la misma noche conservando los datos y la selección; `isRefreshing` lo indica. |
-| `presentation/venue_map_parts.dart` | Selector de noches, leyenda, «Elegir mesa», error, carga y hoja inferior, compartidos con la consulta pública. |
-| `presentation/admin/admin_page.dart` | Pantalla del administrador y panel de mesa. |
+| `presentation/map/` | Mapa único v7, pantalla común, ficha y barra de cristal, compartidos con la consulta pública. |
+| `presentation/admin/admin_page.dart` | Pantalla del administrador sobre la pantalla común, la acción de la ficha según el estado, el panel de mesa y las listas. |
 | `presentation/admin/reservation_page.dart` | Detalle de una reserva por su ID. Lee del almacén, así que no depende de la noche mostrada. Se repinta al vencer una reserva en proceso, al abrir o cerrar la noche y al volver del segundo plano. |
 | `presentation/admin/reservation_actions.dart` | Acciones según el estado, con sus confirmaciones (I13, I14). |
 | `presentation/admin/direct_reservation_page.dart` | Formulario de reserva directa (R7). |

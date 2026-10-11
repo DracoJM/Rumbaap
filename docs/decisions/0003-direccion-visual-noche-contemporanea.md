@@ -1,6 +1,6 @@
 # ADR 0003 — Dirección visual «Noche contemporánea» del mapa
 
-- **Estado:** `VALIDATED` (elección explícita de Juanmi, D15)
+- **Estado:** `SUPERSEDED` por el [ADR 0004](0004-mapa-unico-noche-de-cristal.md) (10/10/2026). Antes `VALIDATED` (elección explícita de Juanmi, D15). Se conserva como historial; su acabado y la reducción VIP ya no se aplican.
 - **Fecha:** 2026-10-10
 - **Referencia:** `Rumbaap_noche_contemporanea.svg` y su PNG, junto con el brief visual de Flutter y Figma (revisión 2). Son un diseño, no capturas de la app. Los estados que muestran son ficticios. No están en el repositorio.
 
