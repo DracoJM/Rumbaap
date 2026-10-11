@@ -6,6 +6,7 @@ import '../../../session/session_panel.dart';
 import '../../../venues/venue_config.dart';
 import '../../../bar/data/demo_bar_store.dart';
 import '../../../bar/presentation/bar_views.dart';
+import '../../../dashboard/dashboard_page.dart';
 import '../../../tickets/data/demo_ticket_store.dart';
 import '../../../tickets/presentation/admin_tickets.dart';
 import '../../data/demo_reservation_store.dart';
@@ -146,7 +147,31 @@ class _AdminPageState extends State<AdminPage> {
               identity: widget.identity ?? DemoIdentities.byId('admin-1')!,
               clock: widget.clock,
             ),
-            AdminSection.more => SessionPanel(identity: widget.identity!),
+            AdminSection.more => SessionPanel(
+              identity: widget.identity!,
+              extras: [
+                if (widget.tickets != null && widget.bar != null)
+                  FilledButton.icon(
+                    key: const ValueKey('open-dashboard'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 52),
+                    ),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => DashboardPage(
+                          reservations: widget.store,
+                          tickets: widget.tickets!,
+                          bar: widget.bar!,
+                          identity: widget.identity!,
+                          clock: widget.clock,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.insights_rounded),
+                    label: const Text('Panel de la administración'),
+                  ),
+              ],
+            ),
           },
           sheetBuilder: (context, animate) =>
               _section == AdminSection.map ? _sheet(animate) : null,
