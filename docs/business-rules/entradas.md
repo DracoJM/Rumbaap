@@ -24,7 +24,8 @@
 
 - **Pedido de Juanmi:** borrar y reutilizar identificadores al canjear; y tener nombre y cédula disponibles al validar.
 - **PROPUESTA implementada en la demo, pendiente de ratificar:**
-  - Credencial **nueva de longitud fija** (12 caracteres: prefijo de 2 del local y 10 de un alfabeto sin ambigüedades).
+  - Credencial **nueva de longitud fija** (12 caracteres: prefijo de 2 del local y 10 aleatorios de un alfabeto sin ambigüedades). Los 12 caracteres son una decisión de DEMO, no una garantía de seguridad de producción: emitirlas y verificarlas será responsabilidad del backend.
+  - Se generan al azar y no a partir de un contador, para que tras reiniciar la demo no vuelvan a salir las mismas (lo detectó el recorrido en Android).
   - Al reemplazarla (cliente o administración) o anularla, la anterior queda **retirada y no se recicla**. Leerla después da «Credencial retirada». La venta, el pago y la cuenta se conservan.
   - El QR es una **referencia opaca**: no lleva nombre, cédula ni estado. La puerta obtiene nombre y cédula del registro («Datos del registro, no de la captura»), mediante un lector autorizado en el sistema real.
   - Diferencia con el pedido: los identificadores no se reutilizan, para que una captura antigua nunca vuelva a ser válida y se conserve la trazabilidad.

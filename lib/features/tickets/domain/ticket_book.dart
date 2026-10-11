@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../../reservations/domain/night_schedule.dart';
 import 'ticket.dart';
 
@@ -18,13 +20,20 @@ class TicketBook {
     required this.venueId,
     required this.venueTag,
     Clock clock = systemClock,
-  }) : _clock = clock;
+    Random? random,
+  }) : _clock = clock,
+       _random = random ?? Random.secure();
 
   final String venueId;
 
   /// Prefijo de 2 letras del local en sus credenciales.
   final String venueTag;
   final Clock _clock;
+
+  /// Fuente de las credenciales: aleatoria (segura en la app), para que
+  /// una credencial de una demo anterior, reiniciada, no vuelva a coincidir
+  /// con una nueva.
+  final Random _random;
 
   final _purchases = <String, TicketPurchase>{};
   final _tickets = <String, Ticket>{};
@@ -630,18 +639,16 @@ class TicketBook {
   }
 
   /// Credencial opaca de longitud fija: prefijo del local y 10 caracteres
-  /// de un alfabeto sin ambigüedades. Nunca se repite en este registro.
-  /// En la demo se deriva de un contador; el backend deberá generarla con
-  /// azar criptográfico.
+  /// aleatorios de un alfabeto sin ambigüedades (32^10 combinaciones). Se
+  /// comprueba que no exista ni esté retirada en este registro. Es una
+  /// decisión de DEMO: la emisión y verificación reales serán del backend.
   String _newCredential() {
     const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
     while (true) {
-      var x =
-          (_nextCredential++ * 2654435761 + venueId.hashCode) & 0xFFFFFFFFFF;
+      _nextCredential++;
       final buf = StringBuffer(venueTag);
       for (var i = 0; i < 10; i++) {
-        buf.write(alphabet[x % alphabet.length]);
-        x = (x ~/ alphabet.length) ^ (x * 7919 & 0xFFFF);
+        buf.write(alphabet[_random.nextInt(alphabet.length)]);
       }
       final code = buf.toString();
       if (!_byCredential.containsKey(code) &&

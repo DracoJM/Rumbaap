@@ -328,6 +328,26 @@ void main() {
       );
     });
 
+    test('dos registros nuevos (p. ej. tras reiniciar la demo) no emiten la '
+        'misma primera credencial', () {
+      final other = TicketBook(
+        venueId: 'sagsa',
+        venueTag: 'SG',
+        clock: clock.call,
+      );
+      final a = appTicket();
+      final p = other.sell(
+        night: _friday,
+        product: _product,
+        quantity: 1,
+        channel: TicketChannel.app,
+        actorId: 'cliente-a',
+        ownerId: 'cliente-a',
+      );
+      other.simulatePayment(p.id, actorId: 'cliente-a');
+      expect(other.ticketsOf(p.id).single.credential, isNot(a.credential));
+    });
+
     test('ninguna credencial se repite aunque se reemplacen muchas', () {
       final t = appTicket();
       final seen = <String>{t.credential!};
