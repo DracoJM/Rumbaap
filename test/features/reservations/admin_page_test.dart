@@ -360,7 +360,7 @@ void main() {
         expect(
           store.book
               .forNight(_saturday)
-              .where((r) => r.holder!.name == 'Titular demo nuevo'),
+              .where((r) => r.holder?.name == 'Titular demo nuevo'),
           isEmpty,
         );
       },

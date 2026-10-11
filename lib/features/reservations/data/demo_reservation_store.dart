@@ -139,12 +139,12 @@ class DemoReservationStore extends ChangeNotifier
       );
       confirmed.add(book.completeRequest(r.id));
     }
-    // Una reserva normal en proceso: vencerá a los 10 min (R1).
+    // Un trámite normal en proceso: vencerá a los 10 min (R1) y, como no se
+    // ha enviado, todavía no tiene titular (R14).
     if (normals.length > 5) {
-      book.requestNormal(
+      book.startNormal(
         night: night,
         tableId: normals[5].id,
-        holder: _holder(5),
         origin: ReservationOrigin.client,
       );
     }
