@@ -10,7 +10,9 @@ import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'package:rumbaap/features/reservations/domain/reservation_book.dart';
 import 'package:rumbaap/features/reservations/domain/venue_table.dart';
 import 'package:rumbaap/features/reservations/presentation/admin/admin_page.dart';
+import 'package:rumbaap/features/reservations/presentation/guest/guest_home_page.dart';
 import 'package:rumbaap/features/reservations/presentation/map/crystal_layout.dart';
+import 'package:rumbaap/features/reservations/presentation/map/crystal_map_scaffold.dart';
 import 'package:rumbaap/features/reservations/presentation/map/crystal_table.dart';
 import 'package:rumbaap/features/reservations/presentation/map/crystal_venue_map.dart';
 import 'package:rumbaap/features/reservations/presentation/map/glass_tab_bar.dart';
@@ -20,6 +22,8 @@ import 'package:rumbaap/features/reservations/presentation/venue_map_controller.
 import 'package:rumbaap/features/session/demo_identities.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
+import 'package:rumbaap/features/tickets/presentation/admin_tickets.dart';
+import 'package:rumbaap/features/tickets/presentation/guest_tickets.dart';
 import 'package:rumbaap/features/venues/venue_config.dart';
 import 'package:rumbaap/theme/venues/sagsa.dart';
 
@@ -165,7 +169,6 @@ void main() {
         // secciones de administración.
         expect(find.byKey(const ValueKey('sheet-action')), findsNothing);
         expect(find.byKey(const ValueKey('tab-Reservas')), findsNothing);
-        expect(find.byKey(const ValueKey('tab-Entradas')), findsNothing);
         expect(find.byKey(const ValueKey('create-direct')), findsNothing);
         expect(find.textContaining('Titular demo'), findsNothing);
         expect(find.textContaining(reserved.holder!.phone!), findsNothing);
@@ -178,33 +181,104 @@ void main() {
       },
     );
 
-    testWidgets('Entradas y Pedidos se anuncian en desarrollo y no '
-        'navegan', (tester) async {
+    // La UI de Entradas (P25) está escrita pero sin terminar: aquí solo se
+    // comprueba que la pestaña navega a su sección y que se vuelve al mapa
+    // con la misma noche; Pedidos sigue en desarrollo.
+    testWidgets('administración: Entradas abre su sección y vuelve al mapa '
+        'con la misma noche; Pedidos sigue en desarrollo y no navega', (
+      tester,
+    ) async {
       await _pumpApp(tester);
       await _open(tester, 'Administrador (demostración)');
       final semantics = tester.ensureSemantics();
-      for (final label in ['Entradas', 'Pedidos']) {
-        final tab = find.byKey(ValueKey('tab-$label'));
-        // Si la barra no cabe, se desplaza: se trae la sección a la vista.
-        await tester.ensureVisible(tab);
-        await tester.pumpAndSettle();
-        expect(
-          tester.getSemantics(tab),
-          matchesSemantics(
-            label: '$label, en desarrollo',
-            isButton: true,
-            hasEnabledState: true,
-            isEnabled: false,
-            hasSelectedState: true,
-          ),
-        );
-        await tester.tap(tab);
-        await tester.pumpAndSettle();
-        expect(find.byType(CrystalVenueMap), findsOneWidget);
-      }
-      expect(find.text(GlassTabBar.pendingNote), findsNWidgets(2));
+      VenueMapController controller() => tester
+          .widget<CrystalMapScaffold>(find.byType(CrystalMapScaffold))
+          .controller;
+      final night = controller().night;
+
+      final pedidos = find.byKey(const ValueKey('tab-Pedidos'));
+      await tester.ensureVisible(pedidos);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(pedidos),
+        matchesSemantics(
+          label: 'Pedidos, en desarrollo',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: false,
+          hasSelectedState: true,
+        ),
+      );
+      await tester.tap(pedidos);
+      await tester.pumpAndSettle();
+      expect(find.byType(CrystalVenueMap), findsOneWidget);
+      expect(find.text(GlassTabBar.pendingNote), findsOneWidget);
+
+      final entradas = find.byKey(const ValueKey('tab-Entradas'));
+      await tester.ensureVisible(entradas);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(entradas),
+        matchesSemantics(
+          label: 'Entradas',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          hasSelectedState: true,
+          hasTapAction: true,
+        ),
+      );
+      await tester.tap(entradas);
+      await tester.pumpAndSettle();
+      expect(find.byType(AdminTickets), findsOneWidget);
+      expect(find.byType(CrystalVenueMap), findsNothing);
+
+      // La barra se desplaza en horizontal: se trae «Mapa» a la vista.
+      await tester.ensureVisible(find.byKey(const ValueKey('tab-Mapa')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('tab-Mapa')));
+      await tester.pumpAndSettle();
+      expect(find.byType(AdminTickets), findsNothing);
+      expect(find.byType(CrystalVenueMap), findsOneWidget);
+      expect(controller().night, night);
       semantics.dispose();
-    });
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets('cliente: su pestaña Entradas es la de compra, sin la '
+        'sección de la administración, y vuelve al mapa con la misma noche', (
+      tester,
+    ) async {
+      await _pumpApp(tester);
+      await _open(tester, 'Cliente demo A');
+      expect(find.byType(GuestHomePage), findsOneWidget);
+      final night = tester
+          .widget<CrystalMapScaffold>(find.byType(CrystalMapScaffold))
+          .controller
+          .night;
+      final entradas = find.byKey(const ValueKey('tab-Entradas'));
+      await tester.ensureVisible(entradas);
+      await tester.pumpAndSettle();
+      await tester.tap(entradas);
+      await tester.pumpAndSettle();
+      expect(find.byType(GuestTickets), findsOneWidget);
+      expect(find.byType(AdminTickets), findsNothing);
+      expect(find.byKey(const ValueKey('tab-Pedidos')), findsNothing);
+
+      // La barra se desplaza en horizontal: se trae «Mapa» a la vista.
+      await tester.ensureVisible(find.byKey(const ValueKey('tab-Mapa')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('tab-Mapa')));
+      await tester.pumpAndSettle();
+      expect(find.byType(GuestTickets), findsNothing);
+      expect(find.byType(CrystalVenueMap), findsOneWidget);
+      expect(
+        tester
+            .widget<CrystalMapScaffold>(find.byType(CrystalMapScaffold))
+            .controller
+            .night,
+        night,
+      );
+    }, variant: TargetPlatformVariant.mobile());
   });
 
   group('accesibilidad del mapa v7', () {

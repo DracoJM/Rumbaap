@@ -6,6 +6,7 @@ import '../features/reservations/presentation/admin/admin_page.dart';
 import '../features/reservations/presentation/guest/guest_home_page.dart';
 import '../features/reservations/presentation/staff/staff_page.dart';
 import '../features/session/demo_identities.dart';
+import '../features/tickets/data/demo_ticket_store.dart';
 import '../features/venues/venue_config.dart';
 import '../theme/night_neutrals.dart';
 import '../theme/venue_theme.dart';
@@ -17,9 +18,17 @@ import 'app_theme.dart';
 /// identidad») descarta la pila de esa sesión, con sus formularios y los
 /// titulares que mostraba; las reservas siguen en el almacén único del local.
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.store, this.clock = systemClock});
+  const HomePage({
+    super.key,
+    required this.store,
+    required this.tickets,
+    this.clock = systemClock,
+  });
 
   final DemoReservationStore store;
+
+  /// Entradas del local, compartidas por todos los perfiles.
+  final DemoTicketStore tickets;
   final Clock clock;
 
   void _enter(BuildContext context, DemoIdentity identity) {
@@ -28,16 +37,19 @@ class HomePage extends StatelessWidget {
         store: store,
         clock: clock,
         identity: identity,
+        tickets: tickets,
       ),
       DemoProfile.staff => StaffPage(
         store: store,
         clock: clock,
         identity: identity,
+        tickets: tickets,
       ),
       DemoProfile.client || DemoProfile.promoter => GuestHomePage.withStore(
         store: store,
         clock: clock,
         identity: identity,
+        tickets: tickets,
       ),
     };
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));

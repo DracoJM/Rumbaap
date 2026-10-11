@@ -7,9 +7,17 @@ import 'demo_identities.dart';
 /// Sección «Más» de cada perspectiva: quién está en la sesión ficticia y
 /// cómo cambiar de identidad.
 class SessionPanel extends StatelessWidget {
-  const SessionPanel({super.key, required this.identity});
+  const SessionPanel({
+    super.key,
+    required this.identity,
+    this.extras = const [],
+  });
 
   final DemoIdentity identity;
+
+  /// Contenido propio del perfil, antes de «Cambiar identidad» (por
+  /// ejemplo, el QR personal del cliente).
+  final List<Widget> extras;
 
   /// Vuelve a la entrada y descarta toda la pila de esta sesión (pantallas,
   /// formularios y titulares visibles). Las reservas siguen en el almacén.
@@ -53,6 +61,7 @@ class SessionPanel extends StatelessWidget {
             color: NightNeutrals.glass(0.7),
           ),
         ),
+        for (final w in extras) ...[const SizedBox(height: 12), w],
         const SizedBox(height: 16),
         FilledButton.icon(
           key: const ValueKey('switch-identity'),

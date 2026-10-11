@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../session/demo_identities.dart';
 import '../../../session/session_panel.dart';
+import '../../../tickets/data/demo_ticket_store.dart';
+import '../../../tickets/presentation/guest_tickets.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/night_availability.dart';
 import '../../domain/night_schedule.dart';
@@ -17,7 +19,7 @@ import '../venue_map_controller.dart';
 import 'my_reservations.dart';
 import 'reservation_flow_page.dart';
 
-enum _GuestSection { map, mine, more }
+enum _GuestSection { map, mine, tickets, more }
 
 /// Perspectiva del cliente y del promotor sobre el mapa v7 compartido.
 ///
@@ -32,6 +34,7 @@ class GuestHomePage extends StatefulWidget {
     required this.repository,
     this.changes,
     this.store,
+    this.tickets,
     this.clock = systemClock,
   });
 
@@ -40,6 +43,7 @@ class GuestHomePage extends StatefulWidget {
     Key? key,
     required DemoReservationStore store,
     required DemoIdentity identity,
+    DemoTicketStore? tickets,
     Clock clock = systemClock,
   }) : this(
          key: key,
@@ -48,6 +52,7 @@ class GuestHomePage extends StatefulWidget {
          repository: store,
          changes: store,
          store: store,
+         tickets: tickets,
          clock: clock,
        );
 
@@ -61,6 +66,9 @@ class GuestHomePage extends StatefulWidget {
   /// Almacén donde se reserva; sin él la pantalla es solo consulta (sin
   /// «Reservar» ni «Mis reservas»).
   final DemoReservationStore? store;
+
+  /// Entradas del local; sin él no hay pestaña «Entradas».
+  final DemoTicketStore? tickets;
   final Clock clock;
 
   @override
@@ -157,7 +165,18 @@ class _GuestHomePageState extends State<GuestHomePage> {
           store: widget.store!,
           identity: widget.identity,
         ),
-        _GuestSection.more => SessionPanel(identity: widget.identity),
+        _GuestSection.tickets => GuestTickets(
+          store: widget.tickets!,
+          identity: widget.identity,
+          clock: widget.clock,
+        ),
+        _GuestSection.more => SessionPanel(
+          identity: widget.identity,
+          extras: [
+            if (profile == DemoProfile.client)
+              PersonalQrCard(identity: widget.identity),
+          ],
+        ),
       },
       sheetBuilder: (context, animate) {
         if (_section != _GuestSection.map) return null;
@@ -208,6 +227,13 @@ class _GuestHomePageState extends State<GuestHomePage> {
               label: 'Mis reservas',
               selected: _section == _GuestSection.mine,
               onTap: () => setState(() => _section = _GuestSection.mine),
+            ),
+          if (widget.tickets != null)
+            GlassTab(
+              icon: Icons.confirmation_number_outlined,
+              label: 'Entradas',
+              selected: _section == _GuestSection.tickets,
+              onTap: () => setState(() => _section = _GuestSection.tickets),
             ),
           GlassTab(
             icon: Icons.more_horiz_rounded,

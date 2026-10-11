@@ -45,9 +45,22 @@ No hay pantallas duplicadas para rellenar pestañas.
 - **Rutas antiguas del libro:** `completeRequest`, `requestNormal` y `requestVip` (siembra y tests del administrador) aplican las mismas comprobaciones que el trámite: titular válido, sin vencer y con la noche abierta.
 - **Vista del administrador:** ve cada cambio en su mapa y en sus listas, porque comparte el almacén. Si el trámite no tiene titular, muestra «Titular pendiente (sin enviar)» mientras sigue En proceso y «Sin titular registrado (no se envió)» si se canceló o expiró.
 
+## Entradas (P25)
+
+Reglas y propuestas: [entradas](../business-rules/entradas.md).
+
+| Perfil | Pestaña | Qué hace |
+|---|---|---|
+| Cliente | Entradas | Compra por noche, pago simulado, entradas con credencial, fase, comprobante e historial; reemplazar credencial; pedir devolución o cambio. QR personal en «Más» (solo identifica la cuenta). |
+| Promotor | Entradas | Registra ventas a nombre de un comprador; confirma el pago comprobado; entrega la credencial; canjea con su lote. Solo ve sus ventas. |
+| Seguridad | Acceso | Consulta la credencial (lectura simulada) y confirma el primer ingreso. |
+| Caja | Manillas | Canje en taquilla de compras de la app y cortesías. |
+| Mesero | Llegadas | Sin cambios (reservas). |
+| Administración | Entradas | Cifras por paso, búsqueda y filtros (noche, fase, origen, cliente), ficha con historial y actor, cortesías, solicitudes, devoluciones efectuadas, credenciales e incidencias. |
+
 ## Límites
 
 - **Datos en memoria:** las sesiones y las reservas son ficticias y se pierden al cerrar la app.
 - **Sin pagos:** no hay cobro ni ruta de pago (`NOT DECIDED: proveedor de pagos`).
-- **Sin módulos de Entradas, Pedidos ni QR.**
+- **Sin Pedidos.** Entradas y QR son de demostración: lectura simulada y QR no escaneable.
 - **Plataformas:** los recorridos de la app se prueban con `TargetPlatformVariant.mobile()` (Android, iOS y Fuchsia); la validación nativa de iOS está pendiente.

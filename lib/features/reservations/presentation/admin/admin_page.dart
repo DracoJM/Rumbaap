@@ -4,6 +4,8 @@ import '../../../../app/app_theme.dart';
 import '../../../session/demo_identities.dart';
 import '../../../session/session_panel.dart';
 import '../../../venues/venue_config.dart';
+import '../../../tickets/data/demo_ticket_store.dart';
+import '../../../tickets/presentation/admin_tickets.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/night_availability.dart';
 import '../../domain/night_schedule.dart';
@@ -23,7 +25,7 @@ import 'direct_reservation_page.dart';
 import 'reservation_actions.dart';
 import 'reservation_page.dart';
 
-enum AdminSection { map, reservations, more }
+enum AdminSection { map, reservations, tickets, more }
 
 /// Lista que muestra la sección Reservas.
 enum AdminList { pending, reservations, activity }
@@ -41,9 +43,13 @@ class AdminPage extends StatefulWidget {
     required this.store,
     this.clock = systemClock,
     this.identity,
+    this.tickets,
   });
 
   final DemoReservationStore store;
+
+  /// Entradas del local; sin él, «Entradas» queda como en desarrollo.
+  final DemoTicketStore? tickets;
   final Clock clock;
 
   /// Identidad de la sesión de demostración; sin ella no se ofrece «Más».
@@ -118,10 +124,16 @@ class _AdminPageState extends State<AdminPage> {
         return CrystalMapScaffold(
           controller: _controller,
           demoLabel: 'Datos ficticios · sin autenticación real',
-          showNight: _section != AdminSection.more,
+          showNight:
+              _section != AdminSection.more && _section != AdminSection.tickets,
           body: switch (_section) {
             AdminSection.map => null,
             AdminSection.reservations => _listsSection(),
+            AdminSection.tickets => AdminTickets(
+              store: widget.tickets!,
+              identity: widget.identity ?? DemoIdentities.byId('admin-1')!,
+              clock: widget.clock,
+            ),
             AdminSection.more => SessionPanel(identity: widget.identity!),
           },
           sheetBuilder: (context, animate) =>
@@ -141,12 +153,16 @@ class _AdminPageState extends State<AdminPage> {
                 badge: pendingVip,
                 onTap: () => _select(AdminSection.reservations),
               ),
-              // Pendientes de desarrollo: se muestran sin simular su
-              // operación.
-              const GlassTab(
+              GlassTab(
                 icon: Icons.confirmation_number_outlined,
                 label: 'Entradas',
+                selected: _section == AdminSection.tickets,
+                onTap: widget.tickets == null
+                    ? null
+                    : () => _select(AdminSection.tickets),
               ),
+              // Pendiente de desarrollo: se muestra sin simular su
+              // operación.
               const GlassTab(icon: Icons.local_bar_outlined, label: 'Pedidos'),
               GlassTab(
                 icon: Icons.more_horiz_rounded,

@@ -4,6 +4,8 @@ import '../../../../app/app_theme.dart';
 import '../../../../theme/night_neutrals.dart';
 import '../../../session/demo_identities.dart';
 import '../../../session/session_panel.dart';
+import '../../../tickets/data/demo_ticket_store.dart';
+import '../../../tickets/presentation/staff_ticket_desks.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/night_availability.dart';
 import '../../domain/night_schedule.dart';
@@ -15,21 +17,27 @@ import '../map/glass_tab_bar.dart';
 import '../table_presentation.dart';
 import '../venue_map_controller.dart';
 
-enum _StaffSection { arrivals, more }
+enum _StaffSection { arrivals, access, wristbands, more }
 
-/// Perspectiva del personal (mesero) en la demostración: localizar una
-/// reserva de la noche y registrar la llegada (R5) durante el horario
-/// permitido (N6). No ofrece revocar, liberar ni verificar prepagos.
+/// Perspectiva del personal en la demostración, según su responsabilidad:
+/// Seguridad valida entradas en el acceso, Caja entrega manillas y el
+/// mesero localiza una reserva y registra la llegada (R5) durante el
+/// horario permitido (N6). Nadie ofrece revocar, liberar ni verificar
+/// prepagos.
 class StaffPage extends StatefulWidget {
   const StaffPage({
     super.key,
     required this.store,
     required this.identity,
+    this.tickets,
     this.clock = systemClock,
   });
 
   final DemoReservationStore store;
   final DemoIdentity identity;
+
+  /// Entradas del local, para Seguridad y Caja.
+  final DemoTicketStore? tickets;
   final Clock clock;
 
   @override
@@ -46,7 +54,16 @@ class _StaffPageState extends State<StaffPage> {
 
   late final AppLifecycleListener _lifecycle;
   final _search = TextEditingController();
-  _StaffSection _section = _StaffSection.arrivals;
+  late _StaffSection _section = _primary;
+
+  StaffRole get _role => widget.identity.staffRole ?? StaffRole.waiter;
+
+  /// La tarea de cada responsabilidad; sin entradas, solo llegadas.
+  _StaffSection get _primary => switch (_role) {
+    StaffRole.security when widget.tickets != null => _StaffSection.access,
+    StaffRole.cashier when widget.tickets != null => _StaffSection.wristbands,
+    _ => _StaffSection.arrivals,
+  };
 
   @override
   void initState() {
@@ -110,21 +127,43 @@ class _StaffPageState extends State<StaffPage> {
   Widget _scaffold(BuildContext context) {
     return CrystalMapScaffold(
       controller: _controller,
-      demoLabel: 'Datos ficticios · Personal (demostración)',
+      demoLabel: 'Datos ficticios · ${_role.label} (demostración)',
       showNight: _section == _StaffSection.arrivals,
       sheetBuilder: (_, _) => null,
       body: switch (_section) {
         _StaffSection.arrivals => _arrivals(context),
+        _StaffSection.access => TicketDesk.door(
+          store: widget.tickets!,
+          identity: widget.identity,
+        ),
+        _StaffSection.wristbands => TicketDesk.boxOffice(
+          store: widget.tickets!,
+          identity: widget.identity,
+        ),
         _StaffSection.more => SessionPanel(identity: widget.identity),
       },
       bottomBar: GlassTabBar(
         tabs: [
-          GlassTab(
-            icon: Icons.how_to_reg_outlined,
-            label: 'Llegadas',
-            selected: _section == _StaffSection.arrivals,
-            onTap: () => setState(() => _section = _StaffSection.arrivals),
-          ),
+          switch (_primary) {
+            _StaffSection.access => GlassTab(
+              icon: Icons.verified_user_outlined,
+              label: 'Acceso',
+              selected: _section == _StaffSection.access,
+              onTap: () => setState(() => _section = _StaffSection.access),
+            ),
+            _StaffSection.wristbands => GlassTab(
+              icon: Icons.watch_outlined,
+              label: 'Manillas',
+              selected: _section == _StaffSection.wristbands,
+              onTap: () => setState(() => _section = _StaffSection.wristbands),
+            ),
+            _ => GlassTab(
+              icon: Icons.how_to_reg_outlined,
+              label: 'Llegadas',
+              selected: _section == _StaffSection.arrivals,
+              onTap: () => setState(() => _section = _StaffSection.arrivals),
+            ),
+          },
           GlassTab(
             icon: Icons.more_horiz_rounded,
             label: 'Más',
