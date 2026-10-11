@@ -16,6 +16,7 @@ import '../map/table_sheet.dart';
 import '../table_presentation.dart';
 import '../venue_map_controller.dart';
 import '../venue_map_parts.dart';
+import 'activity_log.dart';
 import 'admin_labels.dart';
 import 'admin_widgets.dart';
 import 'direct_reservation_page.dart';
@@ -415,36 +416,14 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  Widget _activitySection(BuildContext inner, NightReservations data) {
-    final events = [
-      for (final r in data.reservations)
-        for (final e in r.history) (reservation: r, event: e),
-    ]..sort((a, b) => b.event.at.compareTo(a.event.at));
-    return ListView(
-      padding: _listPadding(inner, 8),
-      children: [
-        SectionLabel('Actividad de la noche', count: events.length),
-        if (events.isEmpty)
-          const NoticeBox(
-            icon: Icons.inbox_outlined,
-            text: 'Todavía no hay actividad en esta noche.',
-          ),
-        for (final (:reservation, :event) in events)
-          _ActivityRow(
-            reservation: reservation,
-            event: event,
-            onTap: () => _openReservation(reservation.id),
-          ),
-        const SizedBox(height: 8),
-        Text(
-          'Lista local de demostración; no es un registro de auditoría.',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AppColors.textFaint),
-        ),
-      ],
-    );
-  }
+  Widget _activitySection(BuildContext inner, NightReservations data) =>
+      ActivityLog(
+        key: ValueKey('activity-${data.nightId}'),
+        reservations: data.reservations,
+        venue: widget.store.venue,
+        onOpen: _openReservation,
+        padding: _listPadding(inner, 8),
+      );
 
   /// Relleno de las listas: abajo deja libre la barra de cristal, que va
   /// encima de la lista (`extendBody`), para que la última fila se pueda
@@ -460,66 +439,6 @@ class _AdminPageState extends State<AdminPage> {
           .compareTo(venue.orderOf(b.tableId));
       return byTable != 0 ? byTable : a.createdAt.compareTo(b.createdAt);
     });
-  }
-}
-
-class _ActivityRow extends StatelessWidget {
-  const _ActivityRow({
-    required this.reservation,
-    required this.event,
-    required this.onTap,
-  });
-
-  final Reservation reservation;
-  final ReservationEvent event;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 96,
-                child: Text(
-                  venueDateTimeLabel(event.at),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      eventLabel(event.type),
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    Text(
-                      '${reservation.tableIn(VenueScope.of(context).venue).displayName} · '
-                      '${reservation.holderName} · ${reservation.id}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

@@ -742,6 +742,9 @@ void main() {
 
       await _list(tester, 'Actividad');
       expect(find.text('Mesa liberada'), findsOneWidget);
+      // Los controles de búsqueda y filtros van antes de las tarjetas.
+      await tester.ensureVisible(find.text('Mesa liberada'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Mesa liberada'));
       await tester.pumpAndSettle();
       expect(find.text('Reserva ${r.id}'), findsOneWidget);
@@ -760,6 +763,144 @@ void main() {
             .first,
       );
     });
+  });
+
+  group('registro de actividad (P24)', () {
+    Finder activityCards() => find.byWidgetPredicate(
+      (w) =>
+          w is InkWell &&
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('activity-R'),
+    );
+
+    String countText(WidgetTester tester) =>
+        tester.widget<Text>(find.byKey(const ValueKey('activity-count'))).data!;
+
+    testWidgets('tarjetas de la más reciente a la más antigua, agrupadas por '
+        'día, con búsqueda, filtros, conteo y reinicio', (tester) async {
+      final store = await _openAdmin(tester);
+      final revoked = _first(store, _friday, ReservationStatus.confirmed);
+      store.perform((b) => b.revoke(revoked.id));
+      await tester.pumpAndSettle();
+      await _list(tester, 'Actividad');
+
+      final total = store.book
+          .forNight(_friday)
+          .fold<int>(0, (n, r) => n + r.history.length);
+      expect(countText(tester), '$total eventos');
+      // La más reciente primero: la revocación.
+      final first = tester.widget<InkWell>(activityCards().first);
+      expect(
+        (first.key! as ValueKey<String>).value,
+        'activity-${revoked.id}-${revoked.history.length}',
+      );
+      // Cabecera de día con fecha completa.
+      expect(find.textContaining('de 2026'), findsWidgets);
+      expect(find.textContaining('Por: Administración'), findsWidgets);
+
+      // Búsqueda por ID de reserva.
+      await tester.enterText(
+        find.byKey(const ValueKey('activity-search')),
+        revoked.id,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        countText(tester),
+        '${revoked.history.length + 1} de $total eventos',
+      );
+      // Y por titular.
+      await tester.enterText(
+        find.byKey(const ValueKey('activity-search')),
+        revoked.holder!.name,
+      );
+      await tester.pumpAndSettle();
+      expect(countText(tester), startsWith('${revoked.history.length + 1} de'));
+
+      // Filtro por tipo: solo cierres de esa reserva.
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('activity-kind-endings')),
+      );
+      await tester.pumpAndSettle();
+      expect(countText(tester), '1 de $total eventos');
+      expect(find.text('Revocada'), findsOneWidget);
+
+      // Sin coincidencias.
+      await tester.enterText(
+        find.byKey(const ValueKey('activity-search')),
+        'zzz',
+      );
+      await tester.pumpAndSettle();
+      expect(countText(tester), '0 de $total eventos');
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('activity-no-match')),
+        80,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+
+      // Reiniciar devuelve todo.
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('activity-reset')),
+        -80,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.tap(find.byKey(const ValueKey('activity-reset')));
+      await tester.pumpAndSettle();
+      expect(countText(tester), '$total eventos');
+      expect(find.byKey(const ValueKey('activity-reset')), findsNothing);
+    }, variant: TargetPlatformVariant.mobile());
+
+    testWidgets(
+      'filtro por mesa y apertura de la reserva desde una tarjeta',
+      (tester) async {
+        final store = await _openAdmin(tester);
+        final r = _first(store, _friday, ReservationStatus.confirmed);
+        await _list(tester, 'Actividad');
+        await _tapVisible(tester, find.byKey(const ValueKey('activity-table')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.text(sagsaVenue.tableById(r.tableId)!.displayName).last,
+        );
+        await tester.pumpAndSettle();
+        final expected = store.book
+            .forNight(_friday)
+            .where((x) => x.tableId == r.tableId)
+            .fold<int>(0, (n, x) => n + x.history.length);
+        expect(countText(tester), startsWith('$expected de'));
+        await _tapVisible(tester, activityCards().first);
+        await tester.pumpAndSettle();
+        expect(find.text('Reserva ${r.id}'), findsOneWidget);
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    testWidgets('actividad con texto al 200 % en un móvil de 320 dp, sin '
+        'errores', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _openAdmin(tester, size: const Size(320, 568));
+      // Con texto grande la barra de pestañas se desplaza en horizontal.
+      await tester.ensureVisible(find.byKey(const ValueKey('tab-Reservas')));
+      await tester.pumpAndSettle();
+      await _list(tester, 'Actividad');
+      expect(tester.takeException(), isNull);
+      // Con la fuente de pruebas al 200 % el chip es más ancho que la
+      // pantalla: se toca por su borde visible.
+      final chip = find.byKey(const ValueKey('activity-kind-requests'));
+      await tester.tapAt(tester.getTopLeft(chip) + const Offset(24, 24));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.mobile());
   });
 
   group('consulta pública', () {
