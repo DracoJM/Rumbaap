@@ -294,9 +294,9 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
             icon: Icons.hourglass_top_rounded,
             color: AppColors.amber,
             text:
-                'Mesa apartada mientras completas el trámite, hasta las '
-                '${venueTimeLabel(deadline)}. Si no lo envías antes, la mesa '
-                'quedará libre.',
+                'Mesa apartada mientras completas el trámite. Si no lo envías '
+                'antes de las ${venueTimeLabel(deadline)}, la mesa quedará '
+                'libre.',
           ),
         ],
       ],

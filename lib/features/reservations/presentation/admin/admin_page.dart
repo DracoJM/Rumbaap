@@ -117,6 +117,7 @@ class _AdminPageState extends State<AdminPage> {
         return CrystalMapScaffold(
           controller: _controller,
           demoLabel: 'Datos ficticios · sin autenticación real',
+          showNight: _section != AdminSection.more,
           body: switch (_section) {
             AdminSection.map => null,
             AdminSection.reservations => _listsSection(),

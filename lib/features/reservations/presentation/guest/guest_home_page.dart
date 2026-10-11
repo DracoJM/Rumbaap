@@ -150,6 +150,7 @@ class _GuestHomePageState extends State<GuestHomePage> {
     return CrystalMapScaffold(
       controller: _controller,
       demoLabel: 'Datos ficticios · ${profile.label} (demostración)',
+      showNight: _section == _GuestSection.map,
       body: switch (_section) {
         _GuestSection.map => null,
         _GuestSection.mine => MyReservations(

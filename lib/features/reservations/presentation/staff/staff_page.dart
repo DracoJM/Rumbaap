@@ -111,6 +111,7 @@ class _StaffPageState extends State<StaffPage> {
     return CrystalMapScaffold(
       controller: _controller,
       demoLabel: 'Datos ficticios · Personal (demostración)',
+      showNight: _section == _StaffSection.arrivals,
       sheetBuilder: (_, _) => null,
       body: switch (_section) {
         _StaffSection.arrivals => _arrivals(context),

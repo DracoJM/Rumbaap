@@ -28,6 +28,7 @@ class CrystalMapScaffold extends StatefulWidget {
     required this.sheetBuilder,
     this.bottomBar,
     this.body,
+    this.showNight = true,
   });
 
   /// Ancho a partir del cual la ficha va en una columna lateral (tableta u
@@ -54,6 +55,10 @@ class CrystalMapScaffold extends StatefulWidget {
   /// Sustituye al plano (por ejemplo, las listas del administrador). La
   /// noche sigue arriba.
   final Widget? body;
+
+  /// Muestra la noche arriba; `false` en secciones que no dependen de ella
+  /// (por ejemplo «Mis reservas», de todas las noches).
+  final bool showNight;
 
   @override
   State<CrystalMapScaffold> createState() => _CrystalMapScaffoldState();
@@ -129,15 +134,16 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
           : null,
     );
     final headerItems = <Widget>[
-      _NightNavigator(
-        night: c.night,
-        venueNow: c.venueNow,
-        canGoBack: c.hasPreviousNight,
-        canGoForward: c.hasNextNight,
-        direction: _lastDelta,
-        animate: _clock.animating,
-        onChange: _showNight,
-      ),
+      if (widget.showNight)
+        _NightNavigator(
+          night: c.night,
+          venueNow: c.venueNow,
+          canGoBack: c.hasPreviousNight,
+          canGoForward: c.hasNextNight,
+          direction: _lastDelta,
+          animate: _clock.animating,
+          onChange: _showNight,
+        ),
       if (widget.body == null)
         _StatusSummary(
           counts: counts,
