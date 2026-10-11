@@ -70,8 +70,8 @@ Si un diseño parece exigir cambiar algo de esto, detente y pregunta.
 
 - **Revisión de la interfaz:**
   - móvil pequeño (320×568), horizontal y texto al 200 %, sin desbordes;
-  - controles (botones, chips, pestañas, acciones de la ficha) y filas de «Elegir mesa» de al menos 48 × 48 dp, medidos en pantalla;
-  - el plano gráfico es denso: sus franjas por mesa (58 × 44 unidades del lienzo) se escalan con el ancho y miden menos de 48 dp en teléfonos pequeños (unos 43 × 33 dp a 320 de ancho). No se declara que cumplan 48 dp; la alternativa accesible es «Elegir mesa», siempre a la vista. No se amplían las franjas hasta solaparlas ni se cambia la geometría aprobada;
+  - controles (botones, chips, pestañas, acciones de la ficha) y filas de «Buscar mesa» de al menos 48 × 48 dp, medidos en pantalla;
+  - el plano gráfico es denso: sus franjas por mesa (58 × 44 unidades del lienzo) se escalan con el ancho y miden menos de 48 dp en teléfonos pequeños (unos 43 × 33 dp a 320 de ancho). No se declara que cumplan 48 dp; la alternativa accesible es «Buscar mesa» (búsqueda real, no un listado completo), siempre a la vista. No se amplían las franjas hasta solaparlas ni se cambia la geometría aprobada;
   - con texto al 200 %, comprobar la escala efectiva de las etiquetas (sin `withClampedTextScaling` ni fuentes reducidas), que se lean enteras y que sus acciones sigan accesibles;
   - activación real con `SemanticsAction.tap` desde el árbol semántico de mesas, acciones de la ficha y pestañas;
   - contraste suficiente de texto y estados;

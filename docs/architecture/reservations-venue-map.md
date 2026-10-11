@@ -6,7 +6,7 @@
 
 ## Qué hace
 
-Desde el inicio se abre «Mapa y disponibilidad». La persona elige una noche con las flechas o deslizando sobre la fecha y ve el estado de cada mesa en el plano y en el resumen por estado (tocar un estado filtra el plano). Toca una mesa, o la elige en «Elegir mesa», y la ficha de cristal muestra su estado. Al abrir la ficha aparecen sus datos públicos: tipo, ubicación, noche consultada, capacidad y condiciones del local. La ficha pública no tiene botón de acción.
+Desde el inicio se abre «Mapa y disponibilidad». La persona elige una noche con las flechas o deslizando sobre la fecha y ve el estado de cada mesa en el plano y en el resumen por estado (tocar un estado filtra el plano). Toca una mesa, o la busca en «Buscar mesa», y la ficha de cristal muestra su estado. Al abrir la ficha aparecen sus datos públicos: tipo, ubicación, noche consultada, capacidad y condiciones del local. La ficha pública no tiene botón de acción.
 
 No reserva, no paga, no cancela, no une mesas VIP y no valida consumo. No muestra clientes ni información privada de reservas.
 
@@ -24,7 +24,7 @@ No reserva, no paga, no cancela, no une mesas VIP y no valida consumo. No muestr
 | `presentation/map/` | Mapa único v7 y pantalla común ([mapa-noche-de-cristal.md](mapa-noche-de-cristal.md)). |
 | `presentation/venue_map_parts.dart` | Aviso de datos ficticios, error y carga. |
 | `presentation/table_presentation.dart` | Texto de cada estado (incluidos «En proceso» y «Pendiente de pago»), su nombre en el resumen y su color en `StatusColors`; etiquetas de tipo, zona y noche. |
-| `presentation/table_picker.dart` | Lista «Elegir mesa»: las mesas del local con su estado, en filas de al menos 48 px y con etiquetas para lector de pantalla. |
+| `presentation/table_picker.dart` | «Buscar mesa» (P24): búsqueda por número, nombre, zona o estado; sin texto no muestra filas. Resultados con su estado, en filas de al menos 48 px y con etiquetas para lector de pantalla. |
 | `presentation/table_detail.dart`, `venue_map_page.dart` | Ficha pública y pantalla de consulta. |
 
 El tema sale del `VenueTheme` del local (`lib/app/app_theme.dart`). `lib/main.dart` pasa la configuración de Sagsa a `RumbaapApp`, que crea el almacén del local y lo pasa por constructor (inicio → pantallas).
@@ -61,7 +61,7 @@ Implementación (I1 en las reglas): un temporizador del controlador (`NightSched
 
 ### Selección de mesa
 
-- **Dos formas de seleccionar:** tocar la mesa en el mapa o elegirla en la lista «Elegir mesa». Ambas llevan a la misma selección y al mismo detalle.
+- **Dos formas de seleccionar:** tocar la mesa en el mapa o buscarla en «Buscar mesa». Ambas llevan a la misma selección y al mismo detalle.
 - **Por qué la lista:** con el plano completo a la vista, las franjas de las mesas normales miden menos de 48 dp en teléfonos pequeños (unos 43 × 33 dp a 320 de ancho; ver [mapa-noche-de-cristal.md](mapa-noche-de-cristal.md#diseño-adaptable)). Las áreas táctiles del mapa no se amplían, para no solaparse.
 - **Desde el mapa,** tocar la mesa ya seleccionada la deselecciona. **Desde la lista,** elegirla de nuevo la mantiene seleccionada.
 
