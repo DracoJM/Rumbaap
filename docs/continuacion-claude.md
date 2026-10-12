@@ -64,3 +64,8 @@ Empaquetado limpio: antes de compilar se borran `build/app/outputs/apk/*/*.apk` 
 ## Siguiente paso
 
 Bloque nuevo con Sonnet (CLAUDE.md §15): definir con Codex la próxima tarea. Para la QA positiva de la champaña hace falta una noche en curso real, sin falsificar la fecha.
+
+## Estado de la herramienta
+
+- Modelo activo: Sonnet 5.5.
+- Preferencia persistente local no guardada: el clasificador automático la rechazó; sin reintentos ni cambios de permisos.
