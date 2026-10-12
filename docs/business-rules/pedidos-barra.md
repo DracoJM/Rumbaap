@@ -8,7 +8,7 @@
 |---|---|---|
 | Cliente | Consulta el menú (informativo, con precios de demostración) y sus comprobantes de consumo. No compra en la app. | VALIDATED |
 | Barra | Registra una compra ya pagada en persona. Sin confirmar el pago completo no se registra nada. Puede vincular la venta a una mesa con reserva de la noche y a la cuenta del cliente por su QR personal (lectura simulada); el cliente recibe el comprobante. | VALIDATED |
-| Caja y administración | Corrigen una venta (quitar unidades o anularla) con motivo y confirmación. Queda lo anterior, quién lo hizo y cuándo; anular no borra. | VALIDATED |
+| Caja y administración | Corrigen una venta (quitar unidades o anularla) con motivo y confirmación. Queda lo anterior, quién lo hizo y cuándo; anular no borra. Subir una cantidad o añadir un producto se rechaza sin cambiar la venta ni su historial. | VALIDATED |
 | Mesero | Consulta las ventas de barra de cada mesa reservada de la noche y acepta el consumo a mano, con nota opcional. Se guarda lo que vio (ventas y suma). Si después cambian las ventas, la ficha lo avisa. | VALIDATED |
 
 - **Estados distintos:** reserva, entrada, compra/pago/entrega en barra y aceptación del consumo son estados distintos. La suma de ventas es informativa; nada se declara cumplido automáticamente.

@@ -86,7 +86,9 @@ class BarBook {
     );
   }
 
-  /// Caja o administración ajustan las líneas de una venta, con motivo.
+  /// Caja o administración quitan unidades de una venta, con motivo. Subir
+  /// una cantidad o añadir un producto se rechaza sin cambiar nada: lo que
+  /// se vende de más es una venta nueva de barra, tras su pago.
   BarSale adjust(
     String id, {
     required Map<String, int> quantities,
@@ -96,6 +98,12 @@ class BarBook {
     final s = _active(id);
     if (reason.trim().isEmpty) {
       throw const BarException(BarError.missingReason);
+    }
+    final before = {for (final l in s.lines) l.itemId: l.quantity};
+    for (final MapEntry(key: item, value: q) in quantities.entries) {
+      if (q > (before[item] ?? 0)) {
+        throw const BarException(BarError.onlyRemoveUnits);
+      }
     }
     final lines = _lines(quantities);
     return _sales[id] = s.corrected(

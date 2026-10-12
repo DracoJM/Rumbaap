@@ -60,11 +60,24 @@ class _DashboardPageState extends State<DashboardPage> {
         r.night,
       for (final t in widget.tickets.book.tickets) t.night,
       for (final s in widget.bar.book.sales) s.night,
+      for (final i in widget.tickets.book.incidents)
+        if (_readingNight(i) case final n?) n,
     };
     return set.toList()..sort((a, b) => a.date.compareTo(b.date));
   }
 
   bool _in(Night n) => _night == null || n == _night;
+
+  /// Noche operativa en curso cuando se hizo la lectura, sea cual sea la
+  /// noche de la entrada leída. `null` fuera de horario: no se le inventa
+  /// noche y solo aparece en todo el período.
+  static Night? _readingNight(TicketIncident i) {
+    final at = VenueTime.of(i.at);
+    for (final n in NightSchedule.weekendNights(at)) {
+      if (n.isInProgress(at)) return n;
+    }
+    return null;
+  }
 
   void _openList(String title, String explanation, List<_Row> rows) =>
       Navigator.of(context).push(
@@ -88,6 +101,19 @@ class _DashboardPageState extends State<DashboardPage> {
     MaterialPageRoute<void>(
       builder: (_) =>
           BarSalePage(store: widget.bar, identity: widget.identity, saleId: id),
+    ),
+  );
+
+  void _openIncident(TicketIncident incident) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => _IncidentPage(
+        incident: incident,
+        readingNight: _readingNight(incident),
+        ticket: incident.ticketId == null
+            ? null
+            : widget.tickets.book.ticketById(incident.ticketId!),
+        onOpenTicket: _openTicket,
+      ),
     ),
   );
 
@@ -139,17 +165,11 @@ class _DashboardPageState extends State<DashboardPage> {
           final sales = widget.bar.book.sales
               .where((s) => _in(s.night))
               .toList();
-          final incidents = widget.tickets.book.incidents.where((i) {
-            if (_night == null) return true;
-            final t = i.ticketId == null
-                ? null
-                : widget.tickets.book.ticketById(i.ticketId!);
-            // Sin entrada (código desconocido) cuenta en la noche en que
-            // ocurrió, no en todas.
-            return t == null
-                ? _night!.isInProgress(VenueTime.of(i.at))
-                : t.night == _night;
-          }).toList();
+          // Por la noche de la lectura, igual con entrada o sin ella; la
+          // noche de la entrada se ve aparte en la ficha de la incidencia.
+          final incidents = widget.tickets.book.incidents
+              .where((i) => _night == null || _readingNight(i) == _night)
+              .toList();
 
           final entered = tickets.where((t) => t.firstEntryAt != null);
           final redeemed = tickets.where(
@@ -458,16 +478,17 @@ class _DashboardPageState extends State<DashboardPage> {
                 '${incidents.length}',
                 () => _openList(
                   'Incidencias',
-                  'Lecturas rechazadas con su motivo.',
+                  'Lecturas rechazadas con su motivo, por la noche en que se '
+                      'leyeron. Las de fuera de horario no se asignan a una '
+                      'noche: solo aparecen en todo el período.',
                   [
                     for (final i in incidents)
                       (
                         title: '${i.point} · ${venueDateTimeLabel(i.at)}',
                         subtitle:
-                            '${rejectReasonLabel(i.reason)} · ${actorLabel(i.actorId)}',
-                        open: i.ticketId == null
-                            ? null
-                            : () => _openTicket(i.ticketId!),
+                            '${rejectReasonLabel(i.reason)} · ${actorLabel(i.actorId)}'
+                            '${_readingNight(i) == null ? ' · Fuera de horario' : ''}',
+                        open: () => _openIncident(i),
                       ),
                   ],
                 ),
@@ -541,6 +562,83 @@ class _ListPage extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Ficha de una incidencia: la noche de la lectura y, aparte, la noche de la
+/// entrada leída, que pueden no coincidir (p. ej. una entrada del viernes
+/// leída el sábado).
+class _IncidentPage extends StatelessWidget {
+  const _IncidentPage({
+    required this.incident,
+    required this.readingNight,
+    required this.ticket,
+    required this.onOpenTicket,
+  });
+
+  final TicketIncident incident;
+  final Night? readingNight;
+  final Ticket? ticket;
+  final void Function(String ticketId) onOpenTicket;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: AppColors.textMuted,
+    );
+    final t = ticket;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Incidencia')),
+      body: ListView(
+        key: const ValueKey('dash-incident-page'),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          24 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
+          Text(
+            rejectReasonLabel(incident.reason),
+            style: theme.textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Lectura: ${venueDateTimeLabel(incident.at)} · ${incident.point} · '
+            '${actorLabel(incident.actorId)}',
+          ),
+          const SizedBox(height: 8),
+          Text(
+            readingNight == null
+                ? 'Noche de la lectura: fuera de horario, no se asigna a '
+                      'ninguna noche.'
+                : 'Noche de la lectura: ${readingNight!.label} de '
+                      '${readingNight!.date.year}',
+            key: const ValueKey('incident-reading-night'),
+          ),
+          const SizedBox(height: 8),
+          if (t == null)
+            Text(
+              'El código leído no corresponde a ninguna entrada.',
+              style: muted,
+            )
+          else ...[
+            Text(
+              'Entrada ${t.id} · noche de la entrada: ${t.night.label} de '
+              '${t.night.date.year}',
+              key: const ValueKey('incident-ticket-night'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              key: const ValueKey('incident-open-ticket'),
+              onPressed: () => onOpenTicket(t.id),
+              child: const Text('Ver entrada'),
+            ),
+          ],
+        ],
       ),
     );
   }

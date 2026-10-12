@@ -96,6 +96,61 @@ void main() {
     );
   });
 
+  test('una corrección solo quita unidades: subir una cantidad o añadir un '
+      'producto se rechaza sin tocar la venta ni su historial', () {
+    final s = book.register(
+      quantities: {'coctel': 2, 'agua': 1},
+      paidInFull: true,
+      actorId: 'barra-1',
+    );
+    final adjusted = book.adjust(
+      s.id,
+      quantities: {'coctel': 1, 'agua': 1},
+      actorId: 'caja-1',
+      reason: 'Se registró de más',
+    );
+    void expectRejected(Map<String, int> quantities) {
+      expect(
+        () => book.adjust(
+          s.id,
+          quantities: quantities,
+          actorId: 'admin-1',
+          reason: 'Corrección',
+        ),
+        throwsA(
+          isA<BarException>().having(
+            (e) => e.error,
+            'error',
+            BarError.onlyRemoveUnits,
+          ),
+        ),
+      );
+      final now = book.saleById(s.id)!;
+      expect(now.status, BarSaleStatus.active);
+      expect(now.total, adjusted.total);
+      expect(
+        [for (final l in now.lines) (l.itemId, l.quantity)],
+        [('coctel', 1), ('agua', 1)],
+      );
+      expect(now.corrections, hasLength(1));
+      expect(now.corrections.single.actorId, 'caja-1');
+    }
+
+    // Volver a subir lo que se quitó.
+    expectRejected({'coctel': 2, 'agua': 1});
+    // Añadir un producto que la venta no tenía, aunque se quite otro.
+    expectRejected({'coctel': 1, 'picada': 1});
+    // Quitar sigue funcionando después de un rechazo.
+    final again = book.adjust(
+      s.id,
+      quantities: {'coctel': 1},
+      actorId: 'admin-1',
+      reason: 'El agua no se entregó',
+    );
+    expect(again.total, 35000);
+    expect(again.corrections, hasLength(2));
+  });
+
   test('el mesero acepta el consumo a mano, una vez, con lo que vio; las '
       'anuladas no cuentan', () {
     final a = book.register(

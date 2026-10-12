@@ -169,7 +169,10 @@ class DemoCodeView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Semantics(
-      label: '$caption. Credencial ${credentialLabel(code)}',
+      // El texto visible ya puede terminar en punto: no se repite.
+      label:
+          '${caption.endsWith('.') ? caption : '$caption.'} Credencial '
+          '${credentialLabel(code)}',
       excludeSemantics: true,
       child: Column(
         children: [

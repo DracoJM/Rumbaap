@@ -10,6 +10,9 @@ import 'features/venues/sagsa/sagsa_config.dart';
 /// Sin ese valor la app usa el reloj real. Nunca cambia el reloj del equipo
 /// ni las reglas de horario: solo el instante de partida, que luego avanza
 /// al ritmo real. La app muestra «Hora simulada» mientras está activa.
+/// Limitación conocida: cada arranque vuelve a ese instante, así que con
+/// datos guardados de una ejecución anterior la hora puede quedar por
+/// detrás de registros ya hechos (p. ej. el «Corte» del panel).
 const _demoNow = String.fromEnvironment('RUMBAAP_DEMO_NOW');
 
 void main() {

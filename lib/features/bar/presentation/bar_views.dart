@@ -25,6 +25,8 @@ String barErrorLabel(BarError e) => switch (e) {
   BarError.alreadyVoided => 'La venta ya está anulada.',
   BarError.missingReason => 'Escribe el motivo de la corrección.',
   BarError.alreadyAccepted => 'El consumo de esa reserva ya se aceptó.',
+  BarError.onlyRemoveUnits =>
+    'Una corrección solo puede quitar unidades. No se hizo ningún cambio.',
 };
 
 /// Cuenta ficticia a partir del código de su QR personal (lectura
@@ -444,7 +446,7 @@ class BarCorrections extends StatelessWidget {
             _title(context, 'Pedidos de barra'),
             const SizedBox(height: 6),
             Text(
-              '${sales.length} ventas · ${copLabel(active.fold(0, (t, s) => t + s.total))} '
+              '${sales.length} ${sales.length == 1 ? 'venta' : 'ventas'} · ${copLabel(active.fold(0, (t, s) => t + s.total))} '
               'vigentes (importes de demostración; pago presencial simulado).',
               key: const ValueKey('bar-admin-summary'),
               style: _muted(context),

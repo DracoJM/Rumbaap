@@ -7,7 +7,7 @@
 |---|---|---|
 | Personas | Primeros ingresos con entrada; manillas canjeadas; entradas vigentes sin canjear; reservas con llegada | No se suman entre sí: una persona puede tener entrada y reserva. Sin salidas registradas no se calcula ocupación actual ni permanencia. |
 | Importes (COP de demostración) | Entradas pagadas; devoluciones autorizadas (aparte, sin restar en silencio); ventas de barra vigentes; prepagos VIP verificados (solo cantidad) | Las cortesías no tienen importe. El prepago VIP no se suma a las ventas de barra para no contarlo dos veces. Son ingresos, no rentabilidad: no hay costos. |
-| Operación | Reservas; consumos aceptados por mesero; incidencias de puerta y taquilla | Cada uno abre su lista. Al filtrar una noche, una incidencia cuenta en la noche de su entrada; si el código no corresponde a ninguna entrada, en la noche en curso cuando ocurrió. |
+| Operación | Reservas; consumos aceptados por mesero; incidencias de puerta y taquilla | Cada uno abre su lista. Al filtrar una noche, una incidencia cuenta en la noche operativa en curso cuando se hizo la lectura, tenga o no entrada asociada; la ficha de la incidencia muestra aparte la noche de la entrada (p. ej. una entrada del viernes leída el sábado). Las lecturas fuera de horario no se asignan a ninguna noche: solo aparecen en todo el período. |
 
 - **Navegación:** cada indicador abre su lista, y cada elemento abre su ficha (entrada, venta de barra o reserva).
 - **Metas:** mecanismo propuesto, sin metas configuradas. No se muestran umbrales ni índices de éxito.

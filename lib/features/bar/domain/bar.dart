@@ -147,6 +147,10 @@ enum BarError {
   alreadyVoided,
   missingReason,
   alreadyAccepted,
+
+  /// Una corrección solo quita unidades: no sube cantidades ni añade
+  /// productos.
+  onlyRemoveUnits,
 }
 
 class BarException implements Exception {

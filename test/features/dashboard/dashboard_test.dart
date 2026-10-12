@@ -22,7 +22,11 @@ void main() {
   late DemoTicketStore tickets;
   late DemoBarStore bar;
 
+  /// Hora del local en la prueba; empieza el viernes a las 22:00.
+  late DateTime now;
+
   Future<void> pumpApp(WidgetTester tester, {double textScale = 1}) async {
+    now = _tonight;
     tester.view.physicalSize = textScale == 1
         ? const Size(411, 914)
         : const Size(320, 568);
@@ -38,18 +42,18 @@ void main() {
     store = DemoReservationStore(
       venue: sagsaVenue,
       latency: Duration.zero,
-      clock: () => _tonight,
+      clock: () => now,
     );
     tickets = DemoTicketStore(
       venueId: sagsaVenue.id,
       venueTag: sagsaConfig.ticketTag,
-      clock: () => _tonight,
+      clock: () => now,
       latency: Duration.zero,
     );
     bar = DemoBarStore(
       venueId: sagsaVenue.id,
       menu: sagsaConfig.menu,
-      clock: () => _tonight,
+      clock: () => now,
     );
     await tester.pumpWidget(
       RumbaapApp(
@@ -57,7 +61,7 @@ void main() {
         store: store,
         tickets: tickets,
         bar: bar,
-        clock: () => _tonight,
+        clock: () => now,
       ),
     );
     await tester.runAsync(() => store.availabilityFor(_friday));
@@ -219,31 +223,106 @@ void main() {
     expect(await value(tester, 'bar-income'), '0 COP');
   });
 
-  testWidgets('una incidencia con un código desconocido cuenta solo en la '
-      'noche en que ocurrió, no en todas', (tester) async {
+  testWidgets('las incidencias cuentan en la noche operativa de la lectura, '
+      'conocidas o desconocidas; la ficha separa la noche de la entrada y '
+      'las de fuera de horario solo están en todo el período', (tester) async {
     await pumpApp(tester);
-    // El viernes (en curso) seguridad lee un código que no es de ninguna
-    // entrada: queda una incidencia sin entrada asociada.
-    tickets.perform(
-      (b) => b.confirmFirstEntry('ZZ0000000000', actorId: 'seguridad-1'),
+    Future<void> pickNight(String label) async {
+      await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
+      await tester.tap(find.byKey(const ValueKey('dash-night')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+    }
+
+    final fridayCourtesy = tickets.book.tickets.firstWhere(
+      (t) => t.channel == TicketChannel.courtesy,
+    );
+    final saturdayTicket = tickets.book.tickets.firstWhere(
+      (t) => t.night == _saturday,
+    );
+    void read(String code) => tickets.perform(
+      (b) => b.confirmFirstEntry(code, actorId: 'seguridad-1'),
+    );
+
+    // Viernes 22:00: un código que no es de ninguna entrada.
+    read('ZZ0000000000');
+    // Sábado 18:00, antes de abrir: la entrada del sábado y un código
+    // desconocido. Fuera de horario: no pertenecen a ninguna noche.
+    now = venueInstant(2026, 10, 10, 18);
+    read(saturdayTicket.credential!);
+    read('ZZ1111111111');
+    // Sábado 22:00: la cortesía del VIERNES y otro código desconocido.
+    now = venueInstant(2026, 10, 10, 22);
+    read(fridayCourtesy.credential!);
+    read('ZZ2222222222');
+    expect(tickets.book.incidents, hasLength(5));
+    expect(
+      tickets.book.incidents[3].reason,
+      RejectReason.otherNight,
+      reason: 'la entrada del viernes se rechaza el sábado',
     );
     await tester.pumpAndSettle();
     await openDashboard(tester);
+
+    // Todo el período: las cinco, también las de fuera de horario.
+    expect(await value(tester, 'incidents'), '5');
+    await tester.tap(find.byKey(const ValueKey('dash-incidents')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Fuera de horario'), findsNWidgets(2));
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Viernes: solo la lectura hecha el viernes. La cortesía del viernes,
+    // leída el sábado, no cuenta aquí.
+    await pickNight('Viernes 9 de octubre de 2026');
     expect(await value(tester, 'incidents'), '1');
 
-    await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
-    await tester.tap(find.byKey(const ValueKey('dash-night')));
+    // Sábado: las dos lecturas de las 22:00, conocida y desconocida; no las
+    // de las 18:00.
+    await pickNight('Sábado 10 de octubre de 2026');
+    expect(await value(tester, 'incidents'), '2');
+    await tester.tap(find.byKey(const ValueKey('dash-incidents')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sábado 10 de octubre de 2026').last);
+    expect(find.textContaining('Fuera de horario'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('dash-row-0')));
     await tester.pumpAndSettle();
-    expect(await value(tester, 'incidents'), '0');
+    expect(
+      find.byKey(const ValueKey('incident-reading-night')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('incident-reading-night')))
+          .data,
+      contains('Sábado 10 de octubre'),
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('incident-ticket-night')))
+          .data,
+      allOf(contains(fridayCourtesy.id), contains('Viernes 9 de octubre')),
+    );
+    await tester.tap(find.byKey(const ValueKey('incident-open-ticket')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AdminTicketPage), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
-    await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
-    await tester.tap(find.byKey(const ValueKey('dash-night')));
+    // La desconocida tiene ficha con su noche y sin entrada inventada.
+    await tester.tap(find.byKey(const ValueKey('dash-row-1')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Viernes 9 de octubre de 2026').last);
-    await tester.pumpAndSettle();
-    expect(await value(tester, 'incidents'), '1');
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('incident-reading-night')))
+          .data,
+      contains('Sábado 10 de octubre'),
+    );
+    expect(find.byKey(const ValueKey('incident-ticket-night')), findsNothing);
+    expect(find.byKey(const ValueKey('incident-open-ticket')), findsNothing);
+    expect(find.textContaining('ninguna entrada'), findsOneWidget);
   });
 
   testWidgets('cada indicador abre su lista y desde ella la ficha', (
