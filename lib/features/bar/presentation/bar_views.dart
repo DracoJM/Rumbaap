@@ -8,6 +8,9 @@ import '../../reservations/presentation/admin/admin_labels.dart';
 import '../../reservations/presentation/admin/admin_widgets.dart';
 import '../../reservations/presentation/table_presentation.dart';
 import '../../session/demo_identities.dart';
+import '../../tickets/data/demo_ticket_store.dart';
+import '../../tickets/domain/ticket.dart';
+import '../../tickets/presentation/credential_scanner.dart';
 import '../../tickets/presentation/ticket_widgets.dart';
 import '../../venues/venue_config.dart';
 import '../data/demo_bar_store.dart';
@@ -20,7 +23,6 @@ String barErrorLabel(BarError e) => switch (e) {
   BarError.paymentNotConfirmed =>
     'Confirma que recibiste el pago presencial completo antes de registrar.',
   BarError.unknownItem => 'Producto desconocido.',
-  BarError.unknownAccount => 'No hay una cuenta con ese QR personal.',
   BarError.notFound => 'No se encontró la venta. No se hizo ningún cambio.',
   BarError.alreadyVoided => 'La venta ya está anulada.',
   BarError.missingReason => 'Escribe el motivo de la corrección.',
@@ -29,15 +31,25 @@ String barErrorLabel(BarError e) => switch (e) {
     'Una corrección solo puede quitar unidades. No se hizo ningún cambio.',
 };
 
-/// Cuenta ficticia a partir del código de su QR personal (lectura
-/// simulada). Solo se usa para vincular el comprobante.
-DemoIdentity? accountByPersonalQr(String raw) {
-  final code = raw.trim().toUpperCase().replaceAll(' ', '');
-  for (final i in DemoIdentities.of(DemoProfile.client)) {
-    if (personalQrCode(i) == code) return i;
-  }
-  return null;
-}
+/// Texto de barra para el resultado de identificar al cliente.
+String accountLookupLabel(AccountLookup r) => switch (r.error) {
+  null =>
+    'Cliente identificado por la entrada ${r.ticket!.id}. El comprobante '
+        'irá a su cuenta; barra no ve sus datos.',
+  AccountLookupError.notFound =>
+    'No hay una entrada con esa credencial. Revísala o registra sin '
+        'comprobante.',
+  AccountLookupError.otherVenue => 'Es una entrada de otro local.',
+  AccountLookupError.retiredCredential =>
+    'Credencial retirada: pide al cliente su QR vigente.',
+  AccountLookupError.voided => 'Entrada anulada: no identifica a nadie.',
+  AccountLookupError.otherNight =>
+    'Es una entrada de otra noche: no identifica al cliente en esta.',
+  AccountLookupError.outsideNight => 'Ahora no hay una noche en curso.',
+  AccountLookupError.noAccount =>
+    'Esa entrada no tiene una cuenta asociada (promotor o cortesía): la '
+        'venta se registra sin comprobante.',
+};
 
 Future<bool> _confirm(
   BuildContext context,
@@ -125,7 +137,7 @@ class SaleSummary extends StatelessWidget {
 // ---------------------------------------------------------------- Cliente
 
 /// «Menú» del cliente: carta INFORMATIVA y sus comprobantes de consumo
-/// (ventas de barra vinculadas a su QR personal). No se compra en la app.
+/// (ventas de barra vinculadas a su cuenta). No se compra en la app.
 class ClientMenu extends StatelessWidget {
   const ClientMenu({super.key, required this.store, required this.identity});
 
@@ -150,8 +162,9 @@ class ClientMenu extends StatelessWidget {
               icon: Icons.info_outline_rounded,
               text:
                   'Menú informativo con precios de DEMOSTRACIÓN. Se pide y se '
-                  'paga en barra; la app no cobra. Muestra tu QR personal en '
-                  'barra para recibir el comprobante aquí.',
+                  'paga en barra; la app no cobra. Muestra en barra el QR de '
+                  'tu entrada de esta noche («Mi QR», en «Más») para recibir '
+                  'el comprobante aquí.',
             ),
             for (final c in categories) ...[
               SectionLabel(c),
@@ -188,18 +201,28 @@ class ClientMenu extends StatelessWidget {
 // ----------------------------------------------------------------- Barra
 
 /// Puesto de barra: registra una compra YA pagada en persona, vinculada si
-/// se quiere a una reserva de la noche y a la cuenta por el QR personal.
+/// se quiere a una reserva de la noche y a la cuenta del cliente.
+///
+/// La cuenta se identifica con el QR de la entrada de la noche (cámara o
+/// credencial escrita) mediante una consulta a [TicketGateway] que no
+/// registra ingreso ni canje. Barra no ve los datos de la cuenta.
 class BarDesk extends StatefulWidget {
   const BarDesk({
     super.key,
     required this.store,
     required this.reservations,
     required this.identity,
+    this.tickets,
+    this.scan = scanCredentialWithCamera,
   });
 
   final DemoBarStore store;
   final DemoReservationStore reservations;
   final DemoIdentity identity;
+
+  /// Entradas del local; sin él no se identifica al cliente.
+  final DemoTicketStore? tickets;
+  final CredentialScan scan;
 
   @override
   State<BarDesk> createState() => _BarDeskState();
@@ -212,6 +235,51 @@ class _BarDeskState extends State<BarDesk> {
   bool _paid = false;
   String? _message;
   bool _ok = false;
+
+  /// Resultado de identificar la credencial escrita o leída; se descarta
+  /// en cuanto cambia el texto.
+  AccountLookup? _lookup;
+  String? _lookupNote;
+  bool _identifying = false;
+
+  Future<void> _identify() async {
+    final gateway = widget.tickets;
+    final code = _qr.text.trim();
+    if (gateway == null || code.isEmpty || _identifying) return;
+    setState(() {
+      _identifying = true;
+      _lookup = null;
+      _lookupNote = null;
+    });
+    try {
+      final r = await gateway.identifyAccount(
+        code,
+        actorId: widget.identity.id,
+      );
+      // Si el texto cambió mientras tanto, el resultado ya no aplica.
+      if (!mounted || _qr.text.trim() != code) return;
+      setState(() {
+        _lookup = r;
+        _lookupNote = accountLookupLabel(r);
+      });
+    } on TicketGatewayUnavailable {
+      if (mounted) {
+        setState(
+          () => _lookupNote = 'Sin respuesta: no se identificó. Reintenta.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _identifying = false);
+    }
+  }
+
+  Future<void> _scan() async {
+    if (_identifying) return;
+    final code = await widget.scan(context);
+    if (code == null || !mounted) return;
+    _qr.text = code;
+    await _identify();
+  }
 
   @override
   void dispose() {
@@ -234,11 +302,13 @@ class _BarDeskState extends State<BarDesk> {
 
   Future<void> _register() async {
     final qrText = _qr.text.trim();
-    final account = qrText.isEmpty ? null : accountByPersonalQr(qrText);
-    if (qrText.isNotEmpty && account == null) {
+    final accountId = qrText.isEmpty ? null : _lookup?.accountId;
+    if (qrText.isNotEmpty && accountId == null) {
       setState(() {
         _ok = false;
-        _message = barErrorLabel(BarError.unknownAccount);
+        _message =
+            'Identifica al cliente con una entrada válida o deja vacío el '
+            'campo para registrar sin comprobante.';
       });
       return;
     }
@@ -266,17 +336,19 @@ class _BarDeskState extends State<BarDesk> {
           actorId: widget.identity.id,
           reservationId: reservation?.id,
           tableId: reservation?.tableId,
-          accountId: account?.id,
+          accountId: accountId,
         ),
       );
       setState(() {
         _ok = true;
         _message =
             'Venta ${s.id} registrada: ${copLabel(s.total)}'
-            '${account == null ? '' : ' · comprobante enviado a la cuenta'}'
+            '${accountId == null ? '' : ' · comprobante enviado a la cuenta'}'
             '${reservation == null ? '' : ' · mesa ${reservation.tableId}'}.';
         _qty.clear();
         _qr.clear();
+        _lookup = null;
+        _lookupNote = null;
         _reservationId = null;
         _paid = false;
       });
@@ -362,19 +434,48 @@ class _BarDeskState extends State<BarDesk> {
               ],
               onChanged: (v) => setState(() => _reservationId = v),
             ),
-            TextField(
-              key: const ValueKey('bar-qr'),
-              controller: _qr,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                // Etiqueta breve: completa con texto al 200 %. El resto va en
-                // la ayuda, que sí puede ocupar varias líneas.
-                labelText: 'QR del cliente',
-                hintText: 'QRP-…',
-                helperText: 'Opcional. Lectura simulada: escribe el código.',
-                helperMaxLines: 3,
+            if (widget.tickets != null) ...[
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                key: const ValueKey('bar-scan'),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+                onPressed: _identifying ? null : _scan,
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                label: const Text('Leer QR del cliente'),
               ),
-            ),
+              TextField(
+                key: const ValueKey('bar-qr'),
+                controller: _qr,
+                textCapitalization: TextCapitalization.characters,
+                onChanged: (_) => setState(() {
+                  _lookup = null;
+                  _lookupNote = null;
+                }),
+                onSubmitted: (_) => _identify(),
+                decoration: const InputDecoration(
+                  // Etiqueta breve: completa con texto al 200 %. El resto va
+                  // en la ayuda, que sí puede ocupar varias líneas.
+                  labelText: 'Entrada del cliente',
+                  hintText: 'SG…',
+                  helperText:
+                      'Opcional. Identifica la cuenta para enviarle el '
+                      'comprobante; no registra ingreso ni canje.',
+                  helperMaxLines: 3,
+                ),
+              ),
+              const SizedBox(height: 6),
+              OutlinedButton(
+                key: const ValueKey('bar-identify'),
+                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+                onPressed: _identifying ? null : _identify,
+                child: Text(_identifying ? 'Consultando…' : 'Identificar'),
+              ),
+              if (_lookupNote case final note?)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(note, key: const ValueKey('bar-account-status')),
+                ),
+            ],
             CheckboxListTile(
               key: const ValueKey('bar-paid'),
               contentPadding: EdgeInsets.zero,

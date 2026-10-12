@@ -172,6 +172,7 @@ class _StaffPageState extends State<StaffPage> {
           store: widget.bar!,
           reservations: widget.store,
           identity: widget.identity,
+          tickets: widget.tickets,
         ),
         _StaffSection.corrections => BarCorrections(
           store: widget.bar!,

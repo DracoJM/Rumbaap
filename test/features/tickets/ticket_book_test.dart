@@ -436,4 +436,84 @@ void main() {
       );
     });
   });
+
+  group('identificación en barra (solo consulta)', () {
+    test('la credencial vigente de esta noche identifica a su dueño sin '
+        'registrar ingreso ni canje, sin incidencias y sin cambiar nada', () {
+      clock.now = _tonightFriday;
+      final t = appTicket();
+      final before = book.ticketById(t.id)!;
+      final r = book.identifyAccount(t.credential!.toLowerCase());
+      expect(r.ok, isTrue);
+      expect(r.accountId, 'cliente-a');
+      final after = book.ticketById(t.id)!;
+      expect(after.status, TicketStatus.active);
+      expect(after.firstEntryAt, isNull);
+      expect(after.history, hasLength(before.history.length));
+      expect(book.incidents, isEmpty);
+    });
+
+    test('tras el canje sigue identificando al dueño, pero puerta y taquilla '
+        'siguen en «No canjeable»: identificar no devuelve derechos', () {
+      clock.now = _tonightFriday;
+      final t = appTicket();
+      book.redeem(
+        t.credential!,
+        actorId: 'caja-1',
+        point: RedeemPoint.boxOffice,
+      );
+      expect(book.identifyAccount(t.credential!).accountId, 'cliente-a');
+      expect(book.ticketById(t.id)!.status, TicketStatus.redeemed);
+      expect(
+        book.doorCheck(t.credential!, actorId: 'seguridad-1').reason,
+        RejectReason.redeemed,
+      );
+      expect(
+        book
+            .redeem(
+              t.credential!,
+              actorId: 'caja-1',
+              point: RedeemPoint.boxOffice,
+            )
+            .reason,
+        RejectReason.redeemed,
+      );
+    });
+
+    test('rechazos: credencial retirada, otra noche, fuera de horario, otro '
+        'local, inexistente, anulada y entrada sin cuenta', () {
+      clock.now = _tonightFriday;
+      final t = appTicket();
+      final old = t.credential!;
+      book.replaceCredential(t.id, actorId: 'cliente-a', reason: 'Captura');
+      expect(
+        book.identifyAccount(old).error,
+        AccountLookupError.retiredCredential,
+      );
+
+      final sat = appTicket(night: _saturday);
+      expect(
+        book.identifyAccount(sat.credential!).error,
+        AccountLookupError.otherNight,
+      );
+      expect(
+        book.identifyAccount('XX0000000000').error,
+        AccountLookupError.otherVenue,
+      );
+      expect(book.identifyAccount('nada').error, AccountLookupError.notFound);
+      expect(
+        book.identifyAccount(promoterTicket().credential!).error,
+        AccountLookupError.noAccount,
+      );
+
+      // Fuera de horario (viernes a las 6:00 p. m.): no identifica.
+      clock.now = venueInstant(2026, 10, 9, 18);
+      final fresh = book.ticketById(t.id)!.credential!;
+      expect(
+        book.identifyAccount(fresh).error,
+        AccountLookupError.outsideNight,
+      );
+      expect(book.incidents, isEmpty);
+    });
+  });
 }

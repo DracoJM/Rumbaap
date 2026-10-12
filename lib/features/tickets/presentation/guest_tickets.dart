@@ -894,35 +894,83 @@ class TicketDetailPage extends StatelessWidget {
   }
 }
 
-/// QR PERSONAL de la cuenta ficticia, en «Más» del cliente.
+/// «Mi QR» del cliente, en «Más»: el MISMO QR real de su entrada de la
+/// noche en curso. No hay un código de cuenta permanente que una captura
+/// antigua pueda usar otra noche. Con varias entradas esa noche, o ninguna,
+/// lo dice y remite a «Entradas»; en barra también pueden identificarle
+/// escribiendo la credencial.
 class PersonalQrCard extends StatelessWidget {
-  const PersonalQrCard({super.key, required this.identity});
+  const PersonalQrCard({
+    super.key,
+    required this.identity,
+    required this.store,
+    this.clock = systemClock,
+  });
 
   final DemoIdentity identity;
+  final DemoTicketStore store;
+  final Clock clock;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       key: const ValueKey('personal-qr'),
       color: NightNeutrals.glass(0.06),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Mi QR personal',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            DemoCodeView(
-              code: personalQrCode(identity),
-              size: 140,
-              caption:
-                  'Identifica tu cuenta ficticia. No es un pago, no prueba tu '
-                  'edad y no es una entrada.',
-            ),
-          ],
+        child: ListenableBuilder(
+          listenable: store,
+          builder: (context, _) {
+            final now = VenueTime.of(clock());
+            final tonight = NightSchedule.weekendNights(
+              now,
+            ).where((n) => n.isInProgress(now)).firstOrNull;
+            final tickets = tonight == null
+                ? const <Ticket>[]
+                : [
+                    for (final t in store.ticketsOf(identity.id))
+                      if (t.night == tonight &&
+                          t.credential != null &&
+                          (t.status == TicketStatus.active ||
+                              t.status == TicketStatus.redeemed))
+                        t,
+                  ];
+            final Widget body;
+            if (tickets.length == 1) {
+              final t = tickets.single;
+              body = CredentialQrView(
+                code: t.credential!,
+                caption: t.status == TicketStatus.redeemed
+                    ? 'Entrada ${t.id} canjeada: tu acceso es la manilla. En '
+                          'barra este QR te identifica para enviarte el '
+                          'comprobante; no da otro canje.'
+                    : 'Entrada ${t.id} de esta noche: sirve en la puerta, la '
+                          'taquilla y la barra. Solo lleva este código, no tus '
+                          'datos.',
+              );
+            } else {
+              body = Text(
+                tickets.isEmpty
+                    ? 'Ahora no tienes una entrada de esta noche con QR. Tus '
+                          'entradas de otras noches tienen su QR en «Entradas». '
+                          'En barra la compra se puede registrar sin '
+                          'comprobante.'
+                    : 'Tienes ${tickets.length} entradas para esta noche: cada '
+                          'una tiene su QR en «Entradas». Muestra la tuya.',
+                key: const ValueKey('personal-qr-none'),
+                style: theme.textTheme.bodyMedium,
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Mi QR', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 8),
+                body,
+              ],
+            );
+          },
         ),
       ),
     );

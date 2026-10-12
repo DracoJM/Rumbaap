@@ -452,4 +452,97 @@ void main() {
       variant: TargetPlatformVariant.mobile(),
     );
   });
+
+  group('un solo QR: «Mi QR» es el de la entrada y barra lo usa para '
+      'identificar', () {
+    Finder inCard(Finder f) => find.descendant(
+      of: find.byKey(const ValueKey('personal-qr')),
+      matching: f,
+    );
+
+    testWidgets(
+      '«Mi QR» muestra el QR real de la entrada de esta noche; sin entrada '
+      'lo dice y no muestra ningún código',
+      (tester) async {
+        await pumpApp(tester);
+        await enter(tester, 'cliente-a');
+        await tapKey(tester, 'tab-Más');
+        expect(
+          inCard(find.byKey(const ValueKey('credential-qr'))),
+          findsNothing,
+        );
+        expect(
+          inCard(find.byKey(const ValueKey('personal-qr-none'))),
+          findsOne,
+        );
+        expect(find.textContaining('QRP-'), findsNothing);
+
+        final t = paidClientTicket();
+        await tester.pumpAndSettle();
+        expect(inCard(find.byKey(const ValueKey('credential-qr'))), findsOne);
+        expect(
+          inCard(find.text(credentialLabel(t.credential!))),
+          findsOneWidget,
+        );
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    testWidgets(
+      'barra lee el QR de la entrada: identifica la cuenta sin registrar '
+      'ingreso ni canje; una entrada de otra noche no identifica y no deja '
+      'registrar con el campo sin resolver; la venta lleva la cuenta',
+      (tester) async {
+        await pumpApp(tester);
+        final t = paidClientTicket();
+        final saturday = store.perform(
+          (b) => b.sell(
+            night: Night(DateTime.utc(2026, 10, 10)),
+            product: sagsaConfig.ticketProducts.first,
+            quantity: 1,
+            channel: TicketChannel.app,
+            actorId: 'cliente-a',
+            ownerId: 'cliente-a',
+          ),
+        );
+        store.perform(
+          (b) => b.simulatePayment(saturday.id, actorId: 'cliente-a'),
+        );
+        final satTicket = store.book.ticketsOf(saturday.id).single;
+
+        await enter(tester, 'barra-1');
+        await tapKey(tester, 'bar-add-coctel');
+
+        // Entrada del sábado: otra noche.
+        await openCamera(tester, 'bar-scan');
+        camera.emit(satTicket.credential!);
+        await tester.pumpAndSettle();
+        expect(find.textContaining('otra noche'), findsOneWidget);
+        await tapKey(tester, 'bar-paid');
+        await tapKey(tester, 'bar-register');
+        expect(find.textContaining('Identifica al cliente'), findsOneWidget);
+
+        // Entrada de esta noche, leída dos veces seguidas: una consulta.
+        await openCamera(tester, 'bar-scan');
+        camera
+          ..emit(t.credential!)
+          ..emit(t.credential!);
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Cliente identificado por la entrada ${t.id}'),
+          findsOneWidget,
+        );
+        final after = store.book.ticketById(t.id)!;
+        expect(after.status, TicketStatus.active);
+        expect(after.firstEntryAt, isNull);
+        expect(store.book.incidents, isEmpty);
+
+        await tapKey(tester, 'bar-register');
+        await tapKey(tester, 'dialog-confirm');
+        final bar = tester.widget<RumbaapApp>(find.byType(RumbaapApp)).bar.book;
+        expect(bar.sales.single.accountId, 'cliente-a');
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+  });
 }

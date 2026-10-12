@@ -14,6 +14,7 @@
   - Lo leído sigue el mismo camino que lo escrito: Puerta consulta (`doorCheck`) y la persona confirma el ingreso; Caja y el promotor piden confirmar el canje, que va por `TicketGateway` con un identificador por intento (idempotente).
   - Permiso denegado, sin cámara o fallo: se explica, con «Reintentar» cuando tiene sentido. «Escribir la credencial» vuelve al campo manual, que sigue disponible.
   - La cámara se detiene al salir de la app, se reanuda al volver y se libera al cerrar el lector.
+- **Un solo QR (2026-10-12):** «Mi QR» del cliente es el QR de su entrada de la noche; barra lo lee (o escribe la credencial) solo para identificar la cuenta, con `TicketGateway.identifyAccount`. Detalle en [pedidos de barra](../business-rules/pedidos-barra.md).
 - **Permisos:** `android.permission.CAMERA` (con `android.hardware.camera` no obligatoria) y `NSCameraUsageDescription`: «Rumbaap usa la cámara solo cuando el personal la activa para leer el código QR de las entradas en la puerta, la taquilla o la entrega de manillas. No se guardan fotos.»
 - **Privacidad:**
   - El QR no lleva nombre, cédula ni estado. La app no guarda fotos ni escribe en registros el código leído.

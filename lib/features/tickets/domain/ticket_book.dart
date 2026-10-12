@@ -295,6 +295,47 @@ class TicketBook {
     return CheckResult(CheckOutcome.redeemedNow, ticket: done);
   }
 
+  /// Barra: identifica la CUENTA dueña de la entrada cuya credencial
+  /// VIGENTE se leyó, para enviarle el comprobante. La identidad sale del
+  /// registro, nunca del QR. Solo consulta: no registra ingreso ni canje, no
+  /// cambia la entrada ni anota incidencias. Una entrada ya canjeada sigue
+  /// identificando a su dueño, sin recuperar derechos; una credencial
+  /// retirada, de otra noche o de otro local no identifica a nadie.
+  AccountLookup identifyAccount(String raw) {
+    final code = normalize(raw);
+    final id = _byCredential[code];
+    if (id == null) {
+      if (_retiredIndex.containsKey(code)) {
+        return const AccountLookup.failed(AccountLookupError.retiredCredential);
+      }
+      final looksLike =
+          code.length == credentialLength && !code.startsWith(venueTag);
+      return AccountLookup.failed(
+        looksLike ? AccountLookupError.otherVenue : AccountLookupError.notFound,
+      );
+    }
+    final t = _tickets[id]!;
+    if (t.status == TicketStatus.voided) {
+      return AccountLookup.failed(AccountLookupError.voided, ticket: t);
+    }
+    if (!t.night.isInProgress(_venueNow)) {
+      final anyTonight = NightSchedule.weekendNights(
+        _venueNow,
+      ).any((n) => n.isInProgress(_venueNow));
+      return AccountLookup.failed(
+        anyTonight
+            ? AccountLookupError.otherNight
+            : AccountLookupError.outsideNight,
+        ticket: t,
+      );
+    }
+    final owner = t.ownerId;
+    if (owner == null) {
+      return AccountLookup.failed(AccountLookupError.noAccount, ticket: t);
+    }
+    return AccountLookup.identified(owner, t);
+  }
+
   /// Comprueba credencial, local, noche, pago y canje. Devuelve la entrada
   /// si sigue vigente, o el rechazo ya registrado.
   Object _resolve(String raw, String actorId, String point) {

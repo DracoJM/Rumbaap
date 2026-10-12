@@ -60,7 +60,8 @@ class BarCorrection {
 
 /// Compra registrada por barra DESPUÉS de recibir el pago presencial
 /// completo (simulado: no se cobra en la app). Puede vincularse a una
-/// reserva de la noche y a la cuenta del cliente por su QR personal.
+/// reserva de la noche y a la cuenta del cliente identificada por el QR de su
+/// entrada.
 class BarSale {
   const BarSale({
     required this.id,
@@ -142,7 +143,6 @@ enum BarError {
   emptySale,
   paymentNotConfirmed,
   unknownItem,
-  unknownAccount,
   notFound,
   alreadyVoided,
   missingReason,

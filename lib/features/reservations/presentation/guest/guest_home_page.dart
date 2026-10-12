@@ -185,8 +185,12 @@ class _GuestHomePageState extends State<GuestHomePage> {
         _GuestSection.more => SessionPanel(
           identity: widget.identity,
           extras: [
-            if (profile == DemoProfile.client)
-              PersonalQrCard(identity: widget.identity),
+            if (profile == DemoProfile.client && widget.tickets != null)
+              PersonalQrCard(
+                identity: widget.identity,
+                store: widget.tickets!,
+                clock: widget.clock,
+              ),
           ],
         ),
       },

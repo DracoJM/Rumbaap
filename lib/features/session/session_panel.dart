@@ -16,7 +16,7 @@ class SessionPanel extends StatelessWidget {
   final DemoIdentity identity;
 
   /// Contenido propio del perfil, antes de «Cambiar identidad» (por
-  /// ejemplo, el QR personal del cliente).
+  /// ejemplo, «Mi QR» del cliente).
   final List<Widget> extras;
 
   /// Vuelve a la entrada y descarta toda la pila de esta sesión (pantallas,

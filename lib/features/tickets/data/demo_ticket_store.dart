@@ -85,6 +85,17 @@ class DemoTicketStore extends ChangeNotifier implements TicketGateway {
   }) =>
       _call(requestId, () => book.redeem(code, actorId: actorId, point: point));
 
+  /// Consulta de solo lectura: no avisa a las vistas ni guarda nada.
+  @override
+  Future<AccountLookup> identifyAccount(
+    String code, {
+    required String actorId,
+  }) async {
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
+    if (offline) throw const TicketGatewayUnavailable();
+    return book.identifyAccount(code);
+  }
+
   Future<CheckResult> _call(
     String? requestId,
     CheckResult Function() op,
@@ -120,6 +131,10 @@ abstract interface class TicketGateway {
     required RedeemPoint point,
     required String requestId,
   });
+
+  /// Barra: identifica la cuenta dueña de la entrada leída. Consulta
+  /// autorizada para el personal de barra; no registra nada.
+  Future<AccountLookup> identifyAccount(String code, {required String actorId});
 }
 
 /// El servicio no respondió: no se sabe si la operación se aplicó. La

@@ -137,8 +137,3 @@ extension StaffRoleLabels on StaffRole {
     StaffRole.waiter => 'Mesero / barra',
   };
 }
-
-/// Código del QR PERSONAL de una cuenta ficticia: solo identifica la cuenta.
-/// No es un pago, no prueba la edad y no es una entrada.
-String personalQrCode(DemoIdentity identity) =>
-    'QRP-${identity.id.toUpperCase()}';

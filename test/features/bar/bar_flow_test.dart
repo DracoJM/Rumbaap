@@ -6,6 +6,8 @@ import 'package:rumbaap/features/bar/domain/bar.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
+import 'package:rumbaap/features/tickets/data/demo_ticket_store.dart';
+import 'package:rumbaap/features/tickets/domain/ticket.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
 
@@ -15,6 +17,24 @@ final _tonight = venueInstant(2026, 10, 9, 22);
 final _friday = Night(DateTime.utc(2026, 10, 9));
 
 void main() {
+  late DemoTicketStore tickets;
+
+  /// Entrada de la app del cliente A para la noche en curso, pagada.
+  Ticket clientTicketTonight() {
+    final p = tickets.perform(
+      (b) => b.sell(
+        night: _friday,
+        product: sagsaConfig.ticketProducts.first,
+        quantity: 1,
+        channel: TicketChannel.app,
+        actorId: 'cliente-a',
+        ownerId: 'cliente-a',
+      ),
+    );
+    tickets.perform((b) => b.simulatePayment(p.id, actorId: 'cliente-a'));
+    return tickets.book.ticketsOf(p.id).single;
+  }
+
   Future<(DemoReservationStore, DemoBarStore)> pumpApp(
     WidgetTester tester, {
     Size size = const Size(411, 914),
@@ -35,10 +55,17 @@ void main() {
       menu: sagsaConfig.menu,
       clock: () => _tonight,
     );
+    tickets = DemoTicketStore(
+      venueId: sagsaVenue.id,
+      venueTag: sagsaConfig.ticketTag,
+      clock: () => _tonight,
+      latency: Duration.zero,
+    );
     await tester.pumpWidget(
       RumbaapApp(
         config: sagsaConfig,
         store: store,
+        tickets: tickets,
         bar: bar,
         clock: () => _tonight,
       ),
@@ -99,10 +126,20 @@ void main() {
     await tapKey(tester, 'bar-reservation');
     await tester.tap(find.textContaining(reservation.id).last);
     await tester.pumpAndSettle();
+    // La cuenta se identifica con la entrada de esta noche (escrita: el
+    // respaldo manual; la cámara va por el mismo camino).
+    final entry = clientTicketTonight();
     await tester.enterText(
       find.byKey(const ValueKey('bar-qr')),
-      'QRP-CLIENTE-A',
+      entry.credential!,
     );
+    await tapKey(tester, 'bar-identify');
+    expect(
+      find.textContaining('Cliente identificado por la entrada ${entry.id}'),
+      findsOneWidget,
+    );
+    // Barra no ve los datos de la cuenta.
+    expect(find.textContaining('Cliente demo A'), findsNothing);
     // Sin confirmar el pago completo no se registra.
     await tapKey(tester, 'bar-register');
     await tapKey(tester, 'dialog-confirm');

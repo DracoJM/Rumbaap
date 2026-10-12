@@ -345,6 +345,35 @@ class CheckResult {
   bool get ok => outcome != CheckOutcome.rejected;
 }
 
+/// Por qué una credencial leída en barra no identifica una cuenta.
+enum AccountLookupError {
+  notFound,
+  otherVenue,
+  retiredCredential,
+  voided,
+  otherNight,
+  outsideNight,
+
+  /// La entrada existe pero no pertenece a una cuenta (venta del promotor o
+  /// cortesía): se identifica a mano o la venta queda sin comprobante.
+  noAccount,
+}
+
+/// Resultado de identificar en barra al dueño de una entrada. Solo
+/// identifica: no da ni cambia derechos.
+class AccountLookup {
+  const AccountLookup.identified(String this.accountId, Ticket this.ticket)
+    : error = null;
+  const AccountLookup.failed(AccountLookupError this.error, {this.ticket})
+    : accountId = null;
+
+  final String? accountId;
+  final Ticket? ticket;
+  final AccountLookupError? error;
+
+  bool get ok => accountId != null;
+}
+
 /// Lectura rechazada (incidencia), con su motivo, hora y actor. Si la
 /// credencial corresponde a una entrada, también va a su historial.
 class TicketIncident {
