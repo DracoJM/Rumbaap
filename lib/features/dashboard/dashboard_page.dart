@@ -319,6 +319,10 @@ class _DashboardPageState extends State<DashboardPage> {
               .where((p) => _in(p.night))
               .toList();
           final prepaidAmount = prepaidsIn.fold<int>(0, (t, p) => t + p.amount);
+          // Ingresos de productos registrados ASOCIADOS a la noche: prepagos
+          // con importe registrado + cobrado en barra. El consumo contra el
+          // prepago ya está dentro del prepago: no se vuelve a sumar.
+          final productIncome = prepaidAmount + barIncome;
           final vipPrepaid = reservations.where(
             (r) => r.history.any(
               (e) => e.type == ReservationEventType.prepaymentMarked,
@@ -337,6 +341,48 @@ class _DashboardPageState extends State<DashboardPage> {
                     case final b?)
                   b,
           ];
+          final vipNoAmount = vipBenefits
+              .where((b) => b.state == VipBenefitState.prepaidNotRegistered)
+              .length;
+          final vipManual = vipBenefits.where((b) {
+            final r = b.reservation;
+            final evidence =
+                widget.bar.book.prepaidOf(r.id) != null ||
+                r.history.any(
+                  (e) => e.type == ReservationEventType.prepaymentMarked,
+                );
+            final arrived = r.history.any(
+              (e) => e.type == ReservationEventType.arrived,
+            );
+            final ended =
+                r.status == ReservationStatus.revoked ||
+                r.status == ReservationStatus.released ||
+                r.status == ReservationStatus.expired;
+            return evidence &&
+                (ended || (widget.bar.book.hasEnded(r.night) && !arrived));
+          }).length;
+          final incomePending = vipNoAmount + vipManual > 0;
+          void openProductIncome() => _openList(
+            'Ingresos asociados a la noche',
+            'Prepagos VIP con importe registrado y cobros en barra. No es la '
+                'caja recibida hoy ni contabilidad por fecha.',
+            [
+              for (final p in prepaidsIn)
+                (
+                  title: 'Prepago · Mesa ${p.tableId} · ${p.night.shortLabel}',
+                  subtitle:
+                      '${copLabel(p.amount)} · ${p.reservationId} · '
+                      '${actorLabel(p.registeredBy)}',
+                  open: () => _openReservation(p.reservationId),
+                ),
+              for (final s in activeSales.where((s) => s.charged > 0))
+                (
+                  title: 'Barra · Venta ${s.id} · ${s.night.shortLabel}',
+                  subtitle: 'Cobrado ${copLabel(s.charged)}',
+                  open: () => _openSale(s.id),
+                ),
+            ],
+          );
           final vipIssued = vipBenefits.fold<int>(
             0,
             (n, b) => n + b.issued.length,
@@ -498,12 +544,16 @@ class _DashboardPageState extends State<DashboardPage> {
                           prepaidConsumed: prepaidConsumed,
                           prepaidCount: prepaidsIn.length,
                           prepaidAmount: prepaidAmount,
+                          productIncome: productIncome,
+                          vipNoAmount: vipNoAmount,
+                          vipManual: vipManual,
                           vipPrepaid: vipPrepaid.length,
                           values: {
                             GoalMetric.firstEntries: entered.length,
                             GoalMetric.reservationArrivals: seated.length,
                             GoalMetric.ticketIncome: ticketIncome,
                             GoalMetric.barIncome: barIncome,
+                            GoalMetric.productIncome: productIncome,
                           },
                           goals: {
                             for (final m in GoalMetric.values)
@@ -594,6 +644,17 @@ class _DashboardPageState extends State<DashboardPage> {
                 note:
                     'Dinero recibido en persona, incluido el excedente sobre '
                     'el prepago VIP.',
+              ),
+              tile(
+                'product-income',
+                'Ingresos de productos registrados asociados a esta noche',
+                copLabel(productIncome),
+                openProductIncome,
+                note:
+                    'Prepagos VIP con importe registrado '
+                    '(${copLabel(prepaidAmount)}) + cobrado en barra '
+                    '(${copLabel(barIncome)}). No es la caja recibida hoy.'
+                    '${incomePending ? ' Sin sumar: $vipNoAmount VIP aprobadas sin importe registrado y $vipManual con gestión manual pendiente; no es un cierre financiero completo.' : ''}',
               ),
               tile(
                 'vip-prepaid-consumption',
@@ -740,12 +801,14 @@ class _DashboardPageState extends State<DashboardPage> {
                   GoalMetric.reservationArrivals: seated.length,
                   GoalMetric.ticketIncome: ticketIncome,
                   GoalMetric.barIncome: barIncome,
+                  GoalMetric.productIncome: productIncome,
                 },
                 details: {
                   GoalMetric.firstEntries: openEntries,
                   GoalMetric.reservationArrivals: openArrivals,
                   GoalMetric.ticketIncome: openTicketIncome,
                   GoalMetric.barIncome: openBarIncome,
+                  GoalMetric.productIncome: openProductIncome,
                 },
               ),
               const SizedBox(height: 8),
@@ -947,6 +1010,7 @@ String _reasonShort(RejectReason r) => switch (r) {
   RejectReason.voided => 'Entrada anulada',
   RejectReason.redeemed => 'Ya canjeada',
   RejectReason.wrongCircuit => 'Circuito equivocado',
+  RejectReason.vipPendingApproval => 'Cortesía VIP sin aprobación',
 };
 
 /// Resumen de UNA noche, solo con cifras agregadas del panel: sin nombres,
@@ -965,6 +1029,9 @@ String _nightSummary({
   required int prepaidConsumed,
   required int prepaidCount,
   required int prepaidAmount,
+  required int productIncome,
+  required int vipNoAmount,
+  required int vipManual,
   required int vipPrepaid,
   required Map<GoalMetric, int> values,
   required Map<GoalMetric, NightGoal?> goals,
@@ -1011,6 +1078,13 @@ String _nightSummary({
     '- Consumo VIP contra prepago: ${copLabel(prepaidConsumed)} (prepagos '
         'registrados: $prepaidCount por ${copLabel(prepaidAmount)}; no se '
         'suma a lo cobrado)',
+    '- Ingresos de productos registrados asociados a esta noche: '
+        '${copLabel(productIncome)} (prepagos VIP con importe registrado + '
+        'cobrado en barra; no es la caja recibida hoy)',
+    if (vipNoAmount + vipManual > 0)
+      '- Sin sumar: $vipNoAmount VIP aprobadas sin importe registrado y '
+          '$vipManual con gestión manual pendiente; no es un cierre '
+          'financiero completo.',
     '- Prepagos VIP verificados: $vipPrepaid (sin importe; no se suman a '
         'barra)',
     '',
@@ -1107,10 +1181,13 @@ extension GoalMetricLabels on GoalMetric {
     GoalMetric.reservationArrivals => 'Reservas con llegada registrada',
     GoalMetric.ticketIncome => 'Entradas pagadas',
     GoalMetric.barIncome => 'Cobrado en barra',
+    GoalMetric.productIncome => 'Ingresos de productos asociados a la noche',
   };
 
   bool get isMoney =>
-      this == GoalMetric.ticketIncome || this == GoalMetric.barIncome;
+      this == GoalMetric.ticketIncome ||
+      this == GoalMetric.barIncome ||
+      this == GoalMetric.productIncome;
 
   String get group =>
       isMoney ? 'Ingresos registrados (COP)' : 'Asistencia registrada';
@@ -1130,6 +1207,10 @@ extension GoalMetricLabels on GoalMetric {
       'Dinero recibido en barra por ventas vigentes, incluido el excedente '
           'sobre el prepago VIP; las anuladas no suman. El consumo cubierto '
           'por el prepago no entra.',
+    GoalMetric.productIncome =>
+      'Prepagos VIP con importe registrado para esa noche más lo cobrado en '
+          'barra. El consumo contra el prepago no se suma otra vez. No es la '
+          'caja recibida hoy; los prepagos sin importe registrado no entran.',
   };
 
   String format(int v) => isMoney ? copLabel(v) : '$v';

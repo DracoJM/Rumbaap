@@ -13,9 +13,12 @@ enum GoalMetric {
   /// Ingresos registrados (COP): compras de entradas pagadas.
   ticketIncome,
 
-  /// Ingresos registrados (COP): ventas de barra vigentes. El prepago VIP
-  /// no entra: se cuenta sin importe.
+  /// Ingresos registrados (COP): cobrado en barra (pago presencial).
   barIncome,
+
+  /// Ingresos de productos asociados a la noche (COP): prepagos VIP con
+  /// importe registrado + cobrado en barra, sin sumar dos veces el consumo.
+  productIncome,
 }
 
 /// Meta de un parámetro para una noche de un local, con quién la fijó.

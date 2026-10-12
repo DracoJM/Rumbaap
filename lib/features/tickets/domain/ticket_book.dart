@@ -35,6 +35,16 @@ class TicketBook {
   /// con una nueva.
   final Random _random;
 
+  /// Comprueba una cortesía enlazada a una reserva VIP antes de consultarla,
+  /// registrar su ingreso o canjearla: `null` si procede, o el motivo del
+  /// rechazo. Por defecto rechaza: si la app no lo conecta, no se canjea
+  /// ninguna cortesía VIP. Las cortesías generales no pasan por aquí.
+  RejectReason? Function(String reservationId) vipCourtesyCheck =
+      _pendingApproval;
+
+  static RejectReason? _pendingApproval(String _) =>
+      RejectReason.vipPendingApproval;
+
   final _purchases = <String, TicketPurchase>{};
   final _tickets = <String, Ticket>{};
   final _byCredential = <String, String>{};
@@ -383,6 +393,13 @@ class TicketBook {
         return _reject(code, actorId, point, RejectReason.redeemed, t);
       case TicketStatus.active:
         break;
+    }
+    // Cortesía de una reserva VIP: requiere su aprobación y verificación,
+    // también para credenciales ya emitidas (enlace estructurado).
+    if (_purchases[t.purchaseId]?.reservationId case final rid?) {
+      if (vipCourtesyCheck(rid) case final reason?) {
+        return _reject(code, actorId, point, reason, t);
+      }
     }
     if (!t.night.isInProgress(_venueNow)) {
       final anyTonight = NightSchedule.weekendNights(

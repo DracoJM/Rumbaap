@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/bar/data/demo_bar_store.dart';
+import '../features/benefits/vip_benefits.dart';
 import '../features/dashboard/data/demo_goal_store.dart';
 import '../features/reservations/data/demo_reservation_store.dart';
 import '../features/reservations/domain/night_schedule.dart';
@@ -39,6 +40,10 @@ class RumbaapApp extends StatelessWidget {
       this.store.venue == config.venue,
       'El almacén debe ser del mismo local que la configuración',
     );
+    // Canje de cortesías VIP: según la reserva del mismo local.
+    final reservations = this.store;
+    this.tickets.book.vipCourtesyCheck = (id) =>
+        vipCourtesyCheckFor(reservations.book.byId, config.venue, id);
   }
 
   /// Local que muestra la app: identidad, mesas, tema y distribución.

@@ -134,6 +134,9 @@ String rejectReasonLabel(RejectReason r) => switch (r) {
     'No canjeable: ya se entregó la manilla. El reingreso es con la manilla.',
   RejectReason.wrongCircuit =>
     'Otro circuito: la manilla de esta entrada no se entrega aquí.',
+  RejectReason.vipPendingApproval =>
+    'Cortesía VIP sin aprobación de la reserva y verificación del prepago '
+        'acreditadas: requiere revisión de la administración.',
 };
 
 String ticketErrorLabel(TicketError e) => switch (e) {

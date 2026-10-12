@@ -573,6 +573,61 @@ void main() {
     );
   });
 
+  testWidgets('ingresos asociados a la noche: 2.000.000 de prepago registrado '
+      '+ consumo de 2.300.000 = 2.300.000, sin duplicar; lo cobrado en barra '
+      'es solo el excedente; filtra por noche y muestra pendientes', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    final vip = store.book
+        .forNight(_friday)
+        .firstWhere((r) => store.venue.tableById(r.tableId)!.isVip);
+    // Antes de registrar el importe: aprobada sin importe, pendiente.
+    await openDashboard(tester);
+    await reveal(tester, find.byKey(const ValueKey('dash-product-income')));
+    expect(find.textContaining('1 VIP aprobadas sin importe'), findsOneWidget);
+
+    bar.perform(
+      (b) => b.registerPrepaid(
+        reservationId: vip.id,
+        tableId: vip.tableId,
+        night: _friday,
+        amount: 2000000,
+        actorId: 'admin-1',
+      ),
+    );
+    // 9 botellas + 3 aguas + 4 gaseosas = 2.300.000.
+    bar.perform(
+      (b) => b.register(
+        quantities: {'botella': 9, 'agua': 3, 'gaseosa': 4},
+        paidInFull: true,
+        actorId: 'barra-1',
+        reservationId: vip.id,
+        tableId: vip.tableId,
+      ),
+    );
+    await tester.pumpAndSettle();
+    // El panel se actualiza solo; vuelve arriba para leer en orden.
+    await reveal(
+      tester,
+      find.byKey(const ValueKey('dash-bar-income')),
+      dy: 200,
+    );
+    // Barra: 70.000 previos + 300.000 de excedente.
+    expect(await value(tester, 'bar-income'), '370.000 COP');
+    expect(await value(tester, 'vip-prepaid-consumption'), '2.000.000 COP');
+    expect(await value(tester, 'product-income'), '2.370.000 COP');
+    expect(find.textContaining('VIP aprobadas sin importe'), findsNothing);
+
+    // Otra noche: nada asociado.
+    await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
+    await tester.tap(find.byKey(const ValueKey('dash-night')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sábado 10 de octubre de 2026').last);
+    await tester.pumpAndSettle();
+    expect(await value(tester, 'product-income'), '0 COP');
+  });
+
   testWidgets('cada indicador abre su lista y desde ella la ficha', (
     tester,
   ) async {

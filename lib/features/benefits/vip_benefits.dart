@@ -76,6 +76,33 @@ class VipBenefits {
   };
 }
 
+/// Prueba, en el historial de la reserva, de que se aprobó con el prepago
+/// verificado: «prepago verificado» por la administración (R2), o reserva
+/// VIP directa de la administración, que según R7 queda confirmada
+/// asumiendo el pago validado. Una revocación posterior no la borra (su
+/// efecto sobre el beneficio sigue NOT DECIDED). La falta de un importe
+/// registrado NO significa «sin pagar».
+bool hasVipApprovalEvidence(Reservation r, Venue venue) =>
+    venue.tableById(r.tableId)?.isVip == true &&
+    r.history.any(
+      (e) =>
+          e.type == ReservationEventType.prepaymentMarked ||
+          e.type == ReservationEventType.createdDirect,
+    );
+
+/// Comprobación de canje para la cortesía de una reserva VIP del local.
+RejectReason? vipCourtesyCheckFor(
+  Reservation? Function(String id) reservationById,
+  Venue venue,
+  String reservationId,
+) {
+  final r = reservationById(reservationId);
+  if (r == null || !hasVipApprovalEvidence(r, venue)) {
+    return RejectReason.vipPendingApproval;
+  }
+  return null;
+}
+
 enum VipBenefitError { notVip, notActive, exceedsEntitlement }
 
 class VipBenefitException implements Exception {

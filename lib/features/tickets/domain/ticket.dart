@@ -322,6 +322,10 @@ enum RejectReason {
   voided,
   redeemed,
   wrongCircuit,
+
+  /// Cortesía de una reserva VIP sin aprobación de la reserva y
+  /// verificación del prepago acreditadas: revisión manual.
+  vipPendingApproval,
 }
 
 /// Resultado de consultar o registrar en la puerta o en taquilla.
