@@ -20,7 +20,7 @@
 - **Precio.** Por noche, de DEMOSTRACIÓN (`TicketProduct.demoPriceByWeekday`); no es la política del local. Precios y eventos reales: NOT DECIDED.
 - **Aforo.** Configurable por local (`VenueConfig.capacity`), hoy sin configurar. La ocupación física no se deduce de entradas ni de ingresos.
 
-## Credencial (lo que mostraría el QR)
+## Credencial (lo que lleva el QR)
 
 - **Pedido de Juanmi:** borrar y reutilizar identificadores al canjear; y tener nombre y cédula disponibles al validar.
 - **PROPUESTA implementada en la demo, pendiente de ratificar:**
@@ -30,8 +30,8 @@
   - El QR es una **referencia opaca**: no lleva nombre, cédula ni estado. La puerta obtiene nombre y cédula del registro («Datos del registro, no de la captura»), mediante un lector autorizado en el sistema real.
   - Diferencia con el pedido: los identificadores no se reutilizan, para que una captura antigua nunca vuelva a ser válida y se conserve la trazabilidad.
 - **Límite que sigue vigente:** un QR vigente compartido puede usarlo primero otro portador. La comprobación física de la persona sigue siendo necesaria.
-- **Demo:** la imagen del QR es ficticia y no se puede escanear. La lectura es SIMULADA: se escribe la credencial.
-- **Pendiente de frontend:** el QR escaneable y la lectura con cámara no están hechos; la ilustración y la entrada manual no cierran ese recorrido. Ver [propuesta](../proposals/qr-escaneable-y-camara.md).
+- **Demo:** la ficha de la entrada muestra un QR real que codifica solo la credencial vigente. Puerta, Caja y el promotor (su lote) lo leen con la cámara, que activa el personal con su botón, o escriben la credencial a mano como respaldo. La lectura solo consulta: el primer ingreso y el canje siguen necesitando la confirmación de la persona. Detalle en [QR y cámara](../proposals/qr-escaneable-y-camara.md).
+- **QR personal de la cuenta:** sigue siendo una ilustración no escaneable; barra lo escribe a mano (lectura simulada).
 
 ## Devoluciones y cambios
 

@@ -7,12 +7,13 @@ import '../../reservations/presentation/table_presentation.dart';
 import '../../session/demo_identities.dart';
 import '../data/demo_ticket_store.dart';
 import '../domain/ticket.dart';
+import 'credential_scanner.dart';
 import 'ticket_widgets.dart';
 
 /// Puesto de puerta (Seguridad) o de taquilla (Caja).
 ///
-/// LECTURA SIMULADA: en la demo no hay cámara ni lector; se escribe la
-/// credencial que mostraría el QR. Los datos de la persona salen del
+/// La credencial se lee con la cámara (botón del personal) o se escribe a
+/// mano; las dos van por el mismo camino. Los datos de la persona salen del
 /// registro, nunca de lo que diga una captura. Puerta: consultar no
 /// registra nada; «Confirmar primer ingreso» lo registra una vez. Taquilla:
 /// canjea por manilla una vez. Cada operación espera la respuesta y
@@ -22,17 +23,22 @@ class TicketDesk extends StatefulWidget {
     super.key,
     required this.store,
     required this.identity,
+    this.scan = scanCredentialWithCamera,
   }) : boxOffice = false;
 
   const TicketDesk.boxOffice({
     super.key,
     required this.store,
     required this.identity,
+    this.scan = scanCredentialWithCamera,
   }) : boxOffice = true;
 
   final DemoTicketStore store;
   final DemoIdentity identity;
   final bool boxOffice;
+
+  /// Lectura con la cámara; las pruebas la sustituyen.
+  final CredentialScan scan;
 
   @override
   State<TicketDesk> createState() => _TicketDeskState();
@@ -41,6 +47,7 @@ class TicketDesk extends StatefulWidget {
 class _TicketDeskState extends State<TicketDesk> {
   final _code = TextEditingController();
   bool _busy = false;
+  bool _scanning = false;
   CheckResult? _result;
   String? _error;
 
@@ -107,12 +114,36 @@ class _TicketDeskState extends State<TicketDesk> {
     );
   }
 
+  /// Lee un QR y sigue el mismo camino que la escritura manual: en puerta,
+  /// solo consulta (el ingreso se confirma aparte); en taquilla, pide la
+  /// confirmación del canje.
+  Future<void> _scan() async {
+    if (_busy || _scanning) return;
+    setState(() => _scanning = true);
+    final String? code;
+    try {
+      code = await widget.scan(context);
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+    // La pantalla pudo cerrarse o cambiar de identidad mientras tanto.
+    if (code == null || !mounted || _busy) return;
+    setState(() {
+      _code.text = code!;
+      _result = null;
+      _error = null;
+    });
+    await (widget.boxOffice ? _redeem() : _consult());
+  }
+
   Future<void> _redeem() async {
     final code = _code.text.trim();
     if (code.isEmpty) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        // Con texto al 200 % todo el diálogo se desplaza.
+        scrollable: true,
         title: const Text('¿Canjear y entregar manilla?'),
         content: const Text(
           'Se registra una sola vez por entrada. Después la entrada queda «No '
@@ -176,13 +207,16 @@ class _TicketDeskState extends State<TicketDesk> {
           style: muted,
         ),
         const SizedBox(height: 8),
-        const NoticeBox(
-          icon: Icons.qr_code_scanner_rounded,
-          color: AppColors.amber,
-          text:
-              'Lectura SIMULADA: en la demo no hay cámara; escribe la '
-              'credencial que muestra la entrada.',
+        const SizedBox(height: 10),
+        FilledButton.tonalIcon(
+          key: ValueKey(box ? 'box-scan' : 'door-scan'),
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+          onPressed: _busy || _scanning ? null : _scan,
+          icon: const Icon(Icons.qr_code_scanner_rounded),
+          label: const Text('Leer QR con la cámara'),
         ),
+        const SizedBox(height: 6),
+        Text('Si la cámara no lee el código, escríbelo a mano.', style: muted),
         const SizedBox(height: 10),
         TextField(
           key: ValueKey(box ? 'box-code' : 'door-code'),

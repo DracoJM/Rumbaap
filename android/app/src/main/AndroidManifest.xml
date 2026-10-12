@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Lectura del QR de las entradas por el personal (puerta, taquilla y
+         lote del promotor). Se pide al abrir el lector; sin cámara la
+         credencial se escribe a mano, por eso no es obligatoria. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="Rumbaap"
         android:name="${applicationName}"

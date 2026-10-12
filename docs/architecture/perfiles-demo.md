@@ -53,7 +53,7 @@ Reglas y propuestas: [entradas](../business-rules/entradas.md).
 |---|---|---|
 | Cliente | Entradas | Compra por noche, pago simulado, entradas con credencial, fase, comprobante e historial; reemplazar credencial; pedir devolución o cambio. QR personal en «Más» (solo identifica la cuenta). |
 | Promotor | Entradas | Registra ventas a nombre de un comprador; confirma el pago comprobado; entrega la credencial; canjea con su lote. Solo ve sus ventas. |
-| Seguridad | Acceso | Consulta la credencial (lectura simulada) y confirma el primer ingreso. |
+| Seguridad | Acceso | Consulta la credencial (QR con la cámara o escrita a mano) y confirma el primer ingreso. |
 | Barra | Barra | Registra compras pagadas en persona ([pedidos](../business-rules/pedidos-barra.md)). |
 | Caja | Manillas, Pedidos | Canje en taquilla de compras de la app y cortesías; corrección de ventas de barra. |
 | Mesero | Llegadas, Consumo | Llegadas de reservas; aceptación manual del consumo de mesas reservadas. |
@@ -68,5 +68,5 @@ Reglas y propuestas: [entradas](../business-rules/entradas.md).
   - «Reiniciar demostración» (entrada, con confirmación) borra solo los datos de este local.
   - Se conservan historial, actores, incidencias, credenciales retiradas y resultados por identificador de operación; ninguna credencial se regenera al reabrir.
 - **Sin pagos:** no hay cobro ni ruta de pago (`NOT DECIDED: proveedor de pagos`).
-- Entradas, QR y pedidos son de demostración: lectura simulada, QR no escaneable y pago presencial simulado.
+- Entradas y pedidos son de demostración: datos ficticios y pago presencial simulado. El QR de las entradas es real y se lee con la cámara; el QR personal de la cuenta sigue siendo ilustrativo y su lectura en barra, simulada.
 - **Plataformas:** los recorridos de la app se prueban con `TargetPlatformVariant.mobile()` (Android, iOS y Fuchsia); la validación nativa de iOS está pendiente.

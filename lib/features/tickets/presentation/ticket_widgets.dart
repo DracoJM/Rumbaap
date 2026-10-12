@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../app/app_theme.dart';
 import '../../../theme/night_neutrals.dart';
@@ -150,9 +151,101 @@ String ticketErrorLabel(TicketError e) => switch (e) {
     'La solicitud ya cambió. No se hizo ningún cambio.',
 };
 
-/// Dibujo de una credencial como si fuera un QR. Es FICTICIO: se genera a
-/// partir del texto y no se puede escanear; en la demo la lectura se
-/// SIMULA escribiendo la credencial.
+/// QR REAL de la credencial vigente de una entrada.
+///
+/// Codifica SOLO la credencial opaca: identidad y estado los consulta el
+/// personal en `TicketGateway`, nunca salen del QR. Negro sobre blanco
+/// opaco, con un margen de 4 módulos (zona de silencio) y un tamaño que se
+/// adapta al ancho disponible.
+class CredentialQrView extends StatelessWidget {
+  const CredentialQrView({
+    super.key,
+    required this.code,
+    required this.caption,
+    this.maxSize = 260,
+  });
+
+  final String code;
+  final String caption;
+  final double maxSize;
+
+  /// Corrección de errores media: tolera algo de brillo o suciedad en la
+  /// pantalla y una credencial de 12 caracteres sigue en la versión 1.
+  static const errorCorrectionLevel = QrErrorCorrectLevel.M;
+
+  /// Módulos de margen blanco a cada lado.
+  static const quietZoneModules = 4;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final qr = QrValidator.validate(
+      data: code,
+      errorCorrectionLevel: errorCorrectionLevel,
+    ).qrCode!;
+    return Semantics(
+      label:
+          '${caption.endsWith('.') ? caption : '$caption.'} Credencial '
+          '${credentialLabel(code)}',
+      excludeSemantics: true,
+      child: Column(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final side = constraints.maxWidth.clamp(0.0, maxSize);
+              final module = side / (qr.moduleCount + 2 * quietZoneModules);
+              return RepaintBoundary(
+                key: const ValueKey('credential-qr'),
+                child: Container(
+                  width: side,
+                  height: side,
+                  padding: EdgeInsets.all(module * quietZoneModules),
+                  // Blanco opaco y esquinas rectas en el área del código: el
+                  // vidrio de la tarjeta queda fuera.
+                  color: Colors.white,
+                  child: QrImageView.withQr(
+                    qr: qr,
+                    padding: EdgeInsets.zero,
+                    backgroundColor: Colors.white,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: Colors.black,
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          SelectableText(
+            credentialLabel(code),
+            key: const ValueKey('credential-text'),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
+              letterSpacing: 1.4,
+            ),
+          ),
+          Text(
+            caption,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dibujo de un código como si fuera un QR. Es FICTICIO: se genera a
+/// partir del texto y no se puede escanear. Solo lo usa el QR personal de
+/// la cuenta, cuya lectura en barra sigue siendo SIMULADA (se escribe).
 class DemoCodeView extends StatelessWidget {
   const DemoCodeView({
     super.key,

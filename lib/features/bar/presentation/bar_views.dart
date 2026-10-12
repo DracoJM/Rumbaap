@@ -367,9 +367,12 @@ class _BarDeskState extends State<BarDesk> {
               controller: _qr,
               textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
-                labelText:
-                    'QR personal del cliente (opcional, lectura simulada)',
+                // Etiqueta breve: completa con texto al 200 %. El resto va en
+                // la ayuda, que sí puede ocupar varias líneas.
+                labelText: 'QR del cliente',
                 hintText: 'QRP-…',
+                helperText: 'Opcional. Lectura simulada: escribe el código.',
+                helperMaxLines: 3,
               ),
             ),
             CheckboxListTile(
