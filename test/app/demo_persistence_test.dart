@@ -70,7 +70,7 @@ final _key = demoStorageKey(sagsaVenue.id);
     latency: Duration.zero,
   ),
   DemoBarStore(
-    venueId: sagsaVenue.id,
+    venue: sagsaVenue,
     menu: sagsaConfig.menu,
     clock: () => _tonight,
   ),

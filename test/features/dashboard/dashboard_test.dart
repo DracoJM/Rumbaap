@@ -53,7 +53,7 @@ void main() {
       latency: Duration.zero,
     );
     bar = DemoBarStore(
-      venueId: sagsaVenue.id,
+      venue: sagsaVenue,
       menu: sagsaConfig.menu,
       clock: () => now,
     );

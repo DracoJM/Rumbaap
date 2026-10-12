@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../reservations/domain/night_schedule.dart';
+import '../../reservations/domain/venue_table.dart';
 import '../domain/bar.dart';
 import '../domain/bar_book.dart';
 
@@ -9,10 +10,10 @@ import '../domain/bar_book.dart';
 /// las ventas de una reserva y caja o administración todo el local.
 class DemoBarStore extends ChangeNotifier {
   DemoBarStore({
-    required String venueId,
+    required Venue venue,
     required List<MenuItem> menu,
     Clock clock = systemClock,
-  }) : book = BarBook(venueId: venueId, menu: menu, clock: clock);
+  }) : book = BarBook(venue: venue, menu: menu, clock: clock);
 
   final BarBook book;
 

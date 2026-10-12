@@ -1,4 +1,5 @@
 import '../../reservations/domain/night_schedule.dart';
+import '../../reservations/domain/venue_table.dart';
 import 'bar.dart';
 
 /// Registro de ventas de barra de un local, en memoria y con reloj
@@ -15,13 +16,12 @@ import 'bar.dart';
 /// No conoce roles: la vista decide quién llama a cada operación. No hay
 /// inventario, tienda de licor, beneficios ni puntos.
 class BarBook {
-  BarBook({
-    required this.venueId,
-    required this.menu,
-    Clock clock = systemClock,
-  }) : _clock = clock;
+  BarBook({required this.venue, required this.menu, Clock clock = systemClock})
+    : _clock = clock;
 
-  final String venueId;
+  /// Local con sus mesas reales: decide si un destino es VIP.
+  final Venue venue;
+  String get venueId => venue.id;
   final List<MenuItem> menu;
   final Clock _clock;
 
@@ -70,6 +70,17 @@ class BarBook {
     final night = currentNight;
     if (night == null) throw const BarException(BarError.outsideNight);
     if (!paidInFull) throw const BarException(BarError.paymentNotConfirmed);
+    // Destino resuelto con las mesas del local: reserva y mesa van juntas y
+    // la mesa existe. Una mesa VIP tiene consumo prepagado sin circuito
+    // aún: no se cobra como otro pago completo.
+    if ((reservationId == null) != (tableId == null)) {
+      throw const BarException(BarError.invalidDestination);
+    }
+    if (tableId != null) {
+      final table = venue.tableById(tableId);
+      if (table == null) throw const BarException(BarError.invalidDestination);
+      if (table.isVip) throw const BarException(BarError.vipPrepaidPending);
+    }
     final lines = _lines(quantities);
     final id = 'P${_next++}';
     return _sales[id] = BarSale(

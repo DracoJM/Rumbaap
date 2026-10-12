@@ -3,6 +3,7 @@ import 'package:rumbaap/features/bar/domain/bar.dart';
 import 'package:rumbaap/features/bar/domain/bar_book.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
 
 import '../reservations/fakes.dart';
 
@@ -19,7 +20,11 @@ void main() {
   late BarBook book;
   setUp(() {
     clock = _Clock(venueInstant(2026, 10, 9, 23));
-    book = BarBook(venueId: 'sagsa', menu: sagsaConfig.menu, clock: clock.call);
+    book = BarBook(
+      venue: sagsaVenue,
+      menu: sagsaConfig.menu,
+      clock: clock.call,
+    );
   });
 
   test('barra registra solo con el pago presencial completo y durante la '
@@ -189,5 +194,44 @@ void main() {
       ),
       throwsA(isA<BarException>()),
     );
+  });
+
+  test('register resuelve el destino con las mesas del local: una mesa VIP '
+      'no se registra ni se cobra (prepago pendiente); una normal y una '
+      'venta sin mesa sí; destinos incoherentes se rechazan', () {
+    final vipTable = sagsaVenue.tables.firstWhere((t) => t.isVip);
+    final regular = sagsaVenue.tables.firstWhere((t) => !t.isVip);
+    Object? error(void Function() f) {
+      try {
+        f();
+      } on BarException catch (e) {
+        return e.error;
+      }
+      return null;
+    }
+
+    BarSale reg({String? reservationId, String? tableId}) => book.register(
+      quantities: {'coctel': 1},
+      paidInFull: true,
+      actorId: 'barra-1',
+      reservationId: reservationId,
+      tableId: tableId,
+    );
+
+    expect(
+      error(() => reg(reservationId: 'R9', tableId: vipTable.id)),
+      BarError.vipPrepaidPending,
+    );
+    expect(error(() => reg(tableId: regular.id)), BarError.invalidDestination);
+    expect(error(() => reg(reservationId: 'R9')), BarError.invalidDestination);
+    expect(
+      error(() => reg(reservationId: 'R9', tableId: 'NO-EXISTE')),
+      BarError.invalidDestination,
+    );
+    expect(book.sales, isEmpty);
+
+    expect(reg(reservationId: 'R1', tableId: regular.id).tableId, regular.id);
+    expect(reg().tableId, isNull);
+    expect(book.sales, hasLength(2));
   });
 }

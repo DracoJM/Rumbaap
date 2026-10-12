@@ -151,6 +151,13 @@ enum BarError {
   /// Una corrección solo quita unidades: no sube cantidades ni añade
   /// productos.
   onlyRemoveUnits,
+
+  /// Reserva y mesa no casan, o la mesa no existe en el local.
+  invalidDestination,
+
+  /// Mesa VIP: su consumo es contra el prepago y ese circuito aún no
+  /// existe. No se registra como otro pago completo.
+  vipPrepaidPending,
 }
 
 class BarException implements Exception {

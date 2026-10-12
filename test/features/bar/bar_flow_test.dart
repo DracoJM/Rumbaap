@@ -51,7 +51,7 @@ void main() {
       clock: () => _tonight,
     );
     final bar = DemoBarStore(
-      venueId: sagsaVenue.id,
+      venue: sagsaVenue,
       menu: sagsaConfig.menu,
       clock: () => _tonight,
     );

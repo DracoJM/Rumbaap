@@ -157,7 +157,7 @@ void main() {
     final r = confirm(vipRequest('VIP 1'));
     issue(r, 3);
     final bar = DemoBarStore(
-      venueId: sagsaVenue.id,
+      venue: sagsaVenue,
       menu: sagsaConfig.menu,
       clock: fixedClock,
     );
@@ -185,7 +185,7 @@ void main() {
         reservations: r2,
         tickets: t2,
         bar: DemoBarStore(
-          venueId: sagsaVenue.id,
+          venue: sagsaVenue,
           menu: sagsaConfig.menu,
           clock: fixedClock,
         ),

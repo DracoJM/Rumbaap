@@ -27,6 +27,11 @@ String barErrorLabel(BarError e) => switch (e) {
   BarError.alreadyVoided => 'La venta ya está anulada.',
   BarError.missingReason => 'Escribe el motivo de la corrección.',
   BarError.alreadyAccepted => 'El consumo de esa reserva ya se aceptó.',
+  BarError.invalidDestination =>
+    'El destino de la venta no es válido. No se registró nada.',
+  BarError.vipPrepaidPending =>
+    'Mesa VIP con prepago: el consumo contra el prepago aún no está '
+        'disponible. No se registró como otro pago completo.',
   BarError.onlyRemoveUnits =>
     'Una corrección solo puede quitar unidades. No se hizo ningún cambio.',
 };

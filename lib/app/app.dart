@@ -33,11 +33,7 @@ class RumbaapApp extends StatelessWidget {
            ),
        bar =
            bar ??
-           DemoBarStore(
-             venueId: config.venue.id,
-             menu: config.menu,
-             clock: clock,
-           ),
+           DemoBarStore(venue: config.venue, menu: config.menu, clock: clock),
        goals = goals ?? DemoGoalStore(clock: clock) {
     assert(
       this.store.venue == config.venue,

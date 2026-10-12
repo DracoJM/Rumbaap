@@ -71,7 +71,7 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
       latency: widget.ticketLatency,
     ),
     DemoBarStore(
-      venueId: widget.config.venue.id,
+      venue: widget.config.venue,
       menu: widget.config.menu,
       clock: widget.clock,
     ),
