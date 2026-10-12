@@ -140,10 +140,15 @@ class _DashboardPageState extends State<DashboardPage> {
               .where((s) => _in(s.night))
               .toList();
           final incidents = widget.tickets.book.incidents.where((i) {
+            if (_night == null) return true;
             final t = i.ticketId == null
                 ? null
                 : widget.tickets.book.ticketById(i.ticketId!);
-            return _night == null || t == null || t.night == _night;
+            // Sin entrada (código desconocido) cuenta en la noche en que
+            // ocurrió, no en todas.
+            return t == null
+                ? _night!.isInProgress(VenueTime.of(i.at))
+                : t.night == _night;
           }).toList();
 
           final entered = tickets.where((t) => t.firstEntryAt != null);
@@ -261,10 +266,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 onChanged: (n) => setState(() => _night = n),
               ),
               const SizedBox(height: 8),
+              // El corte va al final: su hora termina en «a. m.»/«p. m.» y
+              // no se le añade otro punto.
               Text(
                 'Fuente: datos ficticios de demostración guardados en este '
-                'teléfono. Corte: ${venueDateTimeLabel(now)}. Cobertura: '
-                '${nights.isEmpty ? 'sin datos' : '${nights.first.shortLabel} – ${nights.last.shortLabel}'}.',
+                'teléfono. Cobertura: '
+                '${nights.isEmpty ? 'sin datos' : '${nights.first.shortLabel} – ${nights.last.shortLabel}'}. '
+                'Corte: ${venueDateTimeLabel(now)}',
                 key: const ValueKey('dash-source'),
                 style: muted,
               ),

@@ -181,6 +181,12 @@ void main() {
       'sumar anuladas o cortesías; filtra por noche', (tester) async {
     await pumpApp(tester);
     await openDashboard(tester);
+    // La hora de corte termina en «p. m.»: no se repite el punto.
+    final source = tester
+        .widget<Text>(find.byKey(const ValueKey('dash-source')))
+        .data!;
+    expect(source, contains('Corte: vie 9 oct, 10:00 p. m.'));
+    expect(source, isNot(contains('..')));
     expect(await value(tester, 'entries'), '1');
     expect(await value(tester, 'redeemed'), '1');
     // t1 (con ingreso), cortesía y la del sábado siguen sin canjear.
@@ -211,6 +217,33 @@ void main() {
     expect(await value(tester, 'ticket-income'), '50.000 COP');
     await scrollTo(tester, 'bar-income');
     expect(await value(tester, 'bar-income'), '0 COP');
+  });
+
+  testWidgets('una incidencia con un código desconocido cuenta solo en la '
+      'noche en que ocurrió, no en todas', (tester) async {
+    await pumpApp(tester);
+    // El viernes (en curso) seguridad lee un código que no es de ninguna
+    // entrada: queda una incidencia sin entrada asociada.
+    tickets.perform(
+      (b) => b.confirmFirstEntry('ZZ0000000000', actorId: 'seguridad-1'),
+    );
+    await tester.pumpAndSettle();
+    await openDashboard(tester);
+    expect(await value(tester, 'incidents'), '1');
+
+    await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
+    await tester.tap(find.byKey(const ValueKey('dash-night')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sábado 10 de octubre de 2026').last);
+    await tester.pumpAndSettle();
+    expect(await value(tester, 'incidents'), '0');
+
+    await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
+    await tester.tap(find.byKey(const ValueKey('dash-night')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Viernes 9 de octubre de 2026').last);
+    await tester.pumpAndSettle();
+    expect(await value(tester, 'incidents'), '1');
   });
 
   testWidgets('cada indicador abre su lista y desde ella la ficha', (
