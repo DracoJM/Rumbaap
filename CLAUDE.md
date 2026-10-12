@@ -203,3 +203,13 @@ Reglas de tests:
 - Los requisitos y las decisiones de producto pertenecen al equipo. En documentos de requisitos se distingue `VALIDATED`, `HYPOTHESIS` y `NOT DECIDED`.
 - Claude documenta lo implementado y aprobado. La documentación se actualiza en el mismo cambio que el código.
 - Los comentarios en el código explican el *porqué*, no el *qué*.
+
+## 15. Gestión del uso de Claude
+
+- Codex planifica y revisa; Claude ejecuta. El modelo se elige al inicio de cada bloque: Sonnet para la ejecución habitual; Opus para arquitectura, reglas ambiguas o fallos complejos.
+- No cambiar de modelo con historiales enormes: obliga a reconstruir la caché. Mejor cerrar el bloque y abrir contexto nuevo.
+- Una tarea coherente por bloque, sin subagentes ni bucles automáticos.
+- Buscar con `rg`; leer archivos y logs de forma acotada (rangos, `tail`, filtros), nunca completos sin necesidad.
+- Checks según riesgo: tests de dominio y UI para reglas y permisos; `flutter analyze` y los tests necesarios antes de entregar un APK. No repetir checks aprobados si no hay cambios ni dudas nuevas.
+- No encadenar compactaciones. Al cerrar un bloque, checkpoint en `docs/continuacion-claude.md` y contexto nuevo para el siguiente.
+- Se mantienen el alcance frontend/demo y las restricciones anteriores. No reducir permisos ni protecciones ni activar créditos de pago.
