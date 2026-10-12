@@ -13,6 +13,5 @@ const sagsaTheme = VenueTheme(
   furniture: Color(0xFF4A5778),
   furnitureBack: Color(0xFF1F263A),
   barMetal: Color(0xFF5C6E98),
-  ambientIntensity: 0.35,
   lightIntensity: 0.32,
 );

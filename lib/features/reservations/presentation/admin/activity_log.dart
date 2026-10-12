@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
-import '../../../../theme/night_neutrals.dart';
 import '../../../../theme/status_colors.dart';
 import '../../domain/night_schedule.dart';
 import '../../domain/reservation.dart';
@@ -279,10 +278,9 @@ class _DayHeader extends StatelessWidget {
         header: true,
         child: Text(
           '${Night(day).label} de ${day.year}',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: NightNeutrals.glass(0.8),
-            letterSpacing: 0.4,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(color: AppColors.textMuted),
         ),
       ),
     );
@@ -319,10 +317,10 @@ class _ActivityCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: NightNeutrals.glass(0.06),
+        color: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: NightNeutrals.glass(0.12)),
+          side: BorderSide(color: AppColors.border),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

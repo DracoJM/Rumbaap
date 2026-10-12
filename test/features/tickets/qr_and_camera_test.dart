@@ -298,6 +298,14 @@ void main() {
         await tapKey(tester, 'scanner-type-instead');
         expect(find.byType(CredentialScannerPage), findsNothing);
         expect(find.byKey(const ValueKey('desk-result')), findsNothing);
+        // Pedir escribir a mano lleva el foco al campo «Credencial».
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const ValueKey('door-code')))
+              .focusNode!
+              .hasFocus,
+          isTrue,
+        );
 
         await tester.enterText(
           find.byKey(const ValueKey('door-code')),
@@ -364,7 +372,7 @@ void main() {
         latency: Duration.zero,
       );
       final t = paidClientTicket();
-      final pending = Completer<String?>();
+      final pending = Completer<ScanOutcome?>();
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -386,7 +394,7 @@ void main() {
         isNull,
       );
       await tester.pumpWidget(const MaterialApp(home: SizedBox()));
-      pending.complete(t.credential);
+      pending.complete(ScannedCode(t.credential!));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byType(AlertDialog), findsNothing);
@@ -395,59 +403,62 @@ void main() {
     });
 
     testWidgets(
-      'promotor: lee el QR del comprador, confirma y canjea con su lote una '
-      'vez; un código ajeno a la venta se avisa y lo rechaza el servicio',
+      'volver atrás desde el lector no enfoca «Credencial»',
       (tester) async {
         await pumpApp(tester);
-        final client = paidClientTicket();
+        await enter(tester, 'seguridad-1');
+        await tapKey(tester, 'door-scan');
+        tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+        await tester.pumpAndSettle();
+        expect(find.byType(CredentialScannerPage), findsNothing);
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const ValueKey('door-code')))
+              .focusNode!
+              .hasFocus,
+          isFalse,
+        );
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    testWidgets(
+      'promotor: sin lector QR; entrega la manilla desde su venta, una vez',
+      (tester) async {
+        await pumpApp(tester);
         final p = store.perform(
           (b) => b.sell(
             night: tonightNight,
             product: sagsaConfig.ticketProducts.first,
-            quantity: 1,
+            quantity: 2,
             channel: TicketChannel.promoter,
             actorId: 'promotor-1',
             holderName: 'Comprador demo',
+            buyerPhone: '3001112233',
+            buyerIdNumber: '1020304050',
           ),
         );
         store.perform(
           (b) => b.verifyPromoterPayment(p.id, actorId: 'promotor-1'),
         );
-        final t = store.book.ticketsOf(p.id).single;
+        final t = store.book.ticketsOf(p.id).first;
         await enter(tester, 'promotor-1');
         await tapKey(tester, 'tab-Entradas');
         await tapKey(tester, 'purchase-${p.id}');
 
-        await openCamera(tester, 'promoter-scan');
-        camera
-          ..emit(t.credential!)
-          ..emit(t.credential!);
-        await tester.pumpAndSettle();
-        expect(find.textContaining('Entrada ${t.id} de esta venta'), findsOne);
+        expect(find.byKey(const ValueKey('promoter-scan')), findsNothing);
+        expect(find.textContaining('Sin entregar: 2 de 2'), findsOneWidget);
+        expect(find.text('1020304050'), findsOneWidget);
+        await tapKey(tester, 'promoter-redeem-${t.id}');
         await tapKey(tester, 'dialog-confirm');
-        expect(
-          find.text('Manilla de tu lote entregada (entrada ${t.id}).'),
-          findsOneWidget,
-        );
+        expect(find.text('Manilla de tu lote entregada.'), findsOneWidget);
         expect(
           store.book.ticketById(t.id)!.redeemPoint,
           RedeemPoint.promoterLot,
         );
-
-        await openCamera(tester, 'promoter-scan');
-        camera.emit(t.credential!);
-        await tester.pumpAndSettle();
-        await tapKey(tester, 'dialog-confirm');
+        expect(find.textContaining('Sin entregar: 1 de 2'), findsOneWidget);
         expect(events(t, TicketEventType.redeemed), 1);
-
-        // La entrada de la app de otro cliente: no es de esta venta.
-        await openCamera(tester, 'promoter-scan');
-        camera.emit(client.credential!);
-        await tester.pumpAndSettle();
-        expect(find.textContaining('no es de ninguna entrada'), findsOne);
-        await tapKey(tester, 'dialog-confirm');
-        expect(store.book.ticketById(client.id)!.status, TicketStatus.active);
-        expect(store.book.incidents.last.reason, RejectReason.wrongCircuit);
+        expect(find.byKey(ValueKey('promoter-redeem-${t.id}')), findsNothing);
       },
       variant: TargetPlatformVariant.mobile(),
     );

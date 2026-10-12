@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/app_theme.dart';
-import '../../theme/night_neutrals.dart';
 import '../bar/data/demo_bar_store.dart';
 import '../bar/domain/bar.dart';
 import '../bar/presentation/bar_views.dart';
@@ -400,7 +399,7 @@ class _DashboardPageState extends State<DashboardPage> {
             String? note,
           }) => Card(
             key: ValueKey('dash-$key'),
-            color: NightNeutrals.glass(0.06),
+            color: AppColors.surface,
             child: ListTile(
               minTileHeight: 56,
               title: Text(label),
@@ -482,7 +481,7 @@ class _DashboardPageState extends State<DashboardPage> {
               Text(
                 '${venue.name} · ${_night == null ? 'Todo el período con datos' : '${_night!.label} de ${_night!.date.year}'}',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: NightNeutrals.white,
+                  color: AppColors.text,
                 ),
               ),
               const SizedBox(height: 8),
@@ -864,7 +863,7 @@ class _ListPage extends StatelessWidget {
           }
           final r = rows[i - 1];
           return Card(
-            color: NightNeutrals.glass(0.06),
+            color: AppColors.surface,
             child: ListTile(
               key: ValueKey('dash-row-${i - 1}'),
               minTileHeight: 56,
@@ -1010,6 +1009,7 @@ String _reasonShort(RejectReason r) => switch (r) {
   RejectReason.voided => 'Entrada anulada',
   RejectReason.redeemed => 'Ya canjeada',
   RejectReason.wrongCircuit => 'Circuito equivocado',
+  RejectReason.notYourSale => 'Lote de otro promotor',
   RejectReason.vipPendingApproval => 'Cortesía VIP sin aprobación',
 };
 
@@ -1246,7 +1246,7 @@ class _GoalCard extends StatelessWidget {
     final key = metric.name;
     return Card(
       key: ValueKey('goal-$key'),
-      color: NightNeutrals.glass(0.06),
+      color: AppColors.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(

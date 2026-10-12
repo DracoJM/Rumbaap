@@ -6,13 +6,28 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../app/app_theme.dart';
 import '../../reservations/presentation/admin/admin_widgets.dart';
 
-/// Abre la cámara para leer UN QR y devuelve su texto; `null` si la persona
-/// vuelve atrás o elige escribir la credencial a mano.
-typedef CredentialScan = Future<String?> Function(BuildContext context);
+/// Resultado de abrir el lector: un código leído, o la petición expresa de
+/// escribir la credencial a mano. Volver atrás (cancelar) devuelve `null`,
+/// que NO es una petición de escribir: el puesto no debe mover el foco.
+sealed class ScanOutcome {
+  const ScanOutcome();
+}
+
+final class ScannedCode extends ScanOutcome {
+  const ScannedCode(this.code);
+  final String code;
+}
+
+final class ManualEntryRequested extends ScanOutcome {
+  const ManualEntryRequested();
+}
+
+/// Abre la cámara para leer UN QR. `null` si la persona vuelve atrás.
+typedef CredentialScan = Future<ScanOutcome?> Function(BuildContext context);
 
 /// Lectura real con la cámara (pantalla completa).
-Future<String?> scanCredentialWithCamera(BuildContext context) =>
-    Navigator.of(context).push<String>(
+Future<ScanOutcome?> scanCredentialWithCamera(BuildContext context) =>
+    Navigator.of(context).push<ScanOutcome>(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => const CredentialScannerPage(),
@@ -88,7 +103,7 @@ class _CredentialScannerPageState extends State<CredentialScannerPage>
     if (code == null) return;
     _done = true;
     unawaited(_controller.stop());
-    Navigator.of(context).pop(code);
+    Navigator.of(context).pop(ScannedCode(code));
   }
 
   Future<void> _retry() async {
@@ -100,7 +115,7 @@ class _CredentialScannerPageState extends State<CredentialScannerPage>
   void _typeInstead() {
     if (_done) return;
     _done = true;
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(const ManualEntryRequested());
   }
 
   @override

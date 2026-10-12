@@ -30,7 +30,7 @@
   - El QR es una **referencia opaca**: no lleva nombre, cédula ni estado. La puerta obtiene nombre y cédula del registro («Datos del registro, no de la captura»), mediante un lector autorizado en el sistema real.
   - Diferencia con el pedido: los identificadores no se reutilizan, para que una captura antigua nunca vuelva a ser válida y se conserve la trazabilidad.
 - **Límite que sigue vigente:** un QR vigente compartido puede usarlo primero otro portador. La comprobación física de la persona sigue siendo necesaria.
-- **Demo:** la ficha de la entrada muestra un QR real que codifica solo la credencial vigente. Puerta, Caja y el promotor (su lote) lo leen con la cámara, que activa el personal con su botón, o escriben la credencial a mano como respaldo. La lectura solo consulta: el primer ingreso y el canje siguen necesitando la confirmación de la persona. Detalle en [QR y cámara](../proposals/qr-escaneable-y-camara.md).
+- **Demo:** la ficha de la entrada muestra un QR real que codifica solo la credencial vigente. Puerta y Caja lo leen con la cámara, que activa el personal con su botón, o escriben la credencial a mano como respaldo. La lectura solo consulta: el primer ingreso y el canje siguen necesitando la confirmación de la persona. Detalle en [QR y cámara](../proposals/qr-escaneable-y-camara.md).
 - **«Mi QR» del cliente:** es el mismo QR real de su entrada de la noche en curso; no hay otro código de cuenta. Con varias entradas propias esa noche, la persona elige cuál mostrar (un QR a la vez; no se crea, fusiona ni transfiere nada, y no implica una política de compras múltiples). La elección se descarta si cambian la cuenta, el local o la noche, o si la entrada deja de estar disponible. Sin entrada, lo dice. Barra lo usa solo para identificar la cuenta (ver [pedidos de barra](pedidos-barra.md)).
 
 ## Devoluciones y cambios
@@ -52,3 +52,16 @@
 
 - Cada operación nueva guarda el actor (identidad ficticia), la hora, la nota o el motivo, y el origen y el importe de la venta.
 - No se reconstruyen actores desconocidos.
+
+## Ventas del promotor: comprador y entrega de la manilla (2026-10-12)
+
+| Elemento | Estado |
+|---|---|
+| Cada venta nueva del promotor guarda nombre, **teléfono y cédula** del comprador, los tres obligatorios, para usos futuros (p. ej. puntos). Teléfono y cédula solo admiten dígitos (se ignoran los espacios de los extremos; sin longitud ni formato, como R7/R12). | VALIDATED (pedido de Juanmi) |
+| Los datos no van en la credencial ni en registros de depuración, no vinculan ninguna cuenta (ni por coincidencia de cédula o teléfono) y no generan puntos. Las ventas anteriores cargan sin ellos y se muestran «No registrado». | VALIDATED (pedido de Juanmi) |
+| Fórmula de puntos, canje de puntos y vinculación futura con cuentas. | NOT DECIDED |
+| El promotor que hizo la venta puede entregar la manilla de su lote **en cualquier momento** (antes, durante o después de la noche), una vez por entrada, con pago comprobado, estado activo, credencial vigente y circuito Promotor. | VALIDATED (pedido de Juanmi) |
+| Quien no hizo la venta, Caja, Seguridad y las demás entradas (app, cortesías) no obtienen esa excepción: la regla de la noche sigue igual. Un actor ajeno se rechaza con «Lote de otro promotor» en cualquier fecha: queda el incidente y el evento de rechazo habituales, pero el estado de entrega no cambia y no se registra ningún evento `redeemed`. | DECISIÓN DE PROTOTIPO (alcance exacto de la excepción) |
+| La entrega anticipada es un paso distinto del ingreso físico: la puerta no cambia (no hay admisión temprana ni cambio de reingresos) y una entrada ya entregada responde «No canjeable» en puerta. | DECISIÓN DE PROTOTIPO |
+| El promotor ya no tiene lector QR: entrega con «Entregar manilla de mi lote» desde su venta, con confirmación y el recuento «Sin entregar: N de M». | DECISIÓN DE PROTOTIPO |
+| Los datos del comprador se ven en el detalle de la venta del promotor y en la ficha de la entrada de administración. | DECISIÓN DE PROTOTIPO |

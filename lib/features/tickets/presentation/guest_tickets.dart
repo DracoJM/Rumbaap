@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
-import '../../../theme/night_neutrals.dart';
 import '../../reservations/domain/night_schedule.dart';
 import '../../reservations/presentation/admin/admin_widgets.dart';
 import '../../reservations/presentation/table_presentation.dart';
@@ -9,8 +8,6 @@ import '../../session/demo_identities.dart';
 import '../../venues/venue_config.dart';
 import '../data/demo_ticket_store.dart';
 import '../domain/ticket.dart';
-import '../domain/ticket_book.dart';
-import 'credential_scanner.dart';
 import 'ticket_widgets.dart';
 
 /// Pestaña «Entradas» del cliente y del promotor.
@@ -26,16 +23,11 @@ class GuestTickets extends StatefulWidget {
     required this.store,
     required this.identity,
     this.clock = systemClock,
-    this.scan = scanCredentialWithCamera,
   });
 
   final DemoTicketStore store;
   final DemoIdentity identity;
   final Clock clock;
-
-  /// Lectura con la cámara del promotor (su lote); las pruebas la
-  /// sustituyen.
-  final CredentialScan scan;
 
   @override
   State<GuestTickets> createState() => _GuestTicketsState();
@@ -43,6 +35,8 @@ class GuestTickets extends StatefulWidget {
 
 class _GuestTicketsState extends State<GuestTickets> {
   final _holder = TextEditingController();
+  final _phone = TextEditingController();
+  final _idNumber = TextEditingController();
   Night? _night;
   int _quantity = 1;
   String? _error;
@@ -52,6 +46,8 @@ class _GuestTicketsState extends State<GuestTickets> {
   @override
   void dispose() {
     _holder.dispose();
+    _phone.dispose();
+    _idNumber.dispose();
     super.dispose();
   }
 
@@ -80,9 +76,13 @@ class _GuestTicketsState extends State<GuestTickets> {
           actorId: widget.identity.id,
           ownerId: _isClient ? widget.identity.id : null,
           holderName: _isClient ? null : _holder.text,
+          buyerPhone: _isClient ? null : _phone.text,
+          buyerIdNumber: _isClient ? null : _idNumber.text,
         ),
       );
       _holder.clear();
+      _phone.clear();
+      _idNumber.clear();
       _openPurchase(p.id);
     } on TicketException catch (e) {
       setState(() => _error = ticketErrorLabel(e.error));
@@ -94,7 +94,6 @@ class _GuestTicketsState extends State<GuestTickets> {
       builder: (_) => PurchasePage(
         store: widget.store,
         identity: widget.identity,
-        scan: widget.scan,
         purchaseId: id,
       ),
     ),
@@ -131,7 +130,7 @@ class _GuestTicketsState extends State<GuestTickets> {
             Text(
               _isClient ? 'Entradas' : 'Vender entradas',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: NightNeutrals.white,
+                color: AppColors.text,
               ),
             ),
             const SizedBox(height: 8),
@@ -142,7 +141,7 @@ class _GuestTicketsState extends State<GuestTickets> {
               )
             else
               Card(
-                color: NightNeutrals.glass(0.06),
+                color: AppColors.surface,
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -215,6 +214,28 @@ class _GuestTicketsState extends State<GuestTickets> {
                             labelText: 'Nombre del comprador',
                           ),
                         ),
+                      if (!_isClient)
+                        TextField(
+                          key: const ValueKey('ticket-phone'),
+                          controller: _phone,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Teléfono del comprador',
+                          ),
+                        ),
+                      if (!_isClient)
+                        TextField(
+                          key: const ValueKey('ticket-id-number'),
+                          controller: _idNumber,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Cédula del comprador',
+                            helperText:
+                                'Solo dígitos. Se guardan para uso futuro; '
+                                'no crean ni vinculan ninguna cuenta.',
+                            helperMaxLines: 2,
+                          ),
+                        ),
                       const SizedBox(height: 8),
                       Text(
                         price == null
@@ -259,7 +280,7 @@ class _GuestTicketsState extends State<GuestTickets> {
               if (mine.isEmpty)
                 Text(
                   'Todavía no tienes entradas en esta sesión de demostración.',
-                  style: TextStyle(color: NightNeutrals.glass(0.7)),
+                  style: TextStyle(color: AppColors.textMuted),
                 ),
               for (final t in mine)
                 TicketTile(
@@ -283,7 +304,7 @@ class _GuestTicketsState extends State<GuestTickets> {
             for (final p in purchases)
               Card(
                 key: ValueKey('purchase-${p.id}'),
-                color: NightNeutrals.glass(0.06),
+                color: AppColors.surface,
                 child: ListTile(
                   minTileHeight: 56,
                   title: Text(
@@ -314,13 +335,11 @@ class PurchasePage extends StatelessWidget {
     required this.store,
     required this.identity,
     required this.purchaseId,
-    this.scan = scanCredentialWithCamera,
   });
 
   final DemoTicketStore store;
   final DemoIdentity identity;
   final String purchaseId;
-  final CredentialScan scan;
 
   Future<void> _pay(BuildContext context, TicketPurchase p) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -401,6 +420,10 @@ class PurchasePage extends StatelessWidget {
               row('Noche', '${p.night.label} de ${p.night.date.year}'),
               row('Entrada', '${p.product.name} × ${p.quantity}'),
               if (p.holderName case final h?) row('Comprador', h),
+              if (promoter) ...[
+                row('Teléfono', p.buyerPhone ?? 'No registrado'),
+                row('Cédula', p.buyerIdNumber ?? 'No registrado'),
+              ],
               row(
                 'Importe',
                 '${copLabel(p.unitPrice)} × ${p.quantity} = '
@@ -443,14 +466,17 @@ class PurchasePage extends StatelessWidget {
                   ),
                 ),
               SectionLabel('Entradas', count: tickets.length),
-              // Pagada: sus entradas tienen credencial. Se mantiene tras los
-              // canjes para que una relectura muestre «No canjeable».
               if (promoter && !pending)
-                _PromoterLotScan(
-                  store: store,
-                  identity: identity,
-                  tickets: tickets,
-                  scan: scan,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Sin entregar: '
+                    '${tickets.where((t) => t.status == TicketStatus.active).length}'
+                    ' de ${tickets.length}. La entrega de la manilla de tu '
+                    'lote está disponible en cualquier momento; cada entrada '
+                    'se entrega una sola vez.',
+                    key: const ValueKey('promoter-undelivered'),
+                  ),
                 ),
               for (final t in tickets)
                 promoter
@@ -468,116 +494,10 @@ class PurchasePage extends StatelessWidget {
   }
 }
 
-/// Canje con el lote del promotor leyendo con la cámara el QR que muestra
-/// el comprador. La lectura no registra nada: el promotor confirma la
-/// entrega y el canje va por `TicketGateway` (punto «Promotor»), con un
-/// identificador por intento para que un reintento no canjee dos veces. El
-/// botón de cada entrada sigue siendo el respaldo manual.
-class _PromoterLotScan extends StatefulWidget {
-  const _PromoterLotScan({
-    required this.store,
-    required this.identity,
-    required this.tickets,
-    required this.scan,
-  });
-
-  final DemoTicketStore store;
-  final DemoIdentity identity;
-  final List<Ticket> tickets;
-  final CredentialScan scan;
-
-  @override
-  State<_PromoterLotScan> createState() => _PromoterLotScanState();
-}
-
-class _PromoterLotScanState extends State<_PromoterLotScan> {
-  bool _busy = false;
-  String? _result;
-  String? _requestId;
-  String? _requestCode;
-
-  Future<void> _scan() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      final code = await widget.scan(context);
-      if (code == null || !mounted) return;
-      final normalized = TicketBook.normalize(code);
-      final ticket = widget.tickets
-          .where((t) => t.credential == normalized)
-          .firstOrNull;
-      final ok = await _confirm(
-        context,
-        title: '¿Entregar manilla de tu lote?',
-        message: ticket != null
-            ? 'Entrada ${ticket.id} de esta venta. Se registra el canje una '
-                  'sola vez; después la entrada queda «No canjeable».'
-            : 'El código leído no es de ninguna entrada vigente de esta '
-                  'venta. Si continúas, se consulta y se muestra el '
-                  'resultado.',
-        confirm: 'Entregar manilla',
-      );
-      if (!ok || !mounted) return;
-      if (_requestId == null || _requestCode != normalized) {
-        _requestCode = normalized;
-        _requestId =
-            'promo-scan-${widget.identity.id}-'
-            '${DateTime.now().microsecondsSinceEpoch}';
-      }
-      setState(() => _result = null);
-      final r = await widget.store.redeem(
-        code,
-        actorId: widget.identity.id,
-        point: RedeemPoint.promoterLot,
-        requestId: _requestId!,
-      );
-      if (!mounted) return;
-      setState(() {
-        _result = r.ok
-            ? 'Manilla de tu lote entregada (entrada ${r.ticket!.id}).'
-            : rejectReasonLabel(r.reason!);
-        _requestId = null;
-      });
-    } on TicketGatewayUnavailable {
-      if (mounted) {
-        setState(
-          () => _result =
-              'Sin respuesta: no se sabe si quedó registrado. Vuelve a leer '
-              'el mismo QR; no se duplicará.',
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FilledButton.tonalIcon(
-            key: const ValueKey('promoter-scan'),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-            onPressed: _busy ? null : _scan,
-            icon: const Icon(Icons.qr_code_scanner_rounded),
-            label: const Text('Leer QR del comprador'),
-          ),
-          if (_result case final r?)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(r, key: const ValueKey('promoter-scan-result')),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Entrada de una venta del promotor: su credencial para entregar al
-/// comprador y el canje con el lote físico del promotor.
+/// comprador y el canje con el lote físico del promotor. La entrega se
+/// permite en cualquier momento (no es admisión: la puerta sigue
+/// controlando el ingreso con la manilla).
 class _PromoterTicket extends StatefulWidget {
   const _PromoterTicket({
     required this.store,
@@ -607,8 +527,10 @@ class _PromoterTicketState extends State<_PromoterTicket> {
       context,
       title: '¿Entregar manilla de tu lote?',
       message:
-          'Entrada ${t.id}. Se registra el canje una sola vez; después la '
-          'entrada queda «No canjeable».',
+          'Entrada ${t.id}. Se registra la entrega de la manilla una sola vez, '
+          'con tu identidad y la hora actual; después la entrada queda '
+          '«No canjeable». No es el ingreso: la puerta sigue controlando la '
+          'manilla.',
       confirm: 'Entregar manilla',
     );
     if (!ok || !mounted) return;
@@ -651,7 +573,7 @@ class _PromoterTicketState extends State<_PromoterTicket> {
     ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted);
     return Card(
       key: ValueKey('ticket-${t.id}'),
-      color: NightNeutrals.glass(0.06),
+      color: AppColors.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -937,7 +859,7 @@ class _PersonalQrCardState extends State<PersonalQrCard> {
     final theme = Theme.of(context);
     return Card(
       key: const ValueKey('personal-qr'),
-      color: NightNeutrals.glass(0.06),
+      color: AppColors.surface,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: ListenableBuilder(

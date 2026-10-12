@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/night_neutrals.dart';
+import '../../app/app_theme.dart';
+
 import '../../theme/venue_theme.dart';
 import 'demo_identities.dart';
 
@@ -38,9 +39,7 @@ class SessionPanel extends StatelessWidget {
       children: [
         Text(
           'Sesión de demostración',
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: NightNeutrals.white,
-          ),
+          style: theme.textTheme.titleMedium?.copyWith(color: AppColors.text),
         ),
         const SizedBox(height: 8),
         ListTile(
@@ -48,17 +47,17 @@ class SessionPanel extends StatelessWidget {
           leading: Icon(Icons.badge_outlined, color: venue.vip),
           title: Text(
             identity.name,
-            style: const TextStyle(color: NightNeutrals.white),
+            style: const TextStyle(color: AppColors.text),
           ),
           subtitle: Text(
             identity.profile.label,
-            style: TextStyle(color: NightNeutrals.glass(0.7)),
+            style: TextStyle(color: AppColors.textMuted),
           ),
         ),
         Text(
           'Identidad ficticia, sin contraseña ni autenticación real.',
           style: theme.textTheme.bodySmall?.copyWith(
-            color: NightNeutrals.glass(0.7),
+            color: AppColors.textMuted,
           ),
         ),
         for (final w in extras) ...[const SizedBox(height: 12), w],

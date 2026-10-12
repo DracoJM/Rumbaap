@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
-import '../../../../theme/night_neutrals.dart';
 import '../../../../theme/status_colors.dart';
 import '../../../session/demo_identities.dart';
 import '../../../bar/data/demo_bar_store.dart';
@@ -69,7 +68,7 @@ class MyReservations extends StatelessWidget {
             Text(
               'Mis reservas',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: NightNeutrals.white,
+                color: AppColors.text,
               ),
             ),
             const SizedBox(height: 4),
@@ -80,7 +79,7 @@ class MyReservations extends StatelessWidget {
                     ? 'Todavía no has hecho reservas en esta sesión de '
                           'demostración.'
                     : 'No tienes reservas activas.',
-                style: TextStyle(color: NightNeutrals.glass(0.7)),
+                style: TextStyle(color: AppColors.textMuted),
               ),
             for (final r in active)
               _ActiveCard(
@@ -101,7 +100,7 @@ class MyReservations extends StatelessWidget {
             if (ended.isNotEmpty) ...[
               const SizedBox(height: 12),
               Card(
-                color: NightNeutrals.glass(0.04),
+                color: AppColors.surface,
                 clipBehavior: Clip.antiAlias,
                 child: ExpansionTile(
                   key: const PageStorageKey('mine-history'),
@@ -142,7 +141,7 @@ class _ActiveCard extends StatelessWidget {
     final r = reservation;
     return Card(
       key: ValueKey('mine-${r.id}'),
-      color: NightNeutrals.glass(0.06),
+      color: AppColors.surface,
       child: ListTile(
         minTileHeight: 56,
         onTap: onTap,
@@ -150,11 +149,11 @@ class _ActiveCard extends StatelessWidget {
         leading: Icon(r.statusIcon, color: r.statusColorIn(colors)),
         title: Text(
           '${r.tableIn(store.venue).displayName} · ${r.night.shortLabel}',
-          style: const TextStyle(color: NightNeutrals.white),
+          style: const TextStyle(color: AppColors.text),
         ),
         subtitle: Text(
           '${r.statusLabel} · ${r.holderName} · ${r.id}',
-          style: TextStyle(color: NightNeutrals.glass(0.75)),
+          style: TextStyle(color: AppColors.textMuted),
         ),
       ),
     );
@@ -178,10 +177,10 @@ class _EndedTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Material(
-        color: NightNeutrals.glass(0.05),
+        color: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: NightNeutrals.glass(0.1)),
+          side: BorderSide(color: AppColors.border),
         ),
         clipBehavior: Clip.antiAlias,
         child: ExpansionTile(

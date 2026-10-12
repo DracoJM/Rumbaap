@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../theme/night_neutrals.dart';
 import '../../../../theme/status_colors.dart';
+import '../../../../theme/app_background.dart';
 import '../../../../theme/venue_theme.dart';
 import '../../../venues/venue_config.dart';
 import '../../domain/night_schedule.dart';
@@ -231,7 +232,7 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
         backgroundColor: background,
         body: Stack(
           children: [
-            Positioned.fill(child: AmbientBackground(clock: _clock)),
+            const Positioned.fill(child: AppBackground()),
             SafeArea(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -287,7 +288,7 @@ class _CrystalMapScaffoldState extends State<CrystalMapScaffold>
       extendBody: true,
       body: Stack(
         children: [
-          Positioned.fill(child: AmbientBackground(clock: _clock)),
+          const Positioned.fill(child: AppBackground()),
           SafeArea(
             bottom: false,
             child: Column(

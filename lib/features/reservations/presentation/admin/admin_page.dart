@@ -403,7 +403,7 @@ class _AdminPageState extends State<AdminPage> {
         if (vip.isEmpty)
           const NoticeBox(
             icon: Icons.inbox_outlined,
-            text: 'No hay pagos VIP por verificar en esta noche.',
+            text: 'No hay pagos VIP por verificar en la noche seleccionada.',
           )
         else
           for (final r in vip)
@@ -425,7 +425,7 @@ class _AdminPageState extends State<AdminPage> {
         if (inProcess.isEmpty)
           const NoticeBox(
             icon: Icons.inbox_outlined,
-            text: 'No hay mesas normales en proceso en esta noche.',
+            text: 'No hay mesas normales en proceso en la noche seleccionada.',
           )
         else
           for (final r in inProcess)
@@ -456,7 +456,10 @@ class _AdminPageState extends State<AdminPage> {
       padding: _listPadding(inner, 8),
       children: [
         if (birthdays.isNotEmpty) ...[
-          SectionLabel('Cumpleaños de esta noche', count: birthdays.length),
+          SectionLabel(
+            'Cumpleaños de la noche seleccionada',
+            count: birthdays.length,
+          ),
           for (final r in birthdays)
             ReservationTile(
               key: ValueKey('birthday-prep-${r.id}'),
@@ -470,7 +473,7 @@ class _AdminPageState extends State<AdminPage> {
         if (active.isEmpty)
           const NoticeBox(
             icon: Icons.inbox_outlined,
-            text: 'No hay reservas activas en esta noche.',
+            text: 'No hay reservas activas en la noche seleccionada.',
           ),
         for (final r in active)
           ReservationTile(
@@ -487,7 +490,7 @@ class _AdminPageState extends State<AdminPage> {
         if (ended.isEmpty)
           const NoticeBox(
             icon: Icons.inbox_outlined,
-            text: 'Ninguna reserva de esta noche ha terminado.',
+            text: 'Ninguna reserva de la noche seleccionada ha terminado.',
           ),
         for (final r in ended)
           ReservationTile(

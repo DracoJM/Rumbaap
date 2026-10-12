@@ -590,7 +590,19 @@ void main() {
         matching: find.byType(Scrollable),
       );
       for (var i = 0; i < 120 && row.hitTestable().evaluate().isEmpty; i++) {
-        await tester.drag(list.first, const Offset(0, -150));
+        // Desde el borde inferior de la lista: el centro puede caer sobre el
+        // campo de búsqueda, que no desplaza.
+        await tester.dragFrom(
+          Offset(
+            tester.getCenter(list.first).dx,
+            tester
+                    .getBottomLeft(list.first)
+                    .dy
+                    .clamp(0, tester.view.physicalSize.height) -
+                24,
+          ),
+          const Offset(0, -150),
+        );
         await tester.pumpAndSettle();
       }
       await tester.tap(row.hitTestable());

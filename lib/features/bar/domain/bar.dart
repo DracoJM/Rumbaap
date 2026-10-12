@@ -58,6 +58,20 @@ class BarCorrection {
   int get previousTotal => previousLines.fold(0, (s, l) => s + l.total);
 }
 
+/// Cliente SIN cuenta verificada: contacto escrito a mano por Barra, todo
+/// opcional. NO crea cuenta, ni da acceso, beneficios o puntos, y nunca se
+/// vincula solo por coincidir cédula o teléfono. Es excluyente con
+/// [BarSale.accountId]. Con todo vacío significa «cliente sin identificar».
+class UnverifiedCustomer {
+  const UnverifiedCustomer({this.name, this.phone, this.idNumber});
+
+  final String? name;
+  final String? phone;
+  final String? idNumber;
+
+  bool get isEmpty => name == null && phone == null && idNumber == null;
+}
+
 /// Compra registrada por barra DESPUÉS de recibir el pago presencial
 /// completo (simulado: no se cobra en la app). Puede vincularse a una
 /// reserva de la noche y a la cuenta del cliente identificada por el QR de su
@@ -74,6 +88,7 @@ class BarSale {
     this.reservationId,
     this.tableId,
     this.accountId,
+    this.customer,
     this.corrections = const [],
     this.prepaidApplied = 0,
   });
@@ -91,6 +106,10 @@ class BarSale {
   final String? reservationId;
   final String? tableId;
   final String? accountId;
+
+  /// Cliente no verificado (excluyente con [accountId]); `null` en las
+  /// ventas sin modo de cliente registrado.
+  final UnverifiedCustomer? customer;
   final List<BarCorrection> corrections;
 
   /// Importe vigente: 0 si se anuló.
@@ -117,6 +136,7 @@ class BarSale {
     reservationId: reservationId,
     tableId: tableId,
     accountId: accountId,
+    customer: customer,
     corrections: [...corrections, correction],
     prepaidApplied: prepaidApplied,
   );
@@ -209,6 +229,10 @@ enum BarError {
 
   /// El prepago de esa reserva ya está registrado (uno por reserva).
   prepaidAlreadyRegistered,
+
+  /// Una venta no puede llevar a la vez una cuenta y un cliente no
+  /// verificado, y su contacto solo admite dígitos en teléfono y cédula.
+  invalidCustomer,
 
   /// Importe de prepago no válido.
   invalidAmount,

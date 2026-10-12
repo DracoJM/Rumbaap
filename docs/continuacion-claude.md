@@ -65,6 +65,15 @@ Empaquetado limpio: antes de compilar se borran `build/app/outputs/apk/*/*.apk` 
 
 Bloque nuevo con Sonnet (CLAUDE.md §15): definir con Codex la próxima tarea. Para la QA positiva de la champaña hace falta una noche en curso real, sin falsificar la fecha.
 
+## Bloque funcional y rediseño (2026-10-12)
+
+- Base `870b26a`; entregado en un commit local posterior (sin push). Detalle en [entradas](business-rules/entradas.md) y [pedidos de barra](business-rules/pedidos-barra.md).
+- Hecho: contacto del comprador del promotor; entrega de manilla del promotor en cualquier momento, sin lector QR; «Credencial» con foco al escribir a mano; vacío del selector de mesa explicado; cliente sin cuenta en Barra; texto de champaña de Beneficios VIP.
+- Rediseño compartido hecho: fondo lineal sin bolas, tokens y temas de componentes ([ADR 0005](decisions/0005-sistema-visual-compartido.md)). El mapa no se tocó.
+- Verificado por ejecución (exit 0): `dart format`, `git diff --check`, `flutter analyze` y suite completa 506/506. Revisión visual del render de widgets con datos ficticios y reloj inyectado solo en el montaje del test (no es prueba Android).
+- Bloqueo nativo: la QA en dispositivo de los seis pasos NO se hizo. El emulador `Pixel_7` se encontró cerrado y el sistema denegó arrancarlo; queda para que el usuario lo abra. No hay evidencia nativa de estos cambios.
+- Límites: teclado real, foco, cámara, glass en pantalla real, fuente al 200 % en dispositivo, iOS nativo y Android API 24 siguen sin comprobar.
+
 ## Estado de la herramienta
 
 - Modelo activo: Sonnet 5.5.

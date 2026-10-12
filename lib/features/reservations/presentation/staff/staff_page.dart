@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
-import '../../../../theme/night_neutrals.dart';
 import '../../../session/demo_identities.dart';
 import '../../../session/session_panel.dart';
 import '../../../bar/data/demo_bar_store.dart';
@@ -269,7 +268,7 @@ class _StaffPageState extends State<StaffPage> {
           for (final r in candidates)
             Card(
               key: ValueKey('staff-${r.id}'),
-              color: NightNeutrals.glass(0.06),
+              color: AppColors.surface,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
@@ -278,19 +277,19 @@ class _StaffPageState extends State<StaffPage> {
                     Text(
                       '${r.tableIn(venue).displayName} · ${r.holderName}',
                       style: const TextStyle(
-                        color: NightNeutrals.white,
+                        color: AppColors.text,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       '${r.statusLabel} · ${r.id}',
-                      style: TextStyle(color: NightNeutrals.glass(0.75)),
+                      style: TextStyle(color: AppColors.textMuted),
                     ),
                     if (r.birthday case final b?)
                       Text(
                         '${b.honoreeName}: ${birthdayStageLabel(b)}',
                         key: ValueKey('staff-birthday-${r.id}'),
-                        style: TextStyle(color: NightNeutrals.glass(0.75)),
+                        style: TextStyle(color: AppColors.textMuted),
                       ),
                     if (r.status == ReservationStatus.confirmed) ...[
                       const SizedBox(height: 8),

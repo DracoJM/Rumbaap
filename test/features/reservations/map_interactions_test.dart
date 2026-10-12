@@ -81,7 +81,19 @@ Future<void> _pick(WidgetTester tester, String id) async {
   // tocar. Con texto al 200 % y la fuente de los tests las filas son muy
   // altas, de ahí el margen de pasos.
   for (var i = 0; i < 120 && row.hitTestable().evaluate().isEmpty; i++) {
-    await tester.drag(list.first, const Offset(0, -150));
+    // Desde el borde inferior de la lista: el centro puede caer sobre el
+    // campo de búsqueda, que no desplaza.
+    await tester.dragFrom(
+      Offset(
+        tester.getCenter(list.first).dx,
+        tester
+                .getBottomLeft(list.first)
+                .dy
+                .clamp(0, tester.view.physicalSize.height) -
+            24,
+      ),
+      const Offset(0, -150),
+    );
     await tester.pumpAndSettle();
   }
   // ignore: avoid_print

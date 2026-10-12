@@ -465,6 +465,9 @@ void main() {
       await reveal(tester, find.byKey(const ValueKey('dash-summary')));
       await tester.tap(find.byKey(const ValueKey('dash-summary')));
       await tester.pumpAndSettle();
+      // La lista se construye bajo demanda: con texto grande el resumen
+      // queda fuera de la zona ya construida.
+      await reveal(tester, find.byKey(const ValueKey('summary-text')));
       return tester
           .widget<SelectableText>(find.byKey(const ValueKey('summary-text')))
           .data!;

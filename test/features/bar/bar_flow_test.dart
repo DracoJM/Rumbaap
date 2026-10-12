@@ -75,21 +75,25 @@ void main() {
     return (store, bar);
   }
 
+  /// Desplaza la lista principal hasta construir [f]: primero hacia abajo y,
+  /// si no aparece, hacia arriba (la lista se construye bajo demanda).
   Future<void> reveal(WidgetTester tester, Finder f) async {
-    for (var i = 0; i < 40 && f.evaluate().isEmpty; i++) {
-      final lists = find.byWidgetPredicate(
-        (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
-      );
-      if (lists.evaluate().isEmpty) break;
-      final main = lists.evaluate().reduce((a, b) {
-        final sa = a.size!, sb = b.size!;
-        return sa.width * sa.height >= sb.width * sb.height ? a : b;
-      });
-      await tester.drag(
-        find.byElementPredicate((e) => e == main),
-        const Offset(0, -250),
-      );
-      await tester.pumpAndSettle();
+    for (final dy in [-250.0, 250.0]) {
+      for (var i = 0; i < 40 && f.evaluate().isEmpty; i++) {
+        final lists = find.byWidgetPredicate(
+          (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+        );
+        if (lists.evaluate().isEmpty) break;
+        final main = lists.evaluate().reduce((a, b) {
+          final sa = a.size!, sb = b.size!;
+          return sa.width * sa.height >= sb.width * sb.height ? a : b;
+        });
+        await tester.drag(
+          find.byElementPredicate((e) => e == main),
+          Offset(0, dy),
+        );
+        await tester.pumpAndSettle();
+      }
     }
   }
 

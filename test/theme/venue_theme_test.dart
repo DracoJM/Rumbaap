@@ -16,7 +16,6 @@ void main() {
     expect(sagsaTheme.furniture, const Color(0xFF4A5778));
     expect(sagsaTheme.furnitureBack, const Color(0xFF1F263A));
     expect(sagsaTheme.barMetal, const Color(0xFF5C6E98));
-    expect(sagsaTheme.ambientIntensity, 0.35);
     expect(sagsaTheme.lightIntensity, 0.32);
   });
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/app_theme.dart';
-import '../../theme/night_neutrals.dart';
 import '../bar/data/demo_bar_store.dart';
 import '../bar/domain/bar.dart';
 import '../bar/presentation/champagne_view.dart';
@@ -82,7 +81,7 @@ class VipBenefitsCard extends StatelessWidget {
     };
     return Card(
       key: ValueKey('vip-benefits-${reservation.id}'),
-      color: NightNeutrals.glass(0.06),
+      color: AppColors.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -135,8 +134,9 @@ class VipBenefitsCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Champaña: ${b.bottles}, fuera del consumo (no cuenta en el '
-              'consumo de la mesa). No está definido quién la entrega ni cómo '
-              'se registra, así que la app no la marca como entregada.',
+              'consumo de la mesa). Con la mesa ocupada y a petición de la '
+              'mesa, Barra registra la salida y el mesero confirma la '
+              'entrega.',
               key: ValueKey('vip-bottle-${reservation.id}'),
               style: muted,
             ),

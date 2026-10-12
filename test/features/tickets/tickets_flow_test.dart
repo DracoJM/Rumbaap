@@ -188,10 +188,14 @@ void main() {
     await enter(tester, 'promotor-1');
     await tapKey(tester, 'tab-Entradas');
     await type(tester, 'ticket-holder', 'Comprador demo');
+    await type(tester, 'ticket-phone', '3001112233');
+    await type(tester, 'ticket-id-number', '1020304050');
     await tapKey(tester, 'ticket-buy');
     final p = store.purchasesBy('promotor-1').single;
     final t = store.book.ticketsOf(p.id).single;
     expect(t.status, TicketStatus.pendingPayment);
+    expect(p.buyerPhone, '3001112233');
+    expect(p.buyerIdNumber, '1020304050');
     expect(t.credential, isNull);
     expect(find.byKey(ValueKey('promoter-redeem-${t.id}')), findsNothing);
 

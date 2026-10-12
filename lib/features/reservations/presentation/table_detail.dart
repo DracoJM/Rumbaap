@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../theme/night_neutrals.dart';
+import '../../../app/app_theme.dart';
+
 import '../../../theme/venue_theme.dart';
 import '../../venues/venue_config.dart';
 import '../domain/venue_table.dart';
@@ -77,7 +78,7 @@ class TableDetail extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: NightNeutrals.white,
+              color: AppColors.text,
             ),
           ),
           const SizedBox(height: 4),
@@ -108,7 +109,7 @@ class InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: NightNeutrals.glass(0.6)),
+          Icon(icon, size: 20, color: AppColors.textMuted),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -116,17 +117,11 @@ class InfoRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: NightNeutrals.glass(0.65),
-                  ),
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: NightNeutrals.white,
-                  ),
+                  style: const TextStyle(fontSize: 15, color: AppColors.text),
                 ),
               ],
             ),
@@ -163,7 +158,7 @@ class Bullet extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13.5,
                 height: 1.4,
-                color: NightNeutrals.glass(0.8),
+                color: AppColors.textMuted,
               ),
             ),
           ),

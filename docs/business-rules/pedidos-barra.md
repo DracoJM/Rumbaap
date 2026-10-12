@@ -30,3 +30,15 @@
   - No existe un código de cuenta permanente: una captura de otra noche no identifica ni canjea nada.
   - Con el campo vacío la venta se registra sin comprobante, como antes. Las ventas ya guardadas conservan su cuenta.
 - **Persistencia:** las ventas, las correcciones y las aceptaciones se guardan con el resto de la demo (sección `bar` del estado guardado).
+
+## Cliente sin cuenta, credencial y mesa (2026-10-12)
+
+| Elemento | Estado |
+|---|---|
+| Barra puede registrar la venta de un cliente **sin app**, con o sin datos. | VALIDATED (pedido de Juanmi) |
+| Opción «Cliente sin cuenta» con nombre, teléfono y cédula **opcionales**; sin datos, la venta queda como «Cliente sin identificar». Es un contacto manual **no verificado**, guardado en la venta y separado de la cuenta: no crea cuenta ni da acceso, beneficios o puntos y no se vincula solo por coincidir cédula o teléfono. | VALIDATED (pedido de Juanmi); campos opcionales y su presentación: DECISIÓN DE PROTOTIPO |
+| Cuenta identificada por credencial y cliente sin cuenta son excluyentes; al cambiar de modo se descarta el código o el contacto del borrador. Teléfono y cédula solo admiten dígitos. | DECISIÓN DE PROTOTIPO |
+| Precio, total, cobrado, prepago/excedente y correcciones no dependen de la identidad del cliente. | Comportamiento existente conservado |
+| Consolidación de estos contactos con cuentas reales, y puntos. | NOT DECIDED |
+| El campo se llama «Credencial» («Escribe o pega el ID del cliente»); «Escribir la credencial» en el lector lleva el foco al campo, y cancelar el lector no. | DECISIÓN DE PROTOTIPO (texto) |
+| El selector de mesa sigue mostrando solo las reservas confirmadas u ocupadas de la noche en curso, y explica el vacío (sin noche en curso, o sin reservas confirmadas). «Sin mesa» sigue disponible. | DECISIÓN DE PROTOTIPO |

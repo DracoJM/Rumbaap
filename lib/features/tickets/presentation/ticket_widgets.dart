@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../app/app_theme.dart';
-import '../../../theme/night_neutrals.dart';
 import '../../reservations/presentation/table_presentation.dart';
 import '../../session/demo_identities.dart';
 import '../domain/ticket.dart';
@@ -134,6 +133,8 @@ String rejectReasonLabel(RejectReason r) => switch (r) {
     'No canjeable: ya se entregó la manilla. El reingreso es con la manilla.',
   RejectReason.wrongCircuit =>
     'Otro circuito: la manilla de esta entrada no se entrega aquí.',
+  RejectReason.notYourSale =>
+    'Esta venta es de otro promotor: solo quien la hizo entrega su manilla.',
   RejectReason.vipPendingApproval =>
     'Cortesía VIP sin aprobación de la reserva y verificación del prepago '
         'acreditadas: requiere revisión de la administración.',
@@ -144,6 +145,8 @@ String ticketErrorLabel(TicketError e) => switch (e) {
   TicketError.noPrice => 'No hay precio de demostración para esa noche.',
   TicketError.invalidQuantity => 'Elige al menos una entrada.',
   TicketError.invalidHolder => 'Completa el nombre (y el motivo, si aplica).',
+  TicketError.invalidContact =>
+    'Teléfono y cédula son obligatorios y solo admiten dígitos.',
   TicketError.notFound => 'No se encontró. No se hizo ningún cambio.',
   TicketError.wrongChannel => 'Esa operación no aplica a este circuito.',
   TicketError.alreadyPaid => 'Esa venta ya está pagada.',
@@ -315,7 +318,7 @@ class TicketTile extends StatelessWidget {
     ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted);
     return Card(
       key: ValueKey('ticket-${t.id}'),
-      color: NightNeutrals.glass(0.06),
+      color: AppColors.surface,
       child: ListTile(
         minTileHeight: 56,
         onTap: onTap,

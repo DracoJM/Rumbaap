@@ -7,7 +7,7 @@
 
 | Archivo | Responsabilidad |
 |---|---|
-| `crystal_venue_map.dart` | `CrystalVenueMap`: el único mapa. Recibe estados, selección, filtro y toque, y lee el local de `VenueScope`. También contiene el fondo ambiental. |
+| `crystal_venue_map.dart` | `CrystalVenueMap`: el único mapa. Recibe estados, selección, filtro y toque, y lee el local de `VenueScope`. El fondo común (gradiente lineal tenue) es `AppBackground`, en `lib/theme/app_background.dart`. |
 | `crystal_map_scaffold.dart` | Pantalla común. Contiene: volver; aviso de datos ficticios; «Buscar mesa»; navegador de noche (flechas y deslizamiento); resumen por estado con filtro; plano; y la ficha y la barra que aporta cada perspectiva. |
 | `crystal_layout.dart` | `CrystalLayout` y `TablePlacement`: lienzo, posiciones, zonas táctiles y elementos opcionales del recinto (tarima VIP, pista, barra, cabina DJ, acceso, esquinas). `FurnitureSpec`: medidas del mueble por tipo de mesa. |
 | `venue_static_painters.dart`, `venue_light_painters.dart` | Capas fijas y capas animadas, calculadas a partir de la distribución. |

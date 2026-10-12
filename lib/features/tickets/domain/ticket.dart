@@ -110,6 +110,8 @@ class TicketPurchase {
     this.paidAt,
     this.paymentBy,
     this.holderName,
+    this.buyerPhone,
+    this.buyerIdNumber,
     this.ownerId,
     this.note,
     this.reservationId,
@@ -133,6 +135,13 @@ class TicketPurchase {
 
   /// Nombre del comprador (venta del promotor o cortesía).
   final String? holderName;
+
+  /// Contacto e identidad del comprador de una venta del promotor, para
+  /// usos futuros (p. ej. puntos, sin fórmula definida). Solo dígitos. Son
+  /// datos manuales, NO verifican ni vinculan ninguna cuenta; `null` en las
+  /// ventas anteriores a este dato. Nunca van en la credencial.
+  final String? buyerPhone;
+  final String? buyerIdNumber;
 
   /// Motivo de una cortesía (por ejemplo, la reserva VIP).
   final String? note;
@@ -163,6 +172,8 @@ class TicketPurchase {
         paidAt: at,
         paymentBy: actor,
         holderName: holderName,
+        buyerPhone: buyerPhone,
+        buyerIdNumber: buyerIdNumber,
         ownerId: ownerId,
         note: note,
         reservationId: reservationId,
@@ -292,6 +303,7 @@ enum TicketError {
   noPrice,
   invalidQuantity,
   invalidHolder,
+  invalidContact,
   notFound,
   wrongChannel,
   alreadyPaid,
@@ -322,6 +334,9 @@ enum RejectReason {
   voided,
   redeemed,
   wrongCircuit,
+
+  /// Entrega desde el lote del promotor por quien no hizo esa venta.
+  notYourSale,
 
   /// Cortesía de una reserva VIP sin aprobación de la reserva y
   /// verificación del prepago acreditadas: revisión manual.

@@ -149,13 +149,24 @@ class TicketBook {
     required String actorId,
     String? ownerId,
     String? holderName,
+    String? buyerPhone,
+    String? buyerIdNumber,
   }) {
     assert(channel != TicketChannel.courtesy, 'Usa authorizeCourtesy.');
     final price = product.demoPriceFor(night);
     if (price == null) throw const TicketException(TicketError.noPrice);
-    if (channel == TicketChannel.promoter &&
-        (holderName == null || holderName.trim().isEmpty)) {
-      throw const TicketException(TicketError.invalidHolder);
+    String? phone, idNumber;
+    if (channel == TicketChannel.promoter) {
+      if (holderName == null || holderName.trim().isEmpty) {
+        throw const TicketException(TicketError.invalidHolder);
+      }
+      // Misma regla de dígitos que las reservas (R7/R12): se ignoran los
+      // espacios de los extremos y no se impone longitud ni formato.
+      phone = buyerPhone?.trim();
+      idNumber = buyerIdNumber?.trim();
+      if (!isDigits(phone) || !isDigits(idNumber)) {
+        throw const TicketException(TicketError.invalidContact);
+      }
     }
     return _create(
       night: night,
@@ -166,9 +177,15 @@ class TicketBook {
       actorId: actorId,
       ownerId: ownerId,
       holderName: holderName?.trim(),
+      buyerPhone: phone,
+      buyerIdNumber: idNumber,
       payment: PaymentStatus.pending,
     );
   }
+
+  /// Solo dígitos y al menos uno.
+  static bool isDigits(String? v) =>
+      v != null && v.isNotEmpty && RegExp(r'^[0-9]+$').hasMatch(v);
 
   /// Cortesía autorizada por la administración: activa sin pago.
   TicketPurchase authorizeCourtesy({
@@ -300,7 +317,22 @@ class TicketBook {
     required RedeemPoint point,
   }) {
     final where = point == RedeemPoint.boxOffice ? 'Taquilla' : 'Promotor';
-    final found = _resolve(code, actorId, where);
+    // Excepción de horario: solo la entrega, desde su lote, de una entrada
+    // del circuito Promotor por el promotor que hizo ESA venta. No cambia la
+    // puerta, Caja, Seguridad ni las cortesías, y el pago, la credencial y
+    // el no-doble-canje se siguen exigiendo en [_resolve].
+    final pre = _tickets[_byCredential[normalize(code)]];
+    final lotOfPromoterSale =
+        point == RedeemPoint.promoterLot &&
+        pre != null &&
+        pre.channel == TicketChannel.promoter;
+    // Solo quien hizo la venta entrega desde su lote, en cualquier fecha:
+    // se rechaza antes de tocar nada.
+    if (lotOfPromoterSale && _purchases[pre.purchaseId]?.createdBy != actorId) {
+      return _reject(code, actorId, where, RejectReason.notYourSale, pre);
+    }
+    final ownLotDelivery = lotOfPromoterSale;
+    final found = _resolve(code, actorId, where, anyTime: ownLotDelivery);
     if (found is CheckResult) return found;
     final t = found as Ticket;
     final promoterTicket = t.channel == TicketChannel.promoter;
@@ -359,7 +391,12 @@ class TicketBook {
 
   /// Comprueba credencial, local, noche, pago y canje. Devuelve la entrada
   /// si sigue vigente, o el rechazo ya registrado.
-  Object _resolve(String raw, String actorId, String point) {
+  Object _resolve(
+    String raw,
+    String actorId,
+    String point, {
+    bool anyTime = false,
+  }) {
     final code = normalize(raw);
     final id = _byCredential[code];
     if (id == null) {
@@ -401,7 +438,7 @@ class TicketBook {
         return _reject(code, actorId, point, reason, t);
       }
     }
-    if (!t.night.isInProgress(_venueNow)) {
+    if (!anyTime && !t.night.isInProgress(_venueNow)) {
       final anyTonight = NightSchedule.weekendNights(
         _venueNow,
       ).any((n) => n.isInProgress(_venueNow));
@@ -638,6 +675,8 @@ class TicketBook {
     required PaymentStatus payment,
     String? ownerId,
     String? holderName,
+    String? buyerPhone,
+    String? buyerIdNumber,
     String? note,
     String? reservationId,
   }) {
@@ -657,6 +696,8 @@ class TicketBook {
       createdBy: actorId,
       ownerId: ownerId,
       holderName: holderName,
+      buyerPhone: buyerPhone,
+      buyerIdNumber: buyerIdNumber,
       note: note,
       reservationId: reservationId,
       createdAt: _now,

@@ -318,6 +318,8 @@ Map<String, Object?> _purchase(TicketPurchase p) => {
   'paidAt': p.paidAt == null ? null : _time(p.paidAt!),
   'paymentBy': p.paymentBy,
   'holderName': p.holderName,
+  if (p.buyerPhone != null) 'buyerPhone': p.buyerPhone,
+  if (p.buyerIdNumber != null) 'buyerIdNumber': p.buyerIdNumber,
   'ownerId': p.ownerId,
   'note': p.note,
   if (p.reservationId != null) 'reservationId': p.reservationId,
@@ -342,6 +344,8 @@ TicketPurchase _purchaseFrom(Map j, Map<String, TicketProduct> products) {
     paidAt: j['paidAt'] == null ? null : _parseTime(j['paidAt']),
     paymentBy: j['paymentBy'] as String?,
     holderName: j['holderName'] as String?,
+    buyerPhone: j['buyerPhone'] as String?,
+    buyerIdNumber: j['buyerIdNumber'] as String?,
     ownerId: j['ownerId'] as String?,
     note: j['note'] as String?,
     // Añadido después sin cambiar el formato: si falta, no es de una VIP.
@@ -485,6 +489,12 @@ Map<String, Object?> _sale(BarSale s) => {
   'reservationId': s.reservationId,
   'tableId': s.tableId,
   'accountId': s.accountId,
+  if (s.customer case final c?)
+    'customer': {
+      if (c.name != null) 'name': c.name,
+      if (c.phone != null) 'phone': c.phone,
+      if (c.idNumber != null) 'idNumber': c.idNumber,
+    },
   if (s.prepaidApplied > 0) 'prepaidApplied': s.prepaidApplied,
   'corrections': [
     for (final c in s.corrections)
@@ -509,6 +519,13 @@ BarSale _saleFrom(Map j) => BarSale(
   reservationId: j['reservationId'] as String?,
   tableId: j['tableId'] as String?,
   accountId: j['accountId'] as String?,
+  customer: j['customer'] is Map
+      ? UnverifiedCustomer(
+          name: (j['customer'] as Map)['name'] as String?,
+          phone: (j['customer'] as Map)['phone'] as String?,
+          idNumber: (j['customer'] as Map)['idNumber'] as String?,
+        )
+      : null,
   prepaidApplied: ((j['prepaidApplied'] as num?) ?? 0).toInt(),
   corrections: [
     for (final c in j['corrections'] as List)

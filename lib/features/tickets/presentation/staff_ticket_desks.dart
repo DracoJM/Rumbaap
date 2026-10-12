@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
-import '../../../theme/night_neutrals.dart';
 import '../../reservations/presentation/admin/admin_widgets.dart';
 import '../../reservations/presentation/table_presentation.dart';
 import '../../session/demo_identities.dart';
@@ -46,6 +45,7 @@ class TicketDesk extends StatefulWidget {
 
 class _TicketDeskState extends State<TicketDesk> {
   final _code = TextEditingController();
+  final _codeFocus = FocusNode();
   bool _busy = false;
   bool _scanning = false;
   CheckResult? _result;
@@ -59,6 +59,7 @@ class _TicketDeskState extends State<TicketDesk> {
   @override
   void dispose() {
     _code.dispose();
+    _codeFocus.dispose();
     super.dispose();
   }
 
@@ -120,16 +121,22 @@ class _TicketDeskState extends State<TicketDesk> {
   Future<void> _scan() async {
     if (_busy || _scanning) return;
     setState(() => _scanning = true);
-    final String? code;
+    final ScanOutcome? outcome;
     try {
-      code = await widget.scan(context);
+      outcome = await widget.scan(context);
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
     // La pantalla pudo cerrarse o cambiar de identidad mientras tanto.
-    if (code == null || !mounted || _busy) return;
+    if (outcome == null || !mounted || _busy) return;
+    // Pedir escribir a mano lleva el foco al campo; cancelar no lo mueve.
+    if (outcome is ManualEntryRequested) {
+      _codeFocus.requestFocus();
+      return;
+    }
+    final code = (outcome as ScannedCode).code;
     setState(() {
-      _code.text = code!;
+      _code.text = code;
       _result = null;
       _error = null;
     });
@@ -192,9 +199,7 @@ class _TicketDeskState extends State<TicketDesk> {
       children: [
         Text(
           box ? 'Taquilla: canje de manillas' : 'Puerta: validar entradas',
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: NightNeutrals.white,
-          ),
+          style: theme.textTheme.titleMedium?.copyWith(color: AppColors.text),
         ),
         const SizedBox(height: 6),
         Text(
@@ -221,6 +226,7 @@ class _TicketDeskState extends State<TicketDesk> {
         TextField(
           key: ValueKey(box ? 'box-code' : 'door-code'),
           controller: _code,
+          focusNode: _codeFocus,
           enabled: !_busy,
           textCapitalization: TextCapitalization.characters,
           textInputAction: TextInputAction.done,
@@ -230,8 +236,8 @@ class _TicketDeskState extends State<TicketDesk> {
           }),
           onSubmitted: (_) => box ? _redeem() : _consult(),
           decoration: const InputDecoration(
-            labelText: 'Credencial leída',
-            hintText: 'SG…',
+            labelText: 'Credencial',
+            helperText: 'Escribe o pega el ID de la credencial.',
             prefixIcon: Icon(Icons.qr_code_2_rounded),
           ),
         ),

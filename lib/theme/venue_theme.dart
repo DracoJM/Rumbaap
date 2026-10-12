@@ -19,7 +19,6 @@ class VenueTheme extends ThemeExtension<VenueTheme> {
     required this.furniture,
     required this.furnitureBack,
     required this.barMetal,
-    required this.ambientIntensity,
     required this.lightIntensity,
   });
 
@@ -32,9 +31,6 @@ class VenueTheme extends ThemeExtension<VenueTheme> {
   final Color furniture;
   final Color furnitureBack;
   final Color barMetal;
-
-  /// Luces de fondo de la pantalla, de 0 a 1.
-  final double ambientIntensity;
 
   /// Haces, pista y neón del plano, de 0 a 1.
   final double lightIntensity;
@@ -53,7 +49,6 @@ class VenueTheme extends ThemeExtension<VenueTheme> {
     Color? furniture,
     Color? furnitureBack,
     Color? barMetal,
-    double? ambientIntensity,
     double? lightIntensity,
   }) => VenueTheme(
     name: name ?? this.name,
@@ -65,7 +60,6 @@ class VenueTheme extends ThemeExtension<VenueTheme> {
     furniture: furniture ?? this.furniture,
     furnitureBack: furnitureBack ?? this.furnitureBack,
     barMetal: barMetal ?? this.barMetal,
-    ambientIntensity: ambientIntensity ?? this.ambientIntensity,
     lightIntensity: lightIntensity ?? this.lightIntensity,
   );
 
@@ -82,11 +76,6 @@ class VenueTheme extends ThemeExtension<VenueTheme> {
       furniture: Color.lerp(furniture, other.furniture, t)!,
       furnitureBack: Color.lerp(furnitureBack, other.furnitureBack, t)!,
       barMetal: Color.lerp(barMetal, other.barMetal, t)!,
-      ambientIntensity: lerpDouble(
-        ambientIntensity,
-        other.ambientIntensity,
-        t,
-      )!,
       lightIntensity: lerpDouble(lightIntensity, other.lightIntensity, t)!,
     );
   }

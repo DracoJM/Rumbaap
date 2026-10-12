@@ -10,7 +10,7 @@ import '../features/dashboard/data/demo_goal_store.dart';
 import '../features/session/demo_identities.dart';
 import '../features/tickets/data/demo_ticket_store.dart';
 import '../features/venues/venue_config.dart';
-import '../theme/night_neutrals.dart';
+import '../theme/app_background.dart';
 import '../theme/venue_theme.dart';
 import 'app_theme.dart';
 import 'persistence/demo_bootstrap.dart';
@@ -81,21 +81,16 @@ class HomePage extends StatelessWidget {
     final config = VenueScope.of(context);
     final theme = Theme.of(context);
     return Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: const Alignment(-0.6, -0.9),
-            radius: 1.4,
-            colors: [
-              venue.primary.withValues(alpha: venue.ambientIntensity * 0.6),
-              venue.background,
-            ],
-          ),
-        ),
+      body: AppBackground(
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+              padding: EdgeInsets.fromLTRB(
+                AppSpace.gutter(MediaQuery.sizeOf(context).width),
+                AppSpace.lg,
+                AppSpace.gutter(MediaQuery.sizeOf(context).width),
+                AppSpace.lg,
+              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 460),
                 child: Column(
@@ -104,31 +99,25 @@ class HomePage extends StatelessWidget {
                     Text(
                       'Rumbaap',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: NightNeutrals.white,
-                      ),
+                      style: theme.textTheme.headlineLarge,
                     ),
                     Text(
                       config.venue.name,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: venue.vip,
-                        letterSpacing: 2,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSpace.lg),
                     Text(
                       'Elige con quién entrar',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: NightNeutrals.white,
-                      ),
+                      style: theme.textTheme.titleLarge,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Prototipo con identidades de demostración.',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: NightNeutrals.glass(0.7),
+                        color: AppColors.textMuted,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -174,27 +163,19 @@ class _ProfileGroup extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       decoration: BoxDecoration(
-        color: NightNeutrals.glass(0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: NightNeutrals.glass(0.12)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            profile.label.toUpperCase(),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: venue.vip,
-              letterSpacing: 1.6,
-            ),
+          Semantics(
+            header: true,
+            child: Text(profile.label, style: theme.textTheme.titleSmall),
           ),
           const SizedBox(height: 2),
-          Text(
-            profile.summary,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: NightNeutrals.glass(0.7),
-            ),
-          ),
+          Text(profile.summary, style: theme.textTheme.bodySmall),
           const SizedBox(height: 6),
           for (final identity in DemoIdentities.of(profile))
             ListTile(
@@ -202,16 +183,13 @@ class _ProfileGroup extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               minTileHeight: 52,
               leading: CircleAvatar(
-                backgroundColor: venue.primary.withValues(alpha: 0.25),
-                child: Icon(_iconOf(profile), color: NightNeutrals.white),
+                backgroundColor: venue.primary.withValues(alpha: 0.2),
+                child: Icon(_iconOf(profile), color: AppColors.text),
               ),
-              title: Text(
-                identity.name,
-                style: const TextStyle(color: NightNeutrals.white),
-              ),
+              title: Text(identity.name),
               trailing: const Icon(
                 Icons.chevron_right_rounded,
-                color: NightNeutrals.white,
+                color: AppColors.textMuted,
               ),
               onTap: () => onEnter(identity),
             ),
@@ -237,7 +215,7 @@ class _DemoNotice extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.amber.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.control),
         border: Border.all(color: AppColors.amber.withValues(alpha: 0.4)),
       ),
       child: Row(

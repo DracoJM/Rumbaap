@@ -234,6 +234,7 @@ class BarBook {
     String? reservationId,
     String? tableId,
     String? accountId,
+    UnverifiedCustomer? customer,
   }) {
     final night = currentNight;
     if (night == null) throw const BarException(BarError.outsideNight);
@@ -242,6 +243,10 @@ class BarBook {
     if ((reservationId == null) != (tableId == null)) {
       throw const BarException(BarError.invalidDestination);
     }
+    if (accountId != null && customer != null) {
+      throw const BarException(BarError.invalidCustomer);
+    }
+    final contact = customer == null ? null : _cleanCustomer(customer);
     var applied = 0;
     final lines = _lines(quantities);
     final total = lines.fold(0, (t, l) => t + l.total);
@@ -278,8 +283,26 @@ class BarBook {
       reservationId: reservationId,
       tableId: tableId,
       accountId: accountId,
+      customer: contact,
       prepaidApplied: applied,
     );
+  }
+
+  /// Recorta espacios, convierte vacío en `null` y exige solo dígitos en
+  /// teléfono y cédula (sin longitud ni formato, como en las reservas).
+  static UnverifiedCustomer _cleanCustomer(UnverifiedCustomer c) {
+    String? clean(String? v) {
+      final t = v?.trim();
+      return t == null || t.isEmpty ? null : t;
+    }
+
+    final phone = clean(c.phone), id = clean(c.idNumber);
+    final digits = RegExp(r'^[0-9]+$');
+    if ((phone != null && !digits.hasMatch(phone)) ||
+        (id != null && !digits.hasMatch(id))) {
+      throw const BarException(BarError.invalidCustomer);
+    }
+    return UnverifiedCustomer(name: clean(c.name), phone: phone, idNumber: id);
   }
 
   /// Caja o administración quitan unidades de una venta, con motivo. Subir

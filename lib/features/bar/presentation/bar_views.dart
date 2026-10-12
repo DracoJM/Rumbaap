@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
-import '../../../theme/night_neutrals.dart';
 import '../../reservations/data/demo_reservation_store.dart';
 import '../../reservations/domain/reservation.dart';
 import '../../reservations/presentation/admin/admin_labels.dart';
@@ -36,6 +35,9 @@ String barErrorLabel(BarError e) => switch (e) {
         'la ficha de la reserva. No se cobró como otro pago completo.',
   BarError.prepaidAlreadyRegistered =>
     'El prepago de esa reserva ya está registrado. No se hizo ningún cambio.',
+  BarError.invalidCustomer =>
+    'Cuenta y cliente sin cuenta no se combinan; teléfono y cédula solo '
+        'admiten dígitos. No se registró nada.',
   BarError.invalidAmount => 'Importe de prepago no válido.',
   BarError.vipCorrectionUndecided =>
     'Corregir una venta contra prepago VIP no está definido: no se cambió.',
@@ -103,15 +105,18 @@ Future<bool> _confirm(
   return r ?? false;
 }
 
-EdgeInsets _pad(BuildContext context) =>
-    EdgeInsets.fromLTRB(16, 8, 16, 24 + MediaQuery.paddingOf(context).bottom);
+EdgeInsets _pad(BuildContext context) {
+  final gutter = AppSpace.gutter(MediaQuery.sizeOf(context).width);
+  return EdgeInsets.fromLTRB(
+    gutter,
+    AppSpace.xs,
+    gutter,
+    AppSpace.lg + MediaQuery.paddingOf(context).bottom,
+  );
+}
 
-Text _title(BuildContext context, String text) => Text(
-  text,
-  style: Theme.of(
-    context,
-  ).textTheme.titleMedium?.copyWith(color: NightNeutrals.white),
-);
+Text _title(BuildContext context, String text) =>
+    Text(text, style: Theme.of(context).textTheme.headlineMedium);
 
 TextStyle? _muted(BuildContext context) =>
     Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted);
@@ -151,6 +156,16 @@ class SaleSummary extends StatelessWidget {
           '${sale.tableId == null ? '' : ' · Mesa ${sale.tableId}'}',
           style: muted,
         ),
+        if (sale.accountId != null)
+          Text('Cliente con cuenta verificada', style: muted)
+        else if (sale.customer case final c?)
+          Text(
+            c.isEmpty
+                ? 'Cliente sin identificar'
+                : 'Cliente sin cuenta (no verificado): '
+                      '${[if (c.name != null) c.name!, if (c.phone != null) 'tel. ${c.phone}', if (c.idNumber != null) 'cédula ${c.idNumber}'].join(' · ')}',
+            style: muted,
+          ),
         for (final c in sale.corrections)
           Text(
             '${c.kind == CorrectionKind.voided ? 'Anulada' : 'Ajustada'} '
@@ -214,7 +229,7 @@ class ClientMenu extends StatelessWidget {
             for (final s in mine)
               Card(
                 key: ValueKey('receipt-${s.id}'),
-                color: NightNeutrals.glass(0.06),
+                color: AppColors.surface,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: SaleSummary(sale: s),
@@ -260,6 +275,14 @@ class BarDesk extends StatefulWidget {
 class _BarDeskState extends State<BarDesk> {
   final _qty = <String, int>{};
   final _qr = TextEditingController();
+  final _qrFocus = FocusNode();
+  final _guestName = TextEditingController();
+  final _guestPhone = TextEditingController();
+  final _guestId = TextEditingController();
+
+  /// «Cliente sin cuenta»: contacto manual no verificado, excluyente con la
+  /// cuenta identificada por credencial.
+  bool _noAccount = false;
   String? _reservationId;
   bool _paid = false;
   String? _message;
@@ -304,15 +327,41 @@ class _BarDeskState extends State<BarDesk> {
 
   Future<void> _scan() async {
     if (_identifying) return;
-    final code = await widget.scan(context);
-    if (code == null || !mounted) return;
-    _qr.text = code;
-    await _identify();
+    final outcome = await widget.scan(context);
+    // Cancelar (null) no cambia nada; solo la petición expresa de escribir
+    // lleva el foco a «Credencial».
+    if (outcome == null || !mounted) return;
+    switch (outcome) {
+      case ManualEntryRequested():
+        _qrFocus.requestFocus();
+      case ScannedCode(:final code):
+        _qr.text = code;
+        await _identify();
+    }
+  }
+
+  void _setNoAccount(bool value) {
+    if (value == _noAccount) return;
+    setState(() {
+      _noAccount = value;
+      // Al cambiar de modo se descarta lo del otro para no atribuir la venta
+      // a una cuenta o a un contacto equivocados.
+      _qr.clear();
+      _lookup = null;
+      _lookupNote = null;
+      _guestName.clear();
+      _guestPhone.clear();
+      _guestId.clear();
+    });
   }
 
   @override
   void dispose() {
     _qr.dispose();
+    _qrFocus.dispose();
+    _guestName.dispose();
+    _guestPhone.dispose();
+    _guestId.dispose();
     super.dispose();
   }
 
@@ -372,13 +421,20 @@ class _BarDeskState extends State<BarDesk> {
       });
       return;
     }
-    final qrText = _qr.text.trim();
+    final qrText = _noAccount ? '' : _qr.text.trim();
     final accountId = qrText.isEmpty ? null : _lookup?.accountId;
+    final customer = _noAccount
+        ? UnverifiedCustomer(
+            name: _guestName.text,
+            phone: _guestPhone.text,
+            idNumber: _guestId.text,
+          )
+        : null;
     if (qrText.isNotEmpty && accountId == null) {
       setState(() {
         _ok = false;
         _message =
-            'Identifica al cliente con una entrada válida o deja vacío el '
+            'Identifica al cliente con una credencial válida o deja vacío el '
             'campo para registrar sin comprobante.';
       });
       return;
@@ -428,6 +484,7 @@ class _BarDeskState extends State<BarDesk> {
           reservationId: reservation?.id,
           tableId: reservation?.tableId,
           accountId: accountId,
+          customer: customer,
         ),
       );
       setState(() {
@@ -439,6 +496,10 @@ class _BarDeskState extends State<BarDesk> {
             '${reservation == null ? '' : ' · mesa ${reservation.tableId}'}.';
         _qty.clear();
         _qr.clear();
+        _guestName.clear();
+        _guestPhone.clear();
+        _guestId.clear();
+        _noAccount = false;
         _lookup = null;
         _lookupNote = null;
         _reservationId = null;
@@ -510,6 +571,7 @@ class _BarDeskState extends State<BarDesk> {
                   ),
                 ),
             ],
+            const SectionLabel('Productos'),
             for (final m in menu)
               Row(
                 children: [
@@ -532,7 +594,7 @@ class _BarDeskState extends State<BarDesk> {
                   ),
                 ],
               ),
-            const SizedBox(height: 8),
+            const SectionLabel('Mesa'),
             DropdownButtonFormField<String?>(
               key: const ValueKey('bar-reservation'),
               initialValue: _reservationId,
@@ -553,7 +615,66 @@ class _BarDeskState extends State<BarDesk> {
               ],
               onChanged: (v) => setState(() => _reservationId = v),
             ),
-            if (widget.tickets != null) ...[
+            if (tonight.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  night == null
+                      ? 'No hay una noche en curso. Las mesas con reserva se '
+                            'habilitan durante la noche (8:30 p. m. – 3:00 '
+                            'a. m., hora de Colombia).'
+                      : 'No hay mesas con reserva confirmada para esta noche.',
+                  key: const ValueKey('bar-no-tables'),
+                  style: _muted(context),
+                ),
+              ),
+            const SectionLabel('Cliente'),
+            SegmentedButton<bool>(
+              key: const ValueKey('bar-customer-mode'),
+              segments: const [
+                ButtonSegment(value: false, label: Text('Cliente con cuenta')),
+                ButtonSegment(value: true, label: Text('Cliente sin cuenta')),
+              ],
+              selected: {_noAccount},
+              onSelectionChanged: (v) => _setNoAccount(v.first),
+            ),
+            if (_noAccount) ...[
+              const SizedBox(height: 8),
+              const NoticeBox(
+                key: ValueKey('bar-guest-notice'),
+                icon: Icons.person_outline_rounded,
+                color: AppColors.amber,
+                text:
+                    'Cliente no verificado: el contacto es opcional y se '
+                    'guarda solo en esta venta. No crea cuenta ni da acceso, '
+                    'beneficios o puntos. Sin datos, la venta queda como '
+                    '«Cliente sin identificar».',
+              ),
+              TextField(
+                key: const ValueKey('bar-guest-name'),
+                controller: _guestName,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre (opcional)',
+                ),
+              ),
+              TextField(
+                key: const ValueKey('bar-guest-phone'),
+                controller: _guestPhone,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Teléfono (opcional)',
+                ),
+              ),
+              TextField(
+                key: const ValueKey('bar-guest-id'),
+                controller: _guestId,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Cédula (opcional)',
+                ),
+              ),
+            ],
+            if (widget.tickets != null && !_noAccount) ...[
               const SizedBox(height: 8),
               FilledButton.tonalIcon(
                 key: const ValueKey('bar-scan'),
@@ -565,6 +686,7 @@ class _BarDeskState extends State<BarDesk> {
               TextField(
                 key: const ValueKey('bar-qr'),
                 controller: _qr,
+                focusNode: _qrFocus,
                 textCapitalization: TextCapitalization.characters,
                 onChanged: (_) => setState(() {
                   _lookup = null;
@@ -574,11 +696,11 @@ class _BarDeskState extends State<BarDesk> {
                 decoration: const InputDecoration(
                   // Etiqueta breve: completa con texto al 200 %. El resto va
                   // en la ayuda, que sí puede ocupar varias líneas.
-                  labelText: 'Entrada del cliente',
-                  hintText: 'SG…',
+                  labelText: 'Credencial',
                   helperText:
-                      'Opcional. Identifica la cuenta para enviarle el '
-                      'comprobante; no registra ingreso ni canje.',
+                      'Escribe o pega el ID del cliente. Opcional: identifica '
+                      'la cuenta para enviarle el comprobante; no registra '
+                      'ingreso ni canje.',
                   helperMaxLines: 3,
                 ),
               ),
@@ -595,6 +717,15 @@ class _BarDeskState extends State<BarDesk> {
                   child: Text(note, key: const ValueKey('bar-account-status')),
                 ),
             ],
+            const SectionLabel('Resumen'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpace.xs),
+              child: Text(
+                'Total del pedido: ${copLabel(orderTotal)}',
+                key: const ValueKey('bar-order-total'),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
             if (vipTarget && balance == null)
               const NoticeBox(
                 key: ValueKey('bar-vip-pending'),
@@ -652,7 +783,7 @@ class _BarDeskState extends State<BarDesk> {
             for (final s in mine)
               Card(
                 key: ValueKey('bar-sale-${s.id}'),
-                color: NightNeutrals.glass(0.06),
+                color: AppColors.surface,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: SaleSummary(sale: s),
@@ -709,7 +840,7 @@ class BarCorrections extends StatelessWidget {
             for (final s in sales)
               Card(
                 key: ValueKey('bar-correct-${s.id}'),
-                color: NightNeutrals.glass(0.06),
+                color: AppColors.surface,
                 child: InkWell(
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -935,7 +1066,7 @@ class WaiterConsumption extends StatelessWidget {
             for (final r in list)
               Card(
                 key: ValueKey('consumption-${r.id}'),
-                color: NightNeutrals.glass(0.06),
+                color: AppColors.surface,
                 child: ListTile(
                   minTileHeight: 56,
                   title: Text('${r.tableIn(venue).displayName} · ${r.id}'),

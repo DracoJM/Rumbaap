@@ -30,7 +30,7 @@ class NoticeBox extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.control),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Row(
@@ -68,7 +68,7 @@ class SectionLabel extends StatelessWidget {
         child: Row(
           children: [
             Flexible(
-              child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+              child: Text(text, style: Theme.of(context).textTheme.titleMedium),
             ),
             if (count != null) ...[
               const SizedBox(width: 8),
@@ -76,7 +76,7 @@ class SectionLabel extends StatelessWidget {
                 '($count)',
                 style: Theme.of(
                   context,
-                ).textTheme.titleSmall?.copyWith(color: AppColors.textMuted),
+                ).textTheme.titleMedium?.copyWith(color: AppColors.textMuted),
               ),
             ],
           ],
@@ -213,11 +213,10 @@ class _FictionalTag extends StatelessWidget {
         border: Border.all(color: AppColors.amber.withValues(alpha: 0.5)),
       ),
       child: const Text(
-        'DATO FICTICIO',
+        'Dato ficticio',
         style: TextStyle(
-          fontSize: 10,
-          letterSpacing: 0.8,
-          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
           color: AppColors.amberSoft,
         ),
       ),

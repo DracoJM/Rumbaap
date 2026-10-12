@@ -54,6 +54,8 @@ void main() {
       channel: TicketChannel.promoter,
       actorId: 'promotor-1',
       holderName: 'Comprador demo',
+      buyerPhone: '3001112233',
+      buyerIdNumber: '1020304050',
     );
     if (verify) book.verifyPromoterPayment(p.id, actorId: 'promotor-1');
     return book.ticketsOf(p.id).single;
@@ -114,6 +116,8 @@ void main() {
         channel: TicketChannel.promoter,
         actorId: 'promotor-1',
         holderName: 'Otro',
+        buyerPhone: '3000000000',
+        buyerIdNumber: '1000000000',
       );
       expect(
         () => book.simulatePayment(p2.id, actorId: 'cliente-a'),

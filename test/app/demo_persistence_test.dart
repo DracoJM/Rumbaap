@@ -8,6 +8,7 @@ import 'package:rumbaap/app/persistence/demo_persistence.dart';
 import 'package:rumbaap/app/persistence/demo_snapshot.dart';
 import 'package:rumbaap/features/dashboard/domain/night_goals.dart';
 import 'package:rumbaap/features/bar/data/demo_bar_store.dart';
+import 'package:rumbaap/features/bar/domain/bar.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
@@ -526,6 +527,86 @@ void main() {
       await tester.pump();
       expect(find.byKey(const ValueKey('save-error')), findsNothing);
     });
+  });
+
+  test('contacto del comprador del promotor y cliente sin cuenta de barra se '
+      'conservan; los registros antiguos sin esos datos cargan igual', () {
+    final (r, t, b) = _stores();
+    final p = t.perform(
+      (x) => x.sell(
+        night: _friday,
+        product: sagsaConfig.ticketProducts.first,
+        quantity: 1,
+        channel: TicketChannel.promoter,
+        actorId: 'promotor-1',
+        holderName: 'Comprador demo',
+        buyerPhone: ' 3001112233 ',
+        buyerIdNumber: '1020304050',
+      ),
+    );
+    final sale = b.perform(
+      (x) => x.register(
+        quantities: {'coctel': 1},
+        paidInFull: true,
+        actorId: 'barra-1',
+        customer: const UnverifiedCustomer(name: ' Ana ', phone: '300'),
+      ),
+    );
+    final empty = b.perform(
+      (x) => x.register(
+        quantities: {'coctel': 1},
+        paidInFull: true,
+        actorId: 'barra-1',
+        customer: const UnverifiedCustomer(),
+      ),
+    );
+    final raw = _encode(r, t, b);
+
+    final (r2, t2, b2) = _stores();
+    decodeDemoSnapshot(
+      raw,
+      config: sagsaConfig,
+      reservations: r2,
+      tickets: t2,
+      bar: b2,
+    );
+    final restored = t2.book.purchaseById(p.id)!;
+    expect(restored.buyerPhone, '3001112233');
+    expect(restored.buyerIdNumber, '1020304050');
+    final s2 = b2.book.saleById(sale.id)!;
+    expect(s2.customer!.name, 'Ana');
+    expect(s2.customer!.phone, '300');
+    expect(s2.customer!.idNumber, isNull);
+    expect(s2.accountId, isNull);
+    expect(b2.book.saleById(empty.id)!.customer!.isEmpty, isTrue);
+
+    // Registro antiguo: sin las claves nuevas.
+    void strip(Object? n) {
+      if (n is Map) {
+        n
+          ..remove('buyerPhone')
+          ..remove('buyerIdNumber')
+          ..remove('customer');
+        n.values.forEach(strip);
+      } else if (n is List) {
+        n.forEach(strip);
+      }
+    }
+
+    final legacy = jsonDecode(raw);
+    strip(legacy);
+    final (r3, t3, b3) = _stores();
+    decodeDemoSnapshot(
+      jsonEncode(legacy),
+      config: sagsaConfig,
+      reservations: r3,
+      tickets: t3,
+      bar: b3,
+    );
+    expect(t3.book.purchaseById(p.id)!.buyerPhone, isNull);
+    expect(t3.book.purchaseById(p.id)!.buyerIdNumber, isNull);
+    expect(b3.book.saleById(sale.id)!.customer, isNull);
+    expect(b3.book.saleById(sale.id)!.total, s2.total);
   });
 
   test('cada local guarda en su propia clave', () {

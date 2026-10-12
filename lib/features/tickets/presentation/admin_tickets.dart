@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
-import '../../../theme/night_neutrals.dart';
 import '../../reservations/domain/night_schedule.dart';
 import '../../reservations/presentation/admin/admin_widgets.dart';
 import '../../reservations/presentation/table_presentation.dart';
@@ -132,7 +131,7 @@ class _AdminTicketsState extends State<AdminTickets> {
             Text(
               'Entradas del local',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: NightNeutrals.white,
+                color: AppColors.text,
               ),
             ),
             const SizedBox(height: 4),
@@ -506,6 +505,10 @@ class AdminTicketPage extends StatelessWidget {
                     ? '${owner.name} · cédula ${owner.idNumber ?? 'sin dato'}'
                     : (t.holderName ?? 'Sin nombre'),
               ),
+              if (t.channel == TicketChannel.promoter) ...[
+                row('Teléfono del comprador', p.buyerPhone ?? 'No registrado'),
+                row('Cédula del comprador', p.buyerIdNumber ?? 'No registrado'),
+              ],
               row(
                 'Venta',
                 '${venueDateTimeLabel(p.createdAt)} · '
