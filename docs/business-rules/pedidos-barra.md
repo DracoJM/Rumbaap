@@ -12,7 +12,7 @@
 | Mesero | Consulta las ventas de barra de cada mesa reservada de la noche y acepta el consumo a mano, con nota opcional. Se guarda lo que vio (ventas y suma). Si después cambian las ventas, la ficha lo avisa. | VALIDATED |
 
 - **Estados distintos:** reserva, entrada, compra/pago/entrega en barra y aceptación del consumo son estados distintos. La suma de ventas es informativa; nada se declara cumplido automáticamente.
-- **Mesa VIP con prepago (pendiente):** el consumo contra el prepago de la mesa (2.000.000 COP) aún no tiene circuito: no hay saldo, ni quién lo registra, ni qué pasa si se supera o sobra (NOT DECIDED). Para no cobrar dos veces, barra no registra una venta destinada a una reserva VIP como otro pago completo: lo indica y conserva el pedido. Mesas normales y ventas sin mesa siguen igual.
+- **Mesa VIP con prepago (pendiente):** el consumo contra el prepago de la mesa (2.000.000 COP) aún no tiene circuito: no hay saldo, ni quién lo registra, ni qué pasa si se supera o sobra (NOT DECIDED). Para no cobrar dos veces, barra no registra una venta destinada a una reserva VIP como otro pago completo: lo indica y conserva el pedido. El bloqueo se aplica en la interfaz y también en `BarBook.register`, que recibe obligatoriamente el local con sus mesas: un destino VIP se rechaza y reserva y mesa deben venir juntas y existir en el local. Mesas normales y ventas sin mesa siguen igual; las ventas ya guardadas no se modifican.
 - **Consumo de referencia:** se muestran las condiciones de la mesa (p. ej. el consumo de referencia de Sagsa), sin calcular si se cumplió.
 - **Menú y precios:** de demostración, en `VenueConfig.menu`. Carta y precios reales: NOT DECIDED.
 - **Pago presencial:** medio de pago y verificación real: NOT DECIDED.
