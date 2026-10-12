@@ -6,7 +6,7 @@
 ## Fuentes (entrevistas originales)
 
 - **E1, pregunta 6:** hoy los cumpleaños se registran en papel.
-- **E1, pregunta 7:** las promociones actuales son solo de cumpleaños y las define el administrador.
+- **E1, pregunta 7:** las promociones actuales son solo de cumpleaños.
 - **E2, pregunta 13:** la decoración de cumpleaños es preparación antes de la apertura, si corresponde.
 - Las entrevistas NO definen importe, paquete, descuento fijo, entradas gratis ni ventana de fechas.
 
@@ -15,7 +15,7 @@
 | Dato | Estado |
 |---|---|
 | Hoy los cumpleaños se registran en papel. | VALIDATED (E1 P6) |
-| Las promociones actuales son solo de cumpleaños y las define el administrador. | VALIDATED (E1 P7) |
+| Las promociones actuales son solo de cumpleaños. | VALIDATED (E1 P7) |
 | La decoración de cumpleaños es preparación antes de la apertura, si corresponde. | VALIDATED (E2 P13) |
 | Incluir la celebración de cumpleaños en las reservas. | VALIDATED (pedido real del usuario) |
 | Importe, paquete, descuento fijo, entradas gratis y ventana de fechas. | NOT DECIDED (no los definen las entrevistas) |
