@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/app_theme.dart';
 import '../../theme/night_neutrals.dart';
 import '../bar/data/demo_bar_store.dart';
 import '../bar/domain/bar.dart';
 import '../bar/presentation/bar_views.dart';
+import 'data/demo_goal_store.dart';
+import 'domain/night_goals.dart';
 import '../reservations/data/demo_reservation_store.dart';
 import '../reservations/domain/night_schedule.dart';
 import '../reservations/domain/reservation.dart';
@@ -37,10 +40,14 @@ class DashboardPage extends StatefulWidget {
     required this.tickets,
     required this.bar,
     required this.identity,
+    this.goals,
     this.clock = systemClock,
   });
 
   final DemoReservationStore reservations;
+
+  /// Metas opcionales del local por noche; sin él no se configuran.
+  final DemoGoalStore? goals;
   final DemoTicketStore tickets;
   final DemoBarStore bar;
   final DemoIdentity identity;
@@ -62,6 +69,8 @@ class _DashboardPageState extends State<DashboardPage> {
       for (final s in widget.bar.book.sales) s.night,
       for (final i in widget.tickets.book.incidents)
         if (_readingNight(i) case final n?) n,
+      // Una noche con meta y aún sin movimientos sigue elegible.
+      for (final g in widget.goals?.book.goals ?? const <NightGoal>[]) g.night,
     };
     return set.toList()..sort((a, b) => a.date.compareTo(b.date));
   }
@@ -133,6 +142,109 @@ class _DashboardPageState extends State<DashboardPage> {
     open: () => _openTicket(t.id),
   );
 
+  /// Avance de cada parámetro frente a su meta, si la hay, en la noche
+  /// elegida. No hay metas para «todo el período» ni un resultado global.
+  List<Widget> _goalSection(
+    BuildContext context, {
+    required Map<GoalMetric, int> values,
+    required Map<GoalMetric, VoidCallback> details,
+  }) {
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: AppColors.textMuted,
+    );
+    final night = _night;
+    final store = widget.goals;
+    if (night == null || store == null) {
+      return [
+        NoticeBox(
+          key: const ValueKey('goal-choose-night'),
+          icon: Icons.flag_outlined,
+          text: store == null
+              ? 'Las metas no están disponibles en esta vista.'
+              : 'Las metas se configuran por noche: elige una noche arriba. '
+                    'No hay metas para todo el período.',
+        ),
+      ];
+    }
+    final now = VenueTime.of(widget.clock());
+    final phase = night.hasEnded(now)
+        ? _Phase.ended
+        : night.isInProgress(now)
+        ? _Phase.inProgress
+        : _Phase.notStarted;
+    return [
+      Text(
+        switch (phase) {
+          _Phase.ended =>
+            'Noche terminada: se compara con lo registrado hasta el cierre en '
+                'este teléfono.',
+          _Phase.inProgress =>
+            'Noche en curso: el avance es parcial y no indica cómo terminará '
+                'la noche.',
+          _Phase.notStarted =>
+            'Noche sin empezar: aún no hay ingresos en puerta; los importes '
+                'pueden incluir ventas anticipadas.',
+        },
+        key: const ValueKey('goal-coverage'),
+        style: muted,
+      ),
+      const SizedBox(height: 6),
+      for (final m in GoalMetric.values)
+        _GoalCard(
+          metric: m,
+          value: values[m]!,
+          goal: store.book.goalFor(night, m),
+          phase: phase,
+          onDetail: details[m]!,
+          onEdit: () => _editGoal(night, m),
+          onRemove: () => _removeGoal(night, m),
+        ),
+    ];
+  }
+
+  Future<void> _editGoal(Night night, GoalMetric metric) async {
+    final store = widget.goals!;
+    final current = store.book.goalFor(night, metric);
+    final target = await showDialog<int>(
+      context: context,
+      builder: (_) =>
+          _GoalDialog(metric: metric, night: night, initial: current?.target),
+    );
+    if (target == null || !mounted) return;
+    store.perform(
+      (b) => b.set(night, metric, target, actorId: widget.identity.id),
+    );
+  }
+
+  Future<void> _removeGoal(Night night, GoalMetric metric) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        title: const Text('¿Quitar la meta?'),
+        content: Text(
+          '${metric.label} · ${night.label} de ${night.date.year}. El '
+          'parámetro quedará sin configurar; los registros no cambian.',
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('dialog-cancel'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const ValueKey('dialog-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    widget.goals!.perform((b) => b.remove(night, metric));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -147,6 +259,7 @@ class _DashboardPageState extends State<DashboardPage> {
           widget.reservations,
           widget.tickets,
           widget.bar,
+          ?widget.goals,
         ]),
         builder: (context, _) {
           final nights = _nights();
@@ -247,6 +360,55 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           );
 
+          void openEntries() => _openList(
+            'Primeros ingresos',
+            'Entradas con primer ingreso registrado en puerta.',
+            [for (final t in entered) _ticketRow(t)],
+          );
+          void openArrivals() => _openList(
+            'Llegadas a mesas',
+            'Reservas con la llegada registrada (R5).',
+            [
+              for (final r in seated)
+                (
+                  title:
+                      '${r.tableIn(venue).displayName} · ${r.night.shortLabel}',
+                  subtitle: '${r.id} · ${r.statusLabel}',
+                  open: () => _openReservation(r.id),
+                ),
+            ],
+          );
+          void openTicketIncome() => _openList(
+            'Compras de entradas pagadas',
+            'Pago simulado o comprobado por el promotor. Las cortesías '
+                'no tienen importe.',
+            [
+              for (final p in paidPurchases)
+                (
+                  title: '${p.id} · ${p.night.shortLabel} · ${p.channel.label}',
+                  subtitle:
+                      '${p.quantity} × ${copLabel(p.unitPrice)} = ${copLabel(p.total)}',
+                  open: () =>
+                      _openTicket(widget.tickets.book.ticketsOf(p.id).first.id),
+                ),
+            ],
+          );
+          void openBarIncome() => _openList(
+            'Ventas de barra',
+            'Registradas por barra tras el pago presencial; las anuladas '
+                'no suman.',
+            [
+              for (final s in sales)
+                (
+                  title: 'Venta ${s.id} · ${s.night.shortLabel}',
+                  subtitle:
+                      '${s.status == BarSaleStatus.voided ? 'Anulada' : copLabel(s.total)}'
+                      '${s.tableId == null ? '' : ' · Mesa ${s.tableId}'}',
+                  open: () => _openSale(s.id),
+                ),
+            ],
+          );
+
           return ListView(
             padding: EdgeInsets.fromLTRB(
               16,
@@ -301,11 +463,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 'entries',
                 'Primeros ingresos con entrada',
                 '${entered.length}',
-                () => _openList(
-                  'Primeros ingresos',
-                  'Entradas con primer ingreso registrado en puerta.',
-                  [for (final t in entered) _ticketRow(t)],
-                ),
+                openEntries,
               ),
               tile(
                 'redeemed',
@@ -332,19 +490,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 'arrivals',
                 'Reservas con llegada registrada',
                 '${seated.length}',
-                () => _openList(
-                  'Llegadas a mesas',
-                  'Reservas con la llegada registrada (R5).',
-                  [
-                    for (final r in seated)
-                      (
-                        title:
-                            '${r.tableIn(venue).displayName} · ${r.night.shortLabel}',
-                        subtitle: '${r.id} · ${r.statusLabel}',
-                        open: () => _openReservation(r.id),
-                      ),
-                  ],
-                ),
+                openArrivals,
                 note:
                     'No se suman a los ingresos con entrada: una persona puede '
                     'tener ambos.',
@@ -360,23 +506,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 'ticket-income',
                 'Entradas pagadas',
                 copLabel(ticketIncome),
-                () => _openList(
-                  'Compras de entradas pagadas',
-                  'Pago simulado o comprobado por el promotor. Las cortesías '
-                      'no tienen importe.',
-                  [
-                    for (final p in paidPurchases)
-                      (
-                        title:
-                            '${p.id} · ${p.night.shortLabel} · ${p.channel.label}',
-                        subtitle:
-                            '${p.quantity} × ${copLabel(p.unitPrice)} = ${copLabel(p.total)}',
-                        open: () => _openTicket(
-                          widget.tickets.book.ticketsOf(p.id).first.id,
-                        ),
-                      ),
-                  ],
-                ),
+                openTicketIncome,
               ),
               tile(
                 'refunds',
@@ -394,21 +524,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 'bar-income',
                 'Ventas de barra vigentes',
                 copLabel(barIncome),
-                () => _openList(
-                  'Ventas de barra',
-                  'Registradas por barra tras el pago presencial; las anuladas '
-                      'no suman.',
-                  [
-                    for (final s in sales)
-                      (
-                        title: 'Venta ${s.id} · ${s.night.shortLabel}',
-                        subtitle:
-                            '${s.status == BarSaleStatus.voided ? 'Anulada' : copLabel(s.total)}'
-                            '${s.tableId == null ? '' : ' · Mesa ${s.tableId}'}',
-                        open: () => _openSale(s.id),
-                      ),
-                  ],
-                ),
+                openBarIncome,
               ),
               tile(
                 'vip',
@@ -493,15 +609,28 @@ class _DashboardPageState extends State<DashboardPage> {
                   ],
                 ),
               ),
-              SectionLabel('Metas y análisis'),
-              const NoticeBox(
-                key: ValueKey('dash-goals'),
-                icon: Icons.flag_outlined,
-                text:
-                    'Metas configurables: mecanismo propuesto, sin metas '
-                    'configuradas. No se muestran umbrales ni índices de '
-                    'éxito. Los registros guardan hora y actor para un '
-                    'análisis futuro; no hay predicciones.',
+              SectionLabel('Metas de la noche'),
+              ..._goalSection(
+                context,
+                values: {
+                  GoalMetric.firstEntries: entered.length,
+                  GoalMetric.reservationArrivals: seated.length,
+                  GoalMetric.ticketIncome: ticketIncome,
+                  GoalMetric.barIncome: barIncome,
+                },
+                details: {
+                  GoalMetric.firstEntries: openEntries,
+                  GoalMetric.reservationArrivals: openArrivals,
+                  GoalMetric.ticketIncome: openTicketIncome,
+                  GoalMetric.barIncome: openBarIncome,
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Sin predicciones ni puntuaciones: cada meta se compara solo '
+                'con lo registrado. Los registros guardan hora y actor.',
+                key: const ValueKey('dash-goals'),
+                style: muted,
               ),
             ],
           );
@@ -640,6 +769,237 @@ class _IncidentPage extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+enum _Phase { ended, inProgress, notStarted }
+
+extension GoalMetricLabels on GoalMetric {
+  String get label => switch (this) {
+    GoalMetric.firstEntries => 'Primeros ingresos con entrada',
+    GoalMetric.reservationArrivals => 'Reservas con llegada registrada',
+    GoalMetric.ticketIncome => 'Entradas pagadas',
+    GoalMetric.barIncome => 'Ventas de barra vigentes',
+  };
+
+  bool get isMoney =>
+      this == GoalMetric.ticketIncome || this == GoalMetric.barIncome;
+
+  String get group =>
+      isMoney ? 'Ingresos registrados (COP)' : 'Asistencia registrada';
+
+  String get definition => switch (this) {
+    GoalMetric.firstEntries =>
+      'Entradas con primer ingreso registrado en puerta esa noche. No es '
+          'aforo ni ocupación: sin salidas registradas no se sabe cuántas '
+          'personas hay dentro.',
+    GoalMetric.reservationArrivals =>
+      'Reservas de la noche con la llegada registrada. Cuenta reservas, no '
+          'personas, y no se suma a los ingresos con entrada.',
+    GoalMetric.ticketIncome =>
+      'Importe de las entradas pagadas para esa noche. Las cortesías no '
+          'tienen importe; las devoluciones autorizadas se muestran aparte.',
+    GoalMetric.barIncome =>
+      'Ventas registradas por barra tras el pago presencial; las anuladas no '
+          'suman. No incluye el prepago VIP, que se cuenta sin importe.',
+  };
+
+  String format(int v) => isMoney ? copLabel(v) : '$v';
+}
+
+class _GoalCard extends StatelessWidget {
+  const _GoalCard({
+    required this.metric,
+    required this.value,
+    required this.goal,
+    required this.phase,
+    required this.onDetail,
+    required this.onEdit,
+    required this.onRemove,
+  });
+
+  final GoalMetric metric;
+  final int value;
+  final NightGoal? goal;
+  final _Phase phase;
+  final VoidCallback onDetail;
+  final VoidCallback onEdit;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: AppColors.textMuted,
+    );
+    final g = goal;
+    final String state;
+    if (g == null) {
+      state = 'Sin configurar · registrado: ${metric.format(value)}';
+    } else {
+      final shown = '${metric.format(value)} de ${metric.format(g.target)}';
+      final missing = metric.format(g.target - value);
+      state = value >= g.target
+          ? 'Meta alcanzada: $shown.'
+          : switch (phase) {
+              _Phase.ended => 'No alcanzada: $shown (faltaron $missing).',
+              _Phase.inProgress =>
+                'Avance parcial: $shown (faltan $missing). La noche sigue en '
+                    'curso.',
+              _Phase.notStarted => 'Noche sin empezar: $shown.',
+            };
+    }
+    final key = metric.name;
+    return Card(
+      key: ValueKey('goal-$key'),
+      color: NightNeutrals.glass(0.06),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(metric.group, style: muted),
+            Text(metric.label, style: theme.textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(metric.definition, style: muted),
+            const SizedBox(height: 8),
+            Text(state, key: ValueKey('goal-$key-state')),
+            if (g != null) ...[
+              const SizedBox(height: 6),
+              ExcludeSemantics(
+                child: LinearProgressIndicator(
+                  value: (value / g.target).clamp(0.0, 1.0),
+                  minHeight: 6,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Meta fijada por ${actorLabel(g.setBy)} · '
+                '${venueDateTimeLabel(g.setAt)}',
+                style: muted,
+              ),
+            ],
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton(
+                  key: ValueKey('goal-$key-detail'),
+                  onPressed: onDetail,
+                  child: const Text('Ver detalle'),
+                ),
+                TextButton(
+                  key: ValueKey('goal-$key-edit'),
+                  onPressed: onEdit,
+                  child: Text(g == null ? 'Configurar meta' : 'Editar meta'),
+                ),
+                if (g != null)
+                  TextButton(
+                    key: ValueKey('goal-$key-remove'),
+                    onPressed: onRemove,
+                    child: const Text('Quitar meta'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pide la meta: solo cifras, mayor que cero. Sin valor por defecto.
+class _GoalDialog extends StatefulWidget {
+  const _GoalDialog({required this.metric, required this.night, this.initial});
+
+  final GoalMetric metric;
+  final Night night;
+  final int? initial;
+
+  @override
+  State<_GoalDialog> createState() => _GoalDialogState();
+}
+
+class _GoalDialogState extends State<_GoalDialog> {
+  late final _text = TextEditingController(
+    text: widget.initial?.toString() ?? '',
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final v = int.tryParse(_text.text);
+    if (v == null || v <= 0) {
+      setState(
+        () => _error = widget.metric.isMoney
+            ? 'Escribe un importe en COP mayor que cero, sin puntos.'
+            : 'Escribe una cantidad entera mayor que cero.',
+      );
+      return;
+    }
+    if (v > GoalBook.maxTarget) {
+      setState(() => _error = 'El valor es demasiado grande.');
+      return;
+    }
+    Navigator.of(context).pop(v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final m = widget.metric;
+    return AlertDialog(
+      scrollable: true,
+      title: Text(widget.initial == null ? 'Configurar meta' : 'Editar meta'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '${m.label} · ${widget.night.label} de ${widget.night.date.year}',
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const ValueKey('goal-input'),
+            controller: _text,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(12),
+            ],
+            onChanged: (_) => setState(() => _error = null),
+            onSubmitted: (_) => _save(),
+            decoration: InputDecoration(
+              labelText: m.isMoney ? 'Meta (COP)' : 'Meta',
+              helperText: m.isMoney
+                  ? 'Importe en COP, sin puntos.'
+                  : 'Cantidad entera.',
+              errorText: _error,
+              errorMaxLines: 3,
+              helperMaxLines: 2,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const ValueKey('dialog-cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          key: const ValueKey('dialog-confirm'),
+          onPressed: _save,
+          child: const Text('Guardar'),
+        ),
+      ],
     );
   }
 }

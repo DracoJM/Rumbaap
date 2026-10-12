@@ -6,6 +6,7 @@ import '../features/reservations/presentation/admin/admin_page.dart';
 import '../features/reservations/presentation/guest/guest_home_page.dart';
 import '../features/reservations/presentation/staff/staff_page.dart';
 import '../features/bar/data/demo_bar_store.dart';
+import '../features/dashboard/data/demo_goal_store.dart';
 import '../features/session/demo_identities.dart';
 import '../features/tickets/data/demo_ticket_store.dart';
 import '../features/venues/venue_config.dart';
@@ -25,6 +26,7 @@ class HomePage extends StatelessWidget {
     required this.store,
     required this.tickets,
     required this.bar,
+    this.goals,
     this.clock = systemClock,
     this.onResetDemo,
   });
@@ -39,6 +41,9 @@ class HomePage extends StatelessWidget {
 
   /// Ventas de barra del local, compartidas por todos los perfiles.
   final DemoBarStore bar;
+
+  /// Metas del local; solo las usa la administración.
+  final DemoGoalStore? goals;
   final Future<void> Function()? onResetDemo;
   final Clock clock;
 
@@ -50,6 +55,7 @@ class HomePage extends StatelessWidget {
         identity: identity,
         tickets: tickets,
         bar: bar,
+        goals: goals,
       ),
       DemoProfile.staff => StaffPage(
         store: store,

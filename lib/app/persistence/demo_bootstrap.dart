@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/bar/data/demo_bar_store.dart';
+import '../../features/dashboard/data/demo_goal_store.dart';
 import '../../features/reservations/data/demo_reservation_store.dart';
 import '../../features/reservations/domain/night_schedule.dart';
 import '../../features/tickets/data/demo_ticket_store.dart';
@@ -42,6 +43,7 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
   DemoReservationStore? _store;
   DemoTicketStore? _tickets;
   DemoBarStore? _bar;
+  DemoGoalStore? _goals;
   DemoPersistence? _persistence;
   DemoDataException? _dataError;
   Object? _readError;
@@ -55,7 +57,8 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
     _load();
   }
 
-  (DemoReservationStore, DemoTicketStore, DemoBarStore) _freshStores() => (
+  (DemoReservationStore, DemoTicketStore, DemoBarStore, DemoGoalStore)
+  _freshStores() => (
     DemoReservationStore(
       venue: widget.config.venue,
       latency: widget.reservationLatency,
@@ -72,6 +75,7 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
       menu: widget.config.menu,
       clock: widget.clock,
     ),
+    DemoGoalStore(clock: widget.clock),
   );
 
   Future<void> _load() async {
@@ -87,7 +91,7 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
       if (mounted) setState(() => _readError = e);
       return;
     }
-    final (store, tickets, bar) = _freshStores();
+    final (store, tickets, bar, goals) = _freshStores();
     if (raw != null) {
       try {
         decodeDemoSnapshot(
@@ -96,19 +100,21 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
           reservations: store,
           tickets: tickets,
           bar: bar,
+          goals: goals,
         );
       } on DemoDataException catch (e) {
         if (mounted) setState(() => _dataError = e);
         return;
       }
     }
-    if (mounted) _attach(store, tickets, bar);
+    if (mounted) _attach(store, tickets, bar, goals);
   }
 
   void _attach(
     DemoReservationStore store,
     DemoTicketStore tickets,
     DemoBarStore bar,
+    DemoGoalStore goals,
   ) {
     final persistence = DemoPersistence(
       storage: widget.storage,
@@ -118,16 +124,19 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
         reservations: store,
         tickets: tickets,
         bar: bar,
+        goals: goals,
         savedAt: widget.clock(),
       ),
     );
     store.onDataChanged = persistence.markDirty;
     tickets.onDataChanged = persistence.markDirty;
     bar.onDataChanged = persistence.markDirty;
+    goals.onDataChanged = persistence.markDirty;
     setState(() {
       _store = store;
       _tickets = tickets;
       _bar = bar;
+      _goals = goals;
       _persistence = persistence;
       _generation++;
     });
@@ -138,8 +147,8 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
     await _persistence?.flush();
     await widget.storage.remove(_key);
     if (!mounted) return;
-    final (store, tickets, bar) = _freshStores();
-    _attach(store, tickets, bar);
+    final (store, tickets, bar, goals) = _freshStores();
+    _attach(store, tickets, bar, goals);
   }
 
   @override
@@ -154,6 +163,7 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
         store: store,
         tickets: _tickets!,
         bar: _bar!,
+        goals: _goals!,
         clock: widget.clock,
         simulatedTime: widget.simulatedTime,
         persistence: _persistence,
@@ -197,8 +207,8 @@ class _DemoBootstrapState extends State<DemoBootstrap> {
                           return;
                         }
                         if (!mounted) return;
-                        final (s, t, b) = _freshStores();
-                        _attach(s, t, b);
+                        final (s, t, b, g) = _freshStores();
+                        _attach(s, t, b, g);
                       },
                     ),
             ),

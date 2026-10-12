@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import '../../features/bar/data/demo_bar_store.dart';
 import '../../features/bar/domain/bar.dart';
+import '../../features/dashboard/data/demo_goal_store.dart';
+import '../../features/dashboard/domain/night_goals.dart';
 import '../../features/reservations/data/demo_reservation_store.dart';
 import '../../features/reservations/domain/night_schedule.dart';
 import '../../features/reservations/domain/reservation.dart';
@@ -35,6 +37,7 @@ String encodeDemoSnapshot({
   required DemoReservationStore reservations,
   required DemoTicketStore tickets,
   required DemoBarStore bar,
+  DemoGoalStore? goals,
   required DateTime savedAt,
 }) {
   final r = reservations.book.exportState();
@@ -68,6 +71,7 @@ String encodeDemoSnapshot({
       'sales': [for (final s in b.sales) _sale(s)],
       'acceptances': [for (final a in b.acceptances) _acceptance(a)],
     },
+    if (goals != null) 'goals': [for (final g in goals.book.goals) _goal(g)],
   });
 }
 
@@ -79,6 +83,7 @@ void decodeDemoSnapshot(
   required DemoReservationStore reservations,
   required DemoTicketStore tickets,
   required DemoBarStore bar,
+  DemoGoalStore? goals,
 }) {
   final Object? root;
   try {
@@ -134,6 +139,16 @@ void decodeDemoSnapshot(
       for (final x in (bs?['acceptances'] as List?) ?? const [])
         _acceptanceFrom(x as Map),
     ];
+    // Las metas se añadieron después sin cambiar el formato: si faltan, no
+    // había metas configuradas.
+    final restoredGoals = [
+      for (final x in (root['goals'] as List?) ?? const []) _goalFrom(x as Map),
+    ];
+    for (final g in restoredGoals) {
+      if (g.target <= 0 || g.target > GoalBook.maxTarget) {
+        throw DemoDataException(false, 'Meta no válida: ${g.target}');
+      }
+    }
     // Todo validado: ahora sí se aplica.
     reservations.book.importState(
       restoredReservations,
@@ -154,6 +169,7 @@ void decodeDemoSnapshot(
       acceptances: acceptances,
       next: ((bs?['next'] as num?) ?? 1).toInt(),
     );
+    goals?.book.importState(restoredGoals);
   } on DemoDataException {
     rethrow;
   } catch (e) {
@@ -447,6 +463,24 @@ ConsumptionAcceptance _acceptanceFrom(Map j) => ConsumptionAcceptance(
   saleIds: [for (final s in j['saleIds'] as List) s as String],
   totalSeen: (j['totalSeen'] as num).toInt(),
   note: j['note'] as String?,
+);
+
+// ---------------------------------------------------------------- Metas
+
+Map<String, Object?> _goal(NightGoal g) => {
+  'night': g.night.id,
+  'metric': g.metric.name,
+  'target': g.target,
+  'setBy': g.setBy,
+  'setAt': _time(g.setAt),
+};
+
+NightGoal _goalFrom(Map j) => NightGoal(
+  night: _night(j['night'] as String),
+  metric: GoalMetric.values.byName(j['metric'] as String),
+  target: (j['target'] as num).toInt(),
+  setBy: j['setBy'] as String,
+  setAt: _parseTime(j['setAt']),
 );
 
 // -------------------------------------------------------------- Comunes

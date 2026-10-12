@@ -15,7 +15,7 @@
   - Permiso denegado, sin cámara o fallo: se explica, con «Reintentar» cuando tiene sentido. «Escribir la credencial» vuelve al campo manual, que sigue disponible.
   - La cámara se detiene al salir de la app, se reanuda al volver y se libera al cerrar el lector.
 - **Un solo QR (2026-10-12):** «Mi QR» del cliente es el QR de su entrada de la noche; barra lo lee (o escribe la credencial) solo para identificar la cuenta, con `TicketGateway.identifyAccount`. Detalle en [pedidos de barra](../business-rules/pedidos-barra.md).
-- **Permisos:** `android.permission.CAMERA` (con `android.hardware.camera` no obligatoria) y `NSCameraUsageDescription`: «Rumbaap usa la cámara solo cuando el personal la activa para leer el código QR de las entradas en la puerta, la taquilla o la entrega de manillas. No se guardan fotos.»
+- **Permisos:** `android.permission.CAMERA` (con `android.hardware.camera` no obligatoria) y `NSCameraUsageDescription`: «Rumbaap usa la cámara solo cuando el personal la activa para leer el código QR de las entradas: en la puerta, la taquilla y la entrega de manillas, y en la barra, donde solo identifica la cuenta del cliente para enviarle el comprobante. No se guardan fotos.»
 - **Privacidad:**
   - El QR no lleva nombre, cédula ni estado. La app no guarda fotos ni escribe en registros el código leído.
   - Según los [términos de ML Kit](https://developers.google.com/ml-kit/terms), el procesamiento de las imágenes ocurre en el dispositivo y ML Kit no envía las imágenes ni sus resultados a Google, pero **sí envía a Google métricas de rendimiento y uso de las APIs**. No se promete cero telemetría. En iOS la lectura usa Apple Vision, no ML Kit.

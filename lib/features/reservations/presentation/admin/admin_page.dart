@@ -7,6 +7,7 @@ import '../../../venues/venue_config.dart';
 import '../../../bar/data/demo_bar_store.dart';
 import '../../../bar/presentation/bar_views.dart';
 import '../../../dashboard/dashboard_page.dart';
+import '../../../dashboard/data/demo_goal_store.dart';
 import '../../../tickets/data/demo_ticket_store.dart';
 import '../../../tickets/presentation/admin_tickets.dart';
 import '../../data/demo_reservation_store.dart';
@@ -48,6 +49,7 @@ class AdminPage extends StatefulWidget {
     this.identity,
     this.tickets,
     this.bar,
+    this.goals,
   });
 
   final DemoReservationStore store;
@@ -57,6 +59,9 @@ class AdminPage extends StatefulWidget {
 
   /// Ventas de barra del local; sin él, «Pedidos» queda en desarrollo.
   final DemoBarStore? bar;
+
+  /// Metas del local; sin él, el panel no ofrece configurarlas.
+  final DemoGoalStore? goals;
   final Clock clock;
 
   /// Identidad de la sesión de demostración; sin ella no se ofrece «Más».
@@ -162,6 +167,7 @@ class _AdminPageState extends State<AdminPage> {
                           reservations: widget.store,
                           tickets: widget.tickets!,
                           bar: widget.bar!,
+                          goals: widget.goals,
                           identity: widget.identity!,
                           clock: widget.clock,
                         ),

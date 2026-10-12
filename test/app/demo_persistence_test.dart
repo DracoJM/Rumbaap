@@ -6,6 +6,7 @@ import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/app/persistence/demo_bootstrap.dart';
 import 'package:rumbaap/app/persistence/demo_persistence.dart';
 import 'package:rumbaap/app/persistence/demo_snapshot.dart';
+import 'package:rumbaap/features/dashboard/domain/night_goals.dart';
 import 'package:rumbaap/features/bar/data/demo_bar_store.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
@@ -413,6 +414,27 @@ void main() {
         b.tickets.book.doorCheck(code, actorId: 'seguridad-1').reason,
         RejectReason.redeemed,
       );
+    });
+
+    testWidgets('una meta de una noche sin movimientos sobrevive a cerrar y '
+        'abrir', (tester) async {
+      final storage = _MemoryStorage();
+      final empty = Night(DateTime.utc(2026, 10, 23));
+      await boot(tester, storage);
+      tester
+          .widget<RumbaapApp>(find.byType(RumbaapApp))
+          .goals
+          .perform(
+            (b) => b.set(empty, GoalMetric.ticketIncome, 9000, actorId: 'a1'),
+          );
+      await close(tester);
+      await boot(tester, storage);
+      final restored = tester
+          .widget<RumbaapApp>(find.byType(RumbaapApp))
+          .goals
+          .book
+          .goalFor(empty, GoalMetric.ticketIncome);
+      expect(restored?.target, 9000);
     });
 
     testWidgets('datos dañados: se explica, no se reemplazan y no se ofrecen '

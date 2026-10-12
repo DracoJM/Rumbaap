@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/features/bar/data/demo_bar_store.dart';
+import 'package:rumbaap/features/dashboard/domain/night_goals.dart';
 import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/domain/reservation.dart';
@@ -208,8 +209,10 @@ void main() {
     expect(find.textContaining('para no contarlo dos veces'), findsOneWidget);
     await scrollTo(tester, 'reservations');
     expect(find.textContaining('no rentabilidad'), findsOneWidget);
-    await scrollTo(tester, 'goals');
-    expect(find.textContaining('sin metas configuradas'), findsOneWidget);
+    // Todo el período: no hay metas, se pide elegir una noche.
+    await reveal(tester, find.byKey(const ValueKey('goal-choose-night')));
+    expect(find.textContaining('No hay metas para todo el período'), findsOne);
+    expect(find.byKey(const ValueKey('goal-firstEntries')), findsNothing);
 
     // Solo el sábado: una entrada pagada, sin barra.
     await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
@@ -323,6 +326,128 @@ void main() {
     expect(find.byKey(const ValueKey('incident-ticket-night')), findsNothing);
     expect(find.byKey(const ValueKey('incident-open-ticket')), findsNothing);
     expect(find.textContaining('ninguna entrada'), findsOneWidget);
+  });
+
+  testWidgets('metas por noche: sin configurar por defecto, se validan, se '
+      'editan y se quitan; avance parcial en curso, resultado al terminar; '
+      'el prepago VIP no entra en ingresos', (tester) async {
+    await pumpApp(tester);
+    await openDashboard(tester);
+
+    // Busca hacia arriba y hacia abajo: la lista se construye bajo demanda.
+    Future<void> find2(Finder f) async {
+      await reveal(tester, f, dy: 200);
+      await reveal(tester, f);
+    }
+
+    Future<void> pickFriday() async {
+      await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
+      await tester.tap(find.byKey(const ValueKey('dash-night')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Viernes 9 de octubre de 2026').last);
+      await tester.pumpAndSettle();
+    }
+
+    String state(String metric) {
+      final f = find.byKey(ValueKey('goal-$metric-state'));
+      return tester.widget<Text>(f).data!;
+    }
+
+    Future<void> setGoal(String metric, String text) async {
+      await find2(find.byKey(ValueKey('goal-$metric-edit')));
+      await tester.tap(find.byKey(ValueKey('goal-$metric-edit')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('goal-input')), text);
+      await tester.tap(find.byKey(const ValueKey('dialog-confirm')));
+      await tester.pumpAndSettle();
+    }
+
+    await pickFriday();
+    await reveal(tester, find.byKey(const ValueKey('goal-coverage')));
+    expect(find.textContaining('Noche en curso'), findsOneWidget);
+    for (final m in GoalMetric.values) {
+      await find2(find.byKey(ValueKey('goal-${m.name}-state')));
+      expect(state(m.name), startsWith('Sin configurar'));
+    }
+
+    // Validación: cero no se acepta y el diálogo sigue abierto.
+    await setGoal('ticketIncome', '0');
+    expect(find.textContaining('mayor que cero'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('goal-input')), '100000');
+    await tester.tap(find.byKey(const ValueKey('dialog-confirm')));
+    await tester.pumpAndSettle();
+    // 3 × 40.000 pagadas el viernes; la cortesía no tiene importe.
+    expect(
+      state('ticketIncome'),
+      'Meta alcanzada: 120.000 COP de 100.000 COP.',
+    );
+
+    // Barra: solo ventas vigentes (70.000); el prepago VIP no se suma.
+    await setGoal('barIncome', '500000');
+    expect(state('barIncome'), contains('70.000 COP de 500.000 COP'));
+
+    // En curso: avance parcial, nunca «no alcanzada».
+    await setGoal('firstEntries', '5');
+    expect(state('firstEntries'), startsWith('Avance parcial: 1 de 5'));
+    expect(state('firstEntries'), isNot(contains('No alcanzada')));
+
+    // Editar conserva el parámetro y cambia el valor.
+    await setGoal('firstEntries', '1');
+    expect(state('firstEntries'), 'Meta alcanzada: 1 de 1.');
+
+    // Detalle existente.
+    await reveal(
+      tester,
+      find.byKey(const ValueKey('goal-firstEntries-detail')),
+    );
+    await tester.tap(find.byKey(const ValueKey('goal-firstEntries-detail')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('dash-list')), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Quitar: vuelve a «sin configurar».
+    await reveal(
+      tester,
+      find.byKey(const ValueKey('goal-firstEntries-remove')),
+    );
+    await tester.tap(find.byKey(const ValueKey('goal-firstEntries-remove')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('dialog-confirm')));
+    await tester.pumpAndSettle();
+    expect(state('firstEntries'), startsWith('Sin configurar'));
+
+    // La noche termina: el resultado ya no es parcial.
+    now = venueInstant(2026, 10, 10, 12);
+    await setGoal('reservationArrivals', '3');
+    // Las llegadas sembradas cuentan; con la noche terminada ya es final.
+    expect(state('reservationArrivals'), startsWith('No alcanzada:'));
+    expect(state('reservationArrivals'), contains('de 3'));
+    await find2(find.byKey(const ValueKey('goal-coverage')));
+    expect(find.textContaining('Noche terminada'), findsOneWidget);
+  });
+
+  testWidgets('una noche que solo tiene metas sigue en el selector, sin '
+      'movimientos ni éxito afirmado', (tester) async {
+    await pumpApp(tester);
+    final goals = tester.widget<RumbaapApp>(find.byType(RumbaapApp)).goals;
+    final empty = Night(DateTime.utc(2026, 10, 23));
+    goals.perform(
+      (b) => b.set(empty, GoalMetric.firstEntries, 50, actorId: 'admin-1'),
+    );
+    await openDashboard(tester);
+    await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
+    await tester.tap(find.byKey(const ValueKey('dash-night')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Viernes 23 de octubre de 2026').last);
+    await tester.pumpAndSettle();
+    await reveal(tester, find.byKey(const ValueKey('goal-firstEntries-state')));
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('goal-firstEntries-state')))
+          .data,
+      'Noche sin empezar: 0 de 50.',
+    );
   });
 
   testWidgets('cada indicador abre su lista y desde ella la ficha', (

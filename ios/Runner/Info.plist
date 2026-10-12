@@ -25,7 +25,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Rumbaap usa la cámara solo cuando el personal la activa para leer el código QR de las entradas en la puerta, la taquilla o la entrega de manillas. No se guardan fotos.</string>
+	<string>Rumbaap usa la cámara solo cuando el personal la activa para leer el código QR de las entradas: en la puerta, la taquilla y la entrega de manillas, y en la barra, donde solo identifica la cuenta del cliente para enviarle el comprobante. No se guardan fotos.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
