@@ -110,6 +110,7 @@ class _AdminPageState extends State<AdminPage> {
         clock: widget.clock,
         tickets: widget.tickets,
         identity: widget.identity,
+        bar: widget.bar,
       ),
     ),
   );

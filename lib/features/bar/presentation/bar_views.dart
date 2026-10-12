@@ -30,8 +30,13 @@ String barErrorLabel(BarError e) => switch (e) {
   BarError.invalidDestination =>
     'El destino de la venta no es válido. No se registró nada.',
   BarError.vipPrepaidPending =>
-    'Mesa VIP con prepago: el consumo contra el prepago aún no está '
-        'disponible. No se registró como otro pago completo.',
+    'Mesa VIP sin prepago registrado: la administración debe registrarlo en '
+        'la ficha de la reserva. No se cobró como otro pago completo.',
+  BarError.prepaidAlreadyRegistered =>
+    'El prepago de esa reserva ya está registrado. No se hizo ningún cambio.',
+  BarError.invalidAmount => 'Importe de prepago no válido.',
+  BarError.vipCorrectionUndecided =>
+    'Corregir una venta contra prepago VIP no está definido: no se cambió.',
   BarError.onlyRemoveUnits =>
     'Una corrección solo puede quitar unidades. No se hizo ningún cambio.',
 };
@@ -121,6 +126,11 @@ class SaleSummary extends StatelessWidget {
           voided ? 'Anulada · total 0 COP' : 'Total: ${copLabel(sale.total)}',
           style: Theme.of(context).textTheme.titleSmall,
         ),
+        if (sale.prepaidApplied > 0 && !voided)
+          Text(
+            'Con prepago VIP: ${copLabel(sale.prepaidApplied)} · cobrado en '
+            'barra: ${copLabel(sale.charged)}',
+          ),
         Text(
           'Registrada ${venueDateTimeLabel(sale.registeredAt)} · '
           '${actorLabel(sale.registeredBy)} · pago presencial (simulado)'
@@ -313,16 +323,35 @@ class _BarDeskState extends State<BarDesk> {
     return widget.reservations.venue.tableById(r.tableId)?.isVip ?? false;
   }
 
-  /// Una mesa VIP tiene consumo prepagado y aún no hay circuito para
-  /// descontarlo: registrar aquí sería cobrarlo dos veces. Queda pendiente.
+  /// Sin prepago registrado no se puede consumir contra él, y cobrar la
+  /// mesa VIP como otro pago completo sería cobrarla dos veces.
   static const _vipPendingMessage =
-      'Mesa VIP con prepago: el consumo contra el prepago aún no está '
-      'disponible en la app. Para no cobrarlo dos veces, aquí no se '
-      'registra como otro pago completo. El pedido sigue en pantalla.';
+      'Mesa VIP sin prepago registrado: la administración debe registrarlo en '
+      'la ficha de la reserva. Aquí no se cobra como otro pago completo. El '
+      'pedido sigue en pantalla.';
+
+  VipPrepaidBalance? _balance(String? reservationId) =>
+      reservationId == null ? null : widget.store.book.balanceOf(reservationId);
+
+  int _orderTotal(BuildContext context) {
+    final menu = VenueScope.of(context).menu;
+    return _qty.entries.fold<int>(0, (t, e) {
+      final item = menu.firstWhere((m) => m.id == e.key);
+      return t + item.demoPrice * e.value;
+    });
+  }
+
+  /// Parte del pedido que cubre el prepago (solo mesas VIP con saldo).
+  int _plannedApplied(String? reservationId, int total) {
+    if (!_isVipReservation(reservationId)) return 0;
+    final b = _balance(reservationId);
+    if (b == null) return 0;
+    return b.remaining.clamp(0, total);
+  }
 
   Future<void> _register() async {
     final target = _reservationId;
-    if (_isVipReservation(target)) {
+    if (_isVipReservation(target) && _balance(target) == null) {
       setState(() {
         _ok = false;
         _message = _vipPendingMessage;
@@ -340,28 +369,36 @@ class _BarDeskState extends State<BarDesk> {
       });
       return;
     }
-    final total = _qty.entries.fold<int>(0, (t, e) {
-      final item = VenueScope.of(context).menu.firstWhere((m) => m.id == e.key);
-      return t + item.demoPrice * e.value;
-    });
+    final total = _orderTotal(context);
+    final vip = _isVipReservation(target);
+    final applied = _plannedApplied(target, total);
+    final extra = total - applied;
     final ok = await _confirm(
       context,
       '¿Registrar la venta?',
-      'Total ${copLabel(total)}. Registra solo si ya recibiste el pago '
-          'presencial completo. Después solo caja o administración pueden '
-          'corregirla.',
+      vip
+          ? 'Total ${copLabel(total)}. Con el prepago se cubren '
+                '${copLabel(applied)}. '
+                '${extra > 0 ? 'Cobra en persona la diferencia: ${copLabel(extra)}; registra solo si ya la recibiste completa.' : 'No se cobra nada en persona.'}'
+          : 'Total ${copLabel(total)}. Registra solo si ya recibiste el pago '
+                'presencial completo. Después solo caja o administración '
+                'pueden corregirla.',
       'Registrar',
     );
     if (!ok || !mounted) return;
-    // Revalida tras la espera: si el destino cambió (o ahora es VIP), no
-    // se registra nada y el pedido se conserva.
-    if (_reservationId != target || _isVipReservation(target)) {
+    // Revalida tras la espera: si cambió el destino o el saldo, no se
+    // registra nada y el pedido se conserva.
+    if (_reservationId != target ||
+        _isVipReservation(target) != vip ||
+        _plannedApplied(target, total) != applied ||
+        (vip && _balance(target) == null)) {
       setState(() {
         _ok = false;
         _message = _reservationId != target
             ? 'El destino cambió mientras confirmabas. No se registró nada; '
                   'revísalo y vuelve a intentarlo.'
-            : _vipPendingMessage;
+            : 'El saldo del prepago cambió mientras confirmabas. No se '
+                  'registró nada; revísalo.';
       });
       return;
     }
@@ -383,6 +420,7 @@ class _BarDeskState extends State<BarDesk> {
         _ok = true;
         _message =
             'Venta ${s.id} registrada: ${copLabel(s.total)}'
+            '${s.prepaidApplied > 0 ? ' · con prepago ${copLabel(s.prepaidApplied)} · cobrado ${copLabel(s.charged)}' : ''}'
             '${accountId == null ? '' : ' · comprobante enviado a la cuenta'}'
             '${reservation == null ? '' : ' · mesa ${reservation.tableId}'}.';
         _qty.clear();
@@ -409,6 +447,11 @@ class _BarDeskState extends State<BarDesk> {
       listenable: widget.store,
       builder: (context, _) {
         final night = widget.store.book.currentNight;
+        final vipTarget = _isVipReservation(_reservationId);
+        final balance = _balance(_reservationId);
+        final orderTotal = _orderTotal(context);
+        final plannedApplied = _plannedApplied(_reservationId, orderTotal);
+        final extra = orderTotal - plannedApplied;
         final mine =
             widget.store.book.sales.where((s) => s.night == night).toList()
               ..sort((a, b) => b.registeredAt.compareTo(a.registeredAt));
@@ -516,29 +559,44 @@ class _BarDeskState extends State<BarDesk> {
                   child: Text(note, key: const ValueKey('bar-account-status')),
                 ),
             ],
-            if (_isVipReservation(_reservationId))
+            if (vipTarget && balance == null)
               const NoticeBox(
                 key: ValueKey('bar-vip-pending'),
                 icon: Icons.hourglass_top_rounded,
                 color: AppColors.amber,
                 text: _vipPendingMessage,
               ),
-            CheckboxListTile(
-              key: const ValueKey('bar-paid'),
-              contentPadding: EdgeInsets.zero,
-              value: _paid && !_isVipReservation(_reservationId),
-              onChanged: _isVipReservation(_reservationId)
-                  ? null
-                  : (v) => setState(() => _paid = v ?? false),
-              title: const Text('Pago presencial completo recibido'),
-            ),
+            if (vipTarget && balance != null)
+              NoticeBox(
+                key: const ValueKey('bar-vip-balance'),
+                icon: Icons.account_balance_wallet_outlined,
+                text:
+                    'Prepago ${copLabel(balance.prepaid.amount)} · consumido '
+                    '${copLabel(balance.consumed)} · saldo '
+                    '${copLabel(balance.remaining)}. Este pedido: '
+                    '${copLabel(plannedApplied)} con prepago'
+                    '${extra > 0 ? ' y ${copLabel(extra)} a cobrar en persona' : '; no se cobra nada en persona'}.',
+              ),
+            if (!vipTarget || (balance != null && extra > 0))
+              CheckboxListTile(
+                key: const ValueKey('bar-paid'),
+                contentPadding: EdgeInsets.zero,
+                value: _paid,
+                onChanged: (v) => setState(() => _paid = v ?? false),
+                title: Text(
+                  vipTarget
+                      ? 'Pago presencial de la diferencia recibido '
+                            '(${copLabel(extra)})'
+                      : 'Pago presencial completo recibido',
+                ),
+              ),
             FilledButton.icon(
               key: const ValueKey('bar-register'),
               style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
               onPressed:
                   night == null ||
                       _qty.values.every((q) => q <= 0) ||
-                      _isVipReservation(_reservationId)
+                      (vipTarget && balance == null)
                   ? null
                   : _register,
               icon: const Icon(Icons.receipt_long_outlined),
@@ -659,6 +717,12 @@ class BarCorrections extends StatelessWidget {
 }
 
 /// Ficha de una venta con sus correcciones.
+/// Venta de una mesa VIP (según el local) o con prepago aplicado.
+bool _isVipSaleIn(DemoBarStore store, BarSale s) =>
+    s.prepaidApplied > 0 ||
+    (s.tableId != null &&
+        store.book.venue.tableById(s.tableId!)?.isVip == true);
+
 class BarSalePage extends StatelessWidget {
   const BarSalePage({
     super.key,
@@ -707,6 +771,8 @@ class BarSalePage extends StatelessWidget {
     }
   }
 
+  bool _isVipSale(BarSale s) => _isVipSaleIn(store, s);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -724,7 +790,15 @@ class BarSalePage extends StatelessWidget {
               const SizedBox(height: 8),
               SaleSummary(sale: s),
               const SizedBox(height: 14),
-              if (s.status == BarSaleStatus.active) ...[
+              if (s.status == BarSaleStatus.active && _isVipSale(s))
+                Text(
+                  'Venta de mesa VIP contra prepago: corregirla o anularla no '
+                  'está definido (prepago y excedente), así que no se modifica '
+                  'en la demo.',
+                  key: const ValueKey('bar-vip-no-correction'),
+                  style: _muted(context),
+                ),
+              if (s.status == BarSaleStatus.active && !_isVipSale(s)) ...[
                 for (final l in s.lines.where((l) => l.quantity > 1))
                   OutlinedButton(
                     key: ValueKey('bar-minus-${l.itemId}'),
@@ -924,6 +998,16 @@ class _ConsumptionPageState extends State<ConsumptionPage> {
                 key: const ValueKey('consumption-sum'),
                 style: Theme.of(context).textTheme.titleSmall,
               ),
+              if (table.isVip)
+                Text(switch (widget.bar.book.balanceOf(r.id)) {
+                  null => 'Prepago sin registrar por la administración.',
+                  final b =>
+                    'Prepago ${copLabel(b.prepaid.amount)} · consumido '
+                        '${copLabel(b.consumed)} · saldo '
+                        '${copLabel(b.remaining)} · excedente cobrado '
+                        '${copLabel(b.charged)}'
+                        '${widget.bar.book.hasEnded(b.prepaid.night) ? '. La noche terminó: el saldo no consumido se perdió.' : ''}',
+                }, key: const ValueKey('consumption-prepaid')),
               const SizedBox(height: 12),
               if (accepted != null) ...[
                 NoticeBox(

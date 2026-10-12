@@ -13,8 +13,12 @@ abstract final class VipBenefitRules {
 
 /// Si se pueden emitir cortesías ahora, o qué regla falta.
 enum VipBenefitState {
-  /// Reserva VIP confirmada (prepago verificado) o con llegada registrada.
+  /// Reserva aprobada (confirmada o con llegada) Y prepago registrado por
+  /// la administración: las cortesías se pueden emitir y canjear.
   active,
+
+  /// Reserva aprobada, pero la administración aún no registró su prepago.
+  prepaidNotRegistered,
 
   /// Solicitud pendiente de pago. NOT DECIDED: si las cortesías se emiten
   /// antes de verificar el prepago.
@@ -30,13 +34,25 @@ enum VipBenefitState {
 /// una vez, en cualquier estado. Una anulada no se repone sola (NOT
 /// DECIDED).
 class VipBenefits {
-  VipBenefits._(this.reservation, this.issued);
+  VipBenefits._(this.reservation, this.issued, this.prepaidRegistered);
 
-  /// `null` si la reserva no es de una mesa VIP.
-  static VipBenefits? of(Reservation r, Venue venue, TicketBook tickets) {
+  /// `null` si la reserva no es de una mesa VIP. [prepaidRegistered]: la
+  /// administración registró su prepago; sin él no se activan cortesías.
+  static VipBenefits? of(
+    Reservation r,
+    Venue venue,
+    TicketBook tickets, {
+    required bool prepaidRegistered,
+  }) {
     if (venue.tableById(r.tableId)?.isVip != true) return null;
-    return VipBenefits._(r, tickets.courtesiesOfReservation(r.id));
+    return VipBenefits._(
+      r,
+      tickets.courtesiesOfReservation(r.id),
+      prepaidRegistered,
+    );
   }
+
+  final bool prepaidRegistered;
 
   final Reservation reservation;
 
@@ -51,8 +67,10 @@ class VipBenefits {
   int get voided => issued.where((t) => t.status == TicketStatus.voided).length;
 
   VipBenefitState get state => switch (reservation.status) {
-    ReservationStatus.confirmed ||
-    ReservationStatus.seated => VipBenefitState.active,
+    ReservationStatus.confirmed || ReservationStatus.seated =>
+      prepaidRegistered
+          ? VipBenefitState.active
+          : VipBenefitState.prepaidNotRegistered,
     ReservationStatus.pendingPayment => VipBenefitState.pendingPrepayment,
     _ => VipBenefitState.reservationEnded,
   };
@@ -67,17 +85,24 @@ class VipBenefitException implements Exception {
 
 /// La administración emite cortesías del beneficio VIP por el circuito de
 /// cortesías existente (nombre y motivo obligatorios). No supera el derecho
-/// de la reserva y solo se emite con la reserva confirmada.
+/// de la reserva y solo se emite con la reserva aprobada y su prepago
+/// registrado por la administración.
 TicketPurchase issueVipCourtesies(
   TicketBook tickets, {
   required Reservation reservation,
+  required bool prepaidRegistered,
   required Venue venue,
   required TicketProduct product,
   required int quantity,
   required String holderName,
   required String actorId,
 }) {
-  final b = VipBenefits.of(reservation, venue, tickets);
+  final b = VipBenefits.of(
+    reservation,
+    venue,
+    tickets,
+    prepaidRegistered: prepaidRegistered,
+  );
   if (b == null) throw const VipBenefitException(VipBenefitError.notVip);
   if (b.state != VipBenefitState.active) {
     throw const VipBenefitException(VipBenefitError.notActive);

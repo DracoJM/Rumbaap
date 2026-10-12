@@ -70,6 +70,7 @@ String encodeDemoSnapshot({
       'next': b.next,
       'sales': [for (final s in b.sales) _sale(s)],
       'acceptances': [for (final a in b.acceptances) _acceptance(a)],
+      'prepaids': [for (final p in b.prepaids) _prepaid(p)],
     },
     if (goals != null) 'goals': [for (final g in goals.book.goals) _goal(g)],
   });
@@ -139,6 +140,11 @@ void decodeDemoSnapshot(
       for (final x in (bs?['acceptances'] as List?) ?? const [])
         _acceptanceFrom(x as Map),
     ];
+    // Prepagos registrados: añadidos después; si faltan, no había ninguno.
+    final prepaids = [
+      for (final x in (bs?['prepaids'] as List?) ?? const [])
+        _prepaidFrom(x as Map),
+    ];
     // Las metas se añadieron después sin cambiar el formato: si faltan, no
     // había metas configuradas.
     final restoredGoals = [
@@ -167,6 +173,7 @@ void decodeDemoSnapshot(
     bar.book.importState(
       sales: sales,
       acceptances: acceptances,
+      prepaids: prepaids,
       next: ((bs?['next'] as num?) ?? 1).toInt(),
     );
     goals?.book.importState(restoredGoals);
@@ -409,6 +416,7 @@ Map<String, Object?> _sale(BarSale s) => {
   'reservationId': s.reservationId,
   'tableId': s.tableId,
   'accountId': s.accountId,
+  if (s.prepaidApplied > 0) 'prepaidApplied': s.prepaidApplied,
   'corrections': [
     for (final c in s.corrections)
       {
@@ -432,6 +440,7 @@ BarSale _saleFrom(Map j) => BarSale(
   reservationId: j['reservationId'] as String?,
   tableId: j['tableId'] as String?,
   accountId: j['accountId'] as String?,
+  prepaidApplied: ((j['prepaidApplied'] as num?) ?? 0).toInt(),
   corrections: [
     for (final c in j['corrections'] as List)
       BarCorrection(
@@ -444,6 +453,24 @@ BarSale _saleFrom(Map j) => BarSale(
         ],
       ),
   ],
+);
+
+Map<String, Object?> _prepaid(VipPrepaid p) => {
+  'reservationId': p.reservationId,
+  'tableId': p.tableId,
+  'night': p.night.id,
+  'amount': p.amount,
+  'registeredBy': p.registeredBy,
+  'registeredAt': _time(p.registeredAt),
+};
+
+VipPrepaid _prepaidFrom(Map j) => VipPrepaid(
+  reservationId: j['reservationId'] as String,
+  tableId: j['tableId'] as String,
+  night: _night(j['night'] as String),
+  amount: (j['amount'] as num).toInt(),
+  registeredBy: j['registeredBy'] as String,
+  registeredAt: _parseTime(j['registeredAt']),
 );
 
 Map<String, Object?> _acceptance(ConsumptionAcceptance a) => {

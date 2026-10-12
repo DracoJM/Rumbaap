@@ -59,10 +59,18 @@ class VenueConfig {
 /// Capacidad y condiciones de un tipo de mesa, tal como las confirmó el
 /// local. Son textos del local, no reglas generales de Rumbaap.
 class TableTerms {
-  const TableTerms({required this.capacity, required this.conditions});
+  const TableTerms({
+    required this.capacity,
+    required this.conditions,
+    this.prepaidConsumption,
+  });
 
   final String capacity;
   final List<String> conditions;
+
+  /// Consumo prepagado por mesa (COP), si el tipo de mesa lo tiene. Se
+  /// consume en barra; nunca se vuelve a cobrar.
+  final int? prepaidConsumption;
 }
 
 /// Hace disponible la configuración del local a toda la interfaz.

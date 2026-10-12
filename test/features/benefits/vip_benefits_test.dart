@@ -31,6 +31,7 @@ const _holder = ReservationHolder(
 void main() {
   late DemoReservationStore reservations;
   late DemoTicketStore tickets;
+  late DemoBarStore bar;
 
   setUp(() {
     reservations = DemoReservationStore(
@@ -44,7 +45,23 @@ void main() {
       clock: fixedClock,
       latency: Duration.zero,
     );
+    bar = DemoBarStore(
+      venue: sagsaVenue,
+      menu: sagsaConfig.menu,
+      clock: fixedClock,
+    );
   });
+
+  /// La administración registra el prepago verificado de la reserva.
+  void registerPrepaid(Reservation r) => bar.perform(
+    (b) => b.registerPrepaid(
+      reservationId: r.id,
+      tableId: r.tableId,
+      night: r.night,
+      amount: 2000000,
+      actorId: 'admin-1',
+    ),
+  );
 
   Reservation vipRequest(String table) => reservations.perform(
     (b) => b.requestVip(
@@ -55,13 +72,20 @@ void main() {
     ),
   );
 
-  Reservation confirm(Reservation r) =>
-      reservations.perform((b) => b.markPrepaymentReceived(r.id));
+  /// Aprobada (prepago verificado) y con el prepago registrado.
+  Reservation confirm(Reservation r) {
+    final c = reservations.perform((b) => b.markPrepaymentReceived(r.id));
+    registerPrepaid(c);
+    return c;
+  }
+
+  bool registered(Reservation r) => bar.book.prepaidOf(r.id) != null;
 
   TicketPurchase issue(Reservation r, int quantity) => tickets.perform(
     (b) => issueVipCourtesies(
       b,
       reservation: reservations.book.byId(r.id)!,
+      prepaidRegistered: registered(r),
       venue: sagsaVenue,
       product: sagsaConfig.ticketProducts.single,
       quantity: quantity,
@@ -70,8 +94,12 @@ void main() {
     ),
   );
 
-  VipBenefits benefits(Reservation r) =>
-      VipBenefits.of(reservations.book.byId(r.id)!, sagsaVenue, tickets.book)!;
+  VipBenefits benefits(Reservation r) => VipBenefits.of(
+    reservations.book.byId(r.id)!,
+    sagsaVenue,
+    tickets.book,
+    prepaidRegistered: registered(r),
+  )!;
 
   group('derecho y emisión', () {
     test('6 cortesías y 1 botella por VIP; ambas zonas suman 12 y 2', () {
@@ -84,7 +112,28 @@ void main() {
       final normal = reservations.perform(
         (x) => x.createDirect(night: _friday, tableId: 'M01', holder: _holder),
       );
-      expect(VipBenefits.of(normal, sagsaVenue, tickets.book), isNull);
+      expect(
+        VipBenefits.of(
+          normal,
+          sagsaVenue,
+          tickets.book,
+          prepaidRegistered: false,
+        ),
+        isNull,
+      );
+    });
+
+    test('gate de cortesías: aprobada sin prepago registrado no emite; tras '
+        'registrarlo sí', () {
+      final r = reservations.perform(
+        (b) => b.markPrepaymentReceived(vipRequest('VIP 1').id),
+      );
+      expect(benefits(r).state, VipBenefitState.prepaidNotRegistered);
+      expect(() => issue(r, 1), throwsA(isA<VipBenefitException>()));
+      expect(tickets.book.tickets, isEmpty);
+      registerPrepaid(r);
+      expect(benefits(r).state, VipBenefitState.active);
+      expect(tickets.book.ticketsOf(issue(r, 6).id), hasLength(6));
     });
 
     test('pendiente de prepago: no se emite (regla no definida) y no se crea '
@@ -243,11 +292,14 @@ void main() {
             clock: fixedClock,
             tickets: tickets,
             identity: DemoIdentities.byId('admin-1'),
+            bar: bar,
           ),
         );
         await revealKey(tester, 'vip-issue-${r.id}');
         expect(
-          find.textContaining('6 cortesías y 1 botella fuera del consumo'),
+          find.textContaining(
+            '6 entradas de cortesía (manillas en taquilla) y 1 botella de champaña',
+          ),
           findsOneWidget,
         );
         expect(find.byKey(ValueKey('vip-bottle-${r.id}')), findsOneWidget);
@@ -282,6 +334,7 @@ void main() {
             linkedAccountId: 'cliente-a',
           ),
         );
+        registerPrepaid(own);
         issue(own, 2);
         await pump(
           tester,
@@ -290,6 +343,7 @@ void main() {
             identity: DemoIdentities.byId('cliente-a')!,
             reservationId: own.id,
             tickets: tickets,
+            bar: bar,
           ),
         );
         await revealKey(tester, 'vip-courtesies-${own.id}');
@@ -299,6 +353,51 @@ void main() {
       },
       variant: TargetPlatformVariant.mobile(),
     );
+
+    testWidgets('la administración registra el prepago desde la ficha (importe '
+        'de la configuración) y se activan las cortesías; si la reserva se '
+        'cancela, se indica la gestión manual sin devolver ni trasladar', (
+      tester,
+    ) async {
+      final r = reservations.perform(
+        (b) => b.markPrepaymentReceived(vipRequest('VIP 1').id),
+      );
+      await pump(
+        tester,
+        ReservationPage(
+          store: reservations,
+          reservationId: r.id,
+          clock: fixedClock,
+          tickets: tickets,
+          identity: DemoIdentities.byId('admin-1'),
+          bar: bar,
+        ),
+      );
+      expect(find.byKey(ValueKey('vip-issue-${r.id}')), findsNothing);
+      await revealKey(tester, 'vip-prepaid-register-${r.id}');
+      await tester.tap(find.byKey(ValueKey('vip-prepaid-register-${r.id}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dialog-confirm')));
+      await tester.pumpAndSettle();
+      final p = bar.book.prepaidOf(r.id)!;
+      expect(p.amount, 2000000);
+      expect(p.registeredBy, 'admin-1');
+      await revealKey(tester, 'vip-issue-${r.id}');
+      expect(
+        find.byKey(ValueKey('vip-prepaid-register-${r.id}')),
+        findsNothing,
+      );
+
+      reservations.perform((b) => b.revoke(r.id));
+      await tester.pumpAndSettle();
+      await revealKey(tester, 'vip-prepaid-manual-${r.id}');
+      expect(
+        find.textContaining('acuerdo directo con la administración'),
+        findsOne,
+      );
+      expect(find.byKey(ValueKey('vip-issue-${r.id}')), findsNothing);
+      expect(bar.book.prepaids, hasLength(1));
+    });
 
     testWidgets('pendiente de prepago: se explica y no se ofrece emitir', (
       tester,
@@ -312,10 +411,14 @@ void main() {
           clock: fixedClock,
           tickets: tickets,
           identity: DemoIdentities.byId('admin-1'),
+          bar: bar,
         ),
       );
       await revealKey(tester, 'vip-blocked-${r.id}');
-      expect(find.textContaining('No está definido si'), findsOneWidget);
+      expect(
+        find.textContaining('espera la verificación del prepago'),
+        findsOneWidget,
+      );
       expect(find.byKey(ValueKey('vip-issue-${r.id}')), findsNothing);
     });
   });

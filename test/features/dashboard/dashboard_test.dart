@@ -522,7 +522,8 @@ void main() {
         // Solo el viernes: 3 × 40.000; no la del sábado (50.000).
         '- Entradas pagadas: 120.000 COP',
         '- Devoluciones autorizadas (aparte, no restadas): 40.000 COP',
-        '- Ventas de barra vigentes: 70.000 COP',
+        '- Cobrado en barra: 70.000 COP',
+        '- Consumo VIP contra prepago: 0 COP',
         '- Prepagos VIP verificados: 1 (sin importe',
         '- Entradas pagadas: Meta alcanzada: 120.000 COP de 100.000 COP.',
         '- Primeros ingresos con entrada: Sin configurar',

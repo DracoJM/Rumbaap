@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
+import '../../../bar/data/demo_bar_store.dart';
 import '../../../benefits/vip_benefits_view.dart';
 import '../../../session/demo_identities.dart';
 import '../../../tickets/data/demo_ticket_store.dart';
@@ -29,6 +30,7 @@ class ReservationPage extends StatefulWidget {
     this.clock = systemClock,
     this.tickets,
     this.identity,
+    this.bar,
   });
 
   final DemoReservationStore store;
@@ -39,6 +41,9 @@ class ReservationPage extends StatefulWidget {
   /// y gestionan los beneficios VIP.
   final DemoTicketStore? tickets;
   final DemoIdentity? identity;
+
+  /// Ventas y prepagos del local, para el prepago de consumo VIP.
+  final DemoBarStore? bar;
 
   @override
   State<ReservationPage> createState() => _ReservationPageState();
@@ -169,6 +174,7 @@ class _ReservationPageState extends State<ReservationPage> {
                   venue: widget.store.venue,
                   tickets: tickets,
                   adminId: widget.identity?.id,
+                  bar: widget.bar,
                   onOpenTicket: widget.identity == null
                       ? null
                       : (id) => Navigator.of(context).push(

@@ -173,6 +173,7 @@ class _GuestHomePageState extends State<GuestHomePage> {
           store: widget.store!,
           identity: widget.identity,
           tickets: widget.tickets,
+          bar: widget.bar,
         ),
         _GuestSection.tickets => GuestTickets(
           store: widget.tickets!,

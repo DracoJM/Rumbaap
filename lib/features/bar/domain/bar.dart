@@ -75,12 +75,16 @@ class BarSale {
     this.tableId,
     this.accountId,
     this.corrections = const [],
+    this.prepaidApplied = 0,
   });
 
   final String id;
   final String venueId;
   final Night night;
   final List<SaleLine> lines;
+
+  /// Parte del importe cubierta por el prepago de la mesa VIP (0 si no).
+  final int prepaidApplied;
   final String registeredBy;
   final DateTime registeredAt;
   final BarSaleStatus status;
@@ -92,6 +96,11 @@ class BarSale {
   /// Importe vigente: 0 si se anuló.
   int get total =>
       status == BarSaleStatus.voided ? 0 : lines.fold(0, (s, l) => s + l.total);
+
+  /// Dinero cobrado en barra (pago presencial): el importe menos lo cubierto
+  /// por el prepago. El consumo contra prepago no es dinero de esta venta.
+  int get charged =>
+      status == BarSaleStatus.voided ? 0 : total - prepaidApplied;
 
   BarSale corrected({
     required List<SaleLine> lines,
@@ -109,7 +118,46 @@ class BarSale {
     tableId: tableId,
     accountId: accountId,
     corrections: [...corrections, correction],
+    prepaidApplied: prepaidApplied,
   );
+}
+
+/// Prepago de consumo de una reserva VIP, registrado EXPRESAMENTE por la
+/// administración. Nunca se deduce de prepagos anteriores.
+class VipPrepaid {
+  const VipPrepaid({
+    required this.reservationId,
+    required this.tableId,
+    required this.night,
+    required this.amount,
+    required this.registeredBy,
+    required this.registeredAt,
+  });
+
+  final String reservationId;
+  final String tableId;
+  final Night night;
+  final int amount;
+  final String registeredBy;
+  final DateTime registeredAt;
+}
+
+/// Saldo del prepago de una reserva: lo consumido sale de sus ventas.
+class VipPrepaidBalance {
+  const VipPrepaidBalance(this.prepaid, this.consumed, this.charged);
+
+  final VipPrepaid prepaid;
+
+  /// Consumo cubierto por el prepago.
+  final int consumed;
+
+  /// Excedente cobrado en barra por encima del prepago.
+  final int charged;
+
+  int get remaining => prepaid.amount - consumed;
+
+  /// El saldo sin consumir se pierde al terminar la noche.
+  bool lostAt(DateTime venueNow) => prepaid.night.hasEnded(venueNow);
 }
 
 /// Aceptación HUMANA del consumo de una reserva por el mesero, tras
@@ -155,9 +203,18 @@ enum BarError {
   /// Reserva y mesa no casan, o la mesa no existe en el local.
   invalidDestination,
 
-  /// Mesa VIP: su consumo es contra el prepago y ese circuito aún no
-  /// existe. No se registra como otro pago completo.
+  /// Mesa VIP sin prepago registrado por la administración: no se puede
+  /// consumir contra él ni cobrarlo como otro pago completo.
   vipPrepaidPending,
+
+  /// El prepago de esa reserva ya está registrado (uno por reserva).
+  prepaidAlreadyRegistered,
+
+  /// Importe de prepago no válido.
+  invalidAmount,
+
+  /// Corregir o anular una venta contra prepago: no definido.
+  vipCorrectionUndecided,
 }
 
 class BarException implements Exception {

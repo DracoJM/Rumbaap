@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../app/app_theme.dart';
 import '../../theme/night_neutrals.dart';
+import '../bar/data/demo_bar_store.dart';
+import '../bar/domain/bar.dart';
 import '../reservations/domain/reservation.dart';
 import '../reservations/domain/venue_table.dart';
 import '../reservations/presentation/admin/admin_widgets.dart';
@@ -23,11 +25,15 @@ class VipBenefitsCard extends StatelessWidget {
     required this.tickets,
     this.adminId,
     this.onOpenTicket,
+    this.bar,
   });
 
   final Reservation reservation;
   final Venue venue;
   final DemoTicketStore tickets;
+
+  /// Ventas y prepagos del local: saldo del prepago y su registro.
+  final DemoBarStore? bar;
 
   /// Administración que actúa; `null` en la vista del titular.
   final String? adminId;
@@ -36,9 +42,14 @@ class VipBenefitsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: tickets,
+      listenable: Listenable.merge([tickets, ?bar]),
       builder: (context, _) {
-        final b = VipBenefits.of(reservation, venue, tickets.book);
+        final b = VipBenefits.of(
+          reservation,
+          venue,
+          tickets.book,
+          prepaidRegistered: bar?.book.prepaidOf(reservation.id) != null,
+        );
         if (b == null) return const SizedBox.shrink();
         return _content(context, b);
       },
@@ -54,8 +65,11 @@ class VipBenefitsCard extends StatelessWidget {
     final products = VenueScope.of(context).ticketProducts;
     final String? blocked = switch (b.state) {
       VipBenefitState.pendingPrepayment =>
-        'La reserva espera la verificación del prepago. No está definido si '
-            'las cortesías se emiten antes, así que todavía no se emiten.',
+        'La reserva espera la verificación del prepago y su aprobación: las '
+            'cortesías se activan después.',
+      VipBenefitState.prepaidNotRegistered =>
+        'Las cortesías se activan cuando la administración registra el '
+            'prepago de la reserva.',
       VipBenefitState.reservationEnded =>
         'La reserva terminó. No está definido qué pasa con el beneficio: no '
             'se emiten más cortesías y lo ya emitido se conserva.',
@@ -72,9 +86,11 @@ class VipBenefitsCard extends StatelessWidget {
             Text('Beneficios VIP', style: theme.textTheme.titleSmall),
             const SizedBox(height: 4),
             Text(
-              'Incluye ${b.entitledCourtesies} cortesías y ${b.bottles} '
-              'botella fuera del consumo por esta mesa VIP.',
+              'Incluye ${b.entitledCourtesies} entradas de cortesía (manillas '
+              'en taquilla) y ${b.bottles} botella de champaña, adicionales '
+              'al consumo prepagado.',
             ),
+            if (bar case final bar?) ..._prepaidSection(context, bar),
             const SizedBox(height: 8),
             Text(
               'Cortesías: ${b.issued.length} de ${b.entitledCourtesies} '
@@ -104,7 +120,7 @@ class VipBenefitsCard extends StatelessWidget {
                 ),
             const SizedBox(height: 8),
             Text(
-              'Botella: ${b.bottles}, fuera del consumo (no cuenta en el '
+              'Champaña: ${b.bottles}, fuera del consumo (no cuenta en el '
               'consumo de la mesa). No está definido quién la entrega ni cómo '
               'se registra, así que la app no la marca como entregada.',
               key: ValueKey('vip-bottle-${reservation.id}'),
@@ -141,6 +157,133 @@ class VipBenefitsCard extends StatelessWidget {
     );
   }
 
+  /// Prepago de consumo: registro explícito por la administración, saldo,
+  /// cierre de la noche y el caso manual de cancelación o no llegada.
+  List<Widget> _prepaidSection(BuildContext context, DemoBarStore bar) {
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: AppColors.textMuted,
+    );
+    final r = reservation;
+    final balance = bar.book.balanceOf(r.id);
+    final approved =
+        r.status == ReservationStatus.confirmed ||
+        r.status == ReservationStatus.seated;
+    final arrived = r.history.any(
+      (e) => e.type == ReservationEventType.arrived,
+    );
+    final ended =
+        r.status == ReservationStatus.revoked ||
+        r.status == ReservationStatus.released ||
+        r.status == ReservationStatus.expired;
+    final nightOver = bar.book.hasEnded(r.night);
+    final amount = VenueScope.of(
+      context,
+    ).termsOf(venue.tableById(r.tableId)!).prepaidConsumption;
+    final verified = r.history.any(
+      (e) => e.type == ReservationEventType.prepaymentMarked,
+    );
+    return [
+      const SizedBox(height: 8),
+      if (balance == null)
+        Text(
+          'Prepago para consumo: sin registrar. No se calcula un importe a '
+          'partir de registros anteriores.',
+          key: ValueKey('vip-prepaid-${r.id}'),
+        )
+      else
+        Text(
+          'Prepago ${copLabel(balance.prepaid.amount)} · consumido '
+          '${copLabel(balance.consumed)} · saldo '
+          '${copLabel(balance.remaining)} · excedente cobrado '
+          '${copLabel(balance.charged)}',
+          key: ValueKey('vip-prepaid-${r.id}'),
+        ),
+      if (balance != null && nightOver && arrived && !ended)
+        Text(
+          'La noche terminó: el saldo no consumido '
+          '(${copLabel(balance.remaining.clamp(0, balance.prepaid.amount))}) '
+          'se perdió, sin devolución ni traslado.',
+          key: ValueKey('vip-prepaid-lost-${r.id}'),
+          style: muted,
+        ),
+      if ((balance != null || verified) && (ended || (nightOver && !arrived)))
+        NoticeBox(
+          key: ValueKey('vip-prepaid-manual-${r.id}'),
+          icon: Icons.handshake_outlined,
+          color: AppColors.amber,
+          text:
+              'Cancelación o no llegada: el prepago solo puede aplicarse a otra '
+              'noche por acuerdo directo con la administración (gestión '
+              'manual, fuera de la app). La app no lo devuelve, no lo vence ni '
+              'lo traslada.',
+        ),
+      if (adminId != null &&
+          balance == null &&
+          approved &&
+          !nightOver &&
+          amount != null) ...[
+        const SizedBox(height: 6),
+        FilledButton.tonal(
+          key: ValueKey('vip-prepaid-register-${r.id}'),
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+          onPressed: () => _registerPrepaid(context, bar, amount),
+          child: Text('Registrar prepago verificado (${copLabel(amount)})'),
+        ),
+      ],
+    ];
+  }
+
+  Future<void> _registerPrepaid(
+    BuildContext context,
+    DemoBarStore bar,
+    int amount,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        title: const Text('¿Registrar el prepago?'),
+        content: Text(
+          'Prepago de consumo de ${copLabel(amount)} para esta mesa VIP y esta '
+          'noche. Regístralo solo si ya lo verificaste. Se consume en barra; '
+          'lo que no se consuma esa noche se pierde.',
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('dialog-cancel'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const ValueKey('dialog-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Registrar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      bar.perform(
+        (b) => b.registerPrepaid(
+          reservationId: reservation.id,
+          tableId: reservation.tableId,
+          night: reservation.night,
+          amount: amount,
+          actorId: adminId!,
+        ),
+      );
+    } on BarException {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('El prepago ya estaba registrado. No se cambió nada.'),
+        ),
+      );
+    }
+  }
+
   Future<void> _issue(
     BuildContext context,
     VipBenefits b,
@@ -158,6 +301,7 @@ class VipBenefitsCard extends StatelessWidget {
         (book) => issueVipCourtesies(
           book,
           reservation: reservation,
+          prepaidRegistered: bar?.book.prepaidOf(reservation.id) != null,
           venue: venue,
           product: product,
           quantity: quantity,

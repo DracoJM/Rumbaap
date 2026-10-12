@@ -236,9 +236,9 @@ void main() {
     variant: TargetPlatformVariant.mobile(),
   );
 
-  testWidgets('mesa VIP con prepago: no se puede registrar como otro pago '
-      'completo (estado pendiente), el pedido se conserva; con una mesa '
-      'normal se registra igual que antes', (tester) async {
+  testWidgets('mesa VIP: sin prepago registrado queda pendiente y no se cobra '
+      'como pago completo; con prepago registrado se consume contra el saldo '
+      'sin cobrar nada; una mesa normal sigue igual', (tester) async {
     final (store, bar) = await pumpApp(tester);
     final venue = store.venue;
     final vip = store.book
@@ -260,31 +260,49 @@ void main() {
     await tapKey(tester, 'bar-reservation');
     await tester.tap(find.textContaining(vip.id).last);
     await tester.pumpAndSettle();
+    // Sin prepago registrado: pendiente, sin casilla de pago y sin registro.
     expect(find.byKey(const ValueKey('bar-vip-pending')), findsOneWidget);
-    expect(
-      tester
-          .widget<CheckboxListTile>(find.byKey(const ValueKey('bar-paid')))
-          .onChanged,
-      isNull,
-    );
+    expect(find.byKey(const ValueKey('bar-paid')), findsNothing);
     expect(
       tester
           .widget<FilledButton>(find.byKey(const ValueKey('bar-register')))
           .onPressed,
       isNull,
     );
-    expect(bar.book.sales, isEmpty);
 
-    // Mesa normal: desaparece el aviso y se registra con el mismo pedido.
+    // La administración registra el prepago: se consume contra el saldo.
+    bar.perform(
+      (b) => b.registerPrepaid(
+        reservationId: vip.id,
+        tableId: vip.tableId,
+        night: vip.night,
+        amount: sagsaConfig
+            .termsOf(venue.tableById(vip.tableId)!)
+            .prepaidConsumption!,
+        actorId: 'admin-1',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('bar-vip-balance')), findsOneWidget);
+    expect(find.byKey(const ValueKey('bar-paid')), findsNothing);
+    await tapKey(tester, 'bar-register');
+    await tapKey(tester, 'dialog-confirm');
+    final vipSale = bar.book.sales.single;
+    expect(vipSale.prepaidApplied, 35000);
+    expect(vipSale.charged, 0);
+    expect(bar.book.balanceOf(vip.id)!.remaining, 2000000 - 35000);
+
+    // Mesa normal: pago presencial completo, como antes.
+    await tapKey(tester, 'bar-add-coctel');
     await tapKey(tester, 'bar-reservation');
     await tester.tap(find.textContaining(regular.id).last);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('bar-vip-pending')), findsNothing);
+    expect(find.byKey(const ValueKey('bar-vip-balance')), findsNothing);
     await tapKey(tester, 'bar-paid');
     await tapKey(tester, 'bar-register');
     await tapKey(tester, 'dialog-confirm');
-    final sale = bar.book.sales.single;
-    expect(sale.reservationId, regular.id);
-    expect(sale.total, 35000);
+    final normal = bar.book.sales.last;
+    expect(normal.reservationId, regular.id);
+    expect(normal.charged, 35000);
   });
 }

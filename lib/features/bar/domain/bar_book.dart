@@ -26,6 +26,7 @@ class BarBook {
   final Clock _clock;
 
   final _sales = <String, BarSale>{};
+  final _prepaids = <String, VipPrepaid>{};
   final _acceptances = <String, ConsumptionAcceptance>{};
   int _next = 1;
 
@@ -45,8 +46,55 @@ class BarBook {
       if (s.accountId == accountId) s,
   ];
 
+  VipPrepaid? prepaidOf(String reservationId) => _prepaids[reservationId];
+
+  List<VipPrepaid> get prepaids => _prepaids.values.toList();
+
+  /// Saldo del prepago de la reserva, o `null` si no está registrado.
+  VipPrepaidBalance? balanceOf(String reservationId) {
+    final p = _prepaids[reservationId];
+    if (p == null) return null;
+    var consumed = 0, charged = 0;
+    for (final s in salesForReservation(reservationId)) {
+      if (s.status == BarSaleStatus.voided) continue;
+      consumed += s.prepaidApplied;
+      charged += s.charged;
+    }
+    return VipPrepaidBalance(p, consumed, charged);
+  }
+
+  /// La administración registra el prepago de consumo de una reserva VIP,
+  /// tras verificarlo. Uno por reserva; la mesa debe ser VIP del local.
+  VipPrepaid registerPrepaid({
+    required String reservationId,
+    required String tableId,
+    required Night night,
+    required int amount,
+    required String actorId,
+  }) {
+    if (venue.tableById(tableId)?.isVip != true) {
+      throw const BarException(BarError.invalidDestination);
+    }
+    if (amount <= 0) throw const BarException(BarError.invalidAmount);
+    if (_prepaids.containsKey(reservationId)) {
+      throw const BarException(BarError.prepaidAlreadyRegistered);
+    }
+    return _prepaids[reservationId] = VipPrepaid(
+      reservationId: reservationId,
+      tableId: tableId,
+      night: night,
+      amount: amount,
+      registeredBy: actorId,
+      registeredAt: _now,
+    );
+  }
+
   ConsumptionAcceptance? acceptanceFor(String reservationId) =>
       _acceptances[reservationId];
+
+  /// La noche ya terminó, según el reloj del libro (el saldo de su
+  /// prepago no consumido se perdió).
+  bool hasEnded(Night night) => night.hasEnded(VenueTime.of(_now));
 
   /// La noche en curso, si la hay.
   Night? get currentNight {
@@ -69,19 +117,35 @@ class BarBook {
   }) {
     final night = currentNight;
     if (night == null) throw const BarException(BarError.outsideNight);
-    if (!paidInFull) throw const BarException(BarError.paymentNotConfirmed);
     // Destino resuelto con las mesas del local: reserva y mesa van juntas y
-    // la mesa existe. Una mesa VIP tiene consumo prepagado sin circuito
-    // aún: no se cobra como otro pago completo.
+    // la mesa existe.
     if ((reservationId == null) != (tableId == null)) {
       throw const BarException(BarError.invalidDestination);
     }
+    var applied = 0;
+    final lines = _lines(quantities);
+    final total = lines.fold(0, (t, l) => t + l.total);
     if (tableId != null) {
       final table = venue.tableById(tableId);
       if (table == null) throw const BarException(BarError.invalidDestination);
-      if (table.isVip) throw const BarException(BarError.vipPrepaidPending);
+      if (table.isVip) {
+        // Mesa VIP: se consume contra su prepago registrado; solo se cobra
+        // el excedente, nunca otra vez el prepago.
+        final balance = balanceOf(reservationId!);
+        if (balance == null) {
+          throw const BarException(BarError.vipPrepaidPending);
+        }
+        if (balance.prepaid.tableId != tableId ||
+            balance.prepaid.night != night) {
+          throw const BarException(BarError.invalidDestination);
+        }
+        applied = balance.remaining.clamp(0, total);
+      }
     }
-    final lines = _lines(quantities);
+    // Lo que no cubre el prepago se cobra en persona, completo.
+    if (total - applied > 0 && !paidInFull) {
+      throw const BarException(BarError.paymentNotConfirmed);
+    }
     final id = 'P${_next++}';
     return _sales[id] = BarSale(
       id: id,
@@ -94,6 +158,7 @@ class BarBook {
       reservationId: reservationId,
       tableId: tableId,
       accountId: accountId,
+      prepaidApplied: applied,
     );
   }
 
@@ -183,14 +248,24 @@ class BarBook {
 
   // ------------------------------------------------ Persistencia local
 
-  ({List<BarSale> sales, List<ConsumptionAcceptance> acceptances, int next})
-  exportState() => (sales: sales, acceptances: acceptances, next: _next);
+  ({
+    List<BarSale> sales,
+    List<ConsumptionAcceptance> acceptances,
+    List<VipPrepaid> prepaids,
+    int next,
+  })
+  exportState() =>
+      (sales: sales, acceptances: acceptances, prepaids: prepaids, next: _next);
 
   void importState({
     required List<BarSale> sales,
     required List<ConsumptionAcceptance> acceptances,
+    List<VipPrepaid> prepaids = const [],
     required int next,
   }) {
+    for (final p in prepaids) {
+      _prepaids[p.reservationId] = p;
+    }
     if (_sales.isNotEmpty || _acceptances.isNotEmpty) {
       throw StateError('Solo se restaura en un libro vacío');
     }
@@ -210,6 +285,11 @@ class BarBook {
     if (s == null) throw const BarException(BarError.notFound);
     if (s.status == BarSaleStatus.voided) {
       throw const BarException(BarError.alreadyVoided);
+    }
+    // Qué pasa con el prepago y el excedente al corregir: no definido.
+    if (s.prepaidApplied > 0 ||
+        (s.tableId != null && venue.tableById(s.tableId!)?.isVip == true)) {
+      throw const BarException(BarError.vipCorrectionUndecided);
     }
     return s;
   }

@@ -32,6 +32,7 @@ final sagsaConfig = VenueConfig(
         'Las dos mesas VIP juntas: hasta 40 personas y 4.000.000 COP; '
             'siguen siendo dos mesas.',
       ],
+      prepaidConsumption: 2000000,
     ),
   },
   // Entrada de DEMOSTRACIÓN para recorrer la venta: nombre y precios por
