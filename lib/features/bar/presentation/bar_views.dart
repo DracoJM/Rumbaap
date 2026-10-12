@@ -300,7 +300,30 @@ class _BarDeskState extends State<BarDesk> {
         .toList();
   }
 
+  /// Mesa VIP según la configuración real del local (no por su ID).
+  bool _isVipReservation(String? reservationId) {
+    if (reservationId == null) return false;
+    final r = widget.reservations.book.byId(reservationId);
+    if (r == null) return false;
+    return widget.reservations.venue.tableById(r.tableId)?.isVip ?? false;
+  }
+
+  /// Una mesa VIP tiene consumo prepagado y aún no hay circuito para
+  /// descontarlo: registrar aquí sería cobrarlo dos veces. Queda pendiente.
+  static const _vipPendingMessage =
+      'Mesa VIP con prepago: el consumo contra el prepago aún no está '
+      'disponible en la app. Para no cobrarlo dos veces, aquí no se '
+      'registra como otro pago completo. El pedido sigue en pantalla.';
+
   Future<void> _register() async {
+    final target = _reservationId;
+    if (_isVipReservation(target)) {
+      setState(() {
+        _ok = false;
+        _message = _vipPendingMessage;
+      });
+      return;
+    }
     final qrText = _qr.text.trim();
     final accountId = qrText.isEmpty ? null : _lookup?.accountId;
     if (qrText.isNotEmpty && accountId == null) {
@@ -325,6 +348,18 @@ class _BarDeskState extends State<BarDesk> {
       'Registrar',
     );
     if (!ok || !mounted) return;
+    // Revalida tras la espera: si el destino cambió (o ahora es VIP), no
+    // se registra nada y el pedido se conserva.
+    if (_reservationId != target || _isVipReservation(target)) {
+      setState(() {
+        _ok = false;
+        _message = _reservationId != target
+            ? 'El destino cambió mientras confirmabas. No se registró nada; '
+                  'revísalo y vuelve a intentarlo.'
+            : _vipPendingMessage;
+      });
+      return;
+    }
     final reservation = _reservationId == null
         ? null
         : widget.reservations.book.byId(_reservationId!);
@@ -476,17 +511,29 @@ class _BarDeskState extends State<BarDesk> {
                   child: Text(note, key: const ValueKey('bar-account-status')),
                 ),
             ],
+            if (_isVipReservation(_reservationId))
+              const NoticeBox(
+                key: ValueKey('bar-vip-pending'),
+                icon: Icons.hourglass_top_rounded,
+                color: AppColors.amber,
+                text: _vipPendingMessage,
+              ),
             CheckboxListTile(
               key: const ValueKey('bar-paid'),
               contentPadding: EdgeInsets.zero,
-              value: _paid,
-              onChanged: (v) => setState(() => _paid = v ?? false),
+              value: _paid && !_isVipReservation(_reservationId),
+              onChanged: _isVipReservation(_reservationId)
+                  ? null
+                  : (v) => setState(() => _paid = v ?? false),
               title: const Text('Pago presencial completo recibido'),
             ),
             FilledButton.icon(
               key: const ValueKey('bar-register'),
               style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-              onPressed: night == null || _qty.values.every((q) => q <= 0)
+              onPressed:
+                  night == null ||
+                      _qty.values.every((q) => q <= 0) ||
+                      _isVipReservation(_reservationId)
                   ? null
                   : _register,
               icon: const Icon(Icons.receipt_long_outlined),

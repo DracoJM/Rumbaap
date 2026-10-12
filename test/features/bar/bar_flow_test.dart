@@ -235,4 +235,56 @@ void main() {
     },
     variant: TargetPlatformVariant.mobile(),
   );
+
+  testWidgets('mesa VIP con prepago: no se puede registrar como otro pago '
+      'completo (estado pendiente), el pedido se conserva; con una mesa '
+      'normal se registra igual que antes', (tester) async {
+    final (store, bar) = await pumpApp(tester);
+    final venue = store.venue;
+    final vip = store.book
+        .forNight(_friday)
+        .firstWhere((r) => venue.tableById(r.tableId)!.isVip);
+    if (vip.status == ReservationStatus.pendingPayment) {
+      store.perform((b) => b.markPrepaymentReceived(vip.id));
+    }
+    final regular = store.book
+        .forNight(_friday)
+        .firstWhere(
+          (r) =>
+              !venue.tableById(r.tableId)!.isVip &&
+              r.status == ReservationStatus.confirmed,
+        );
+
+    await enter(tester, 'barra-1');
+    await tapKey(tester, 'bar-add-coctel');
+    await tapKey(tester, 'bar-reservation');
+    await tester.tap(find.textContaining(vip.id).last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('bar-vip-pending')), findsOneWidget);
+    expect(
+      tester
+          .widget<CheckboxListTile>(find.byKey(const ValueKey('bar-paid')))
+          .onChanged,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const ValueKey('bar-register')))
+          .onPressed,
+      isNull,
+    );
+    expect(bar.book.sales, isEmpty);
+
+    // Mesa normal: desaparece el aviso y se registra con el mismo pedido.
+    await tapKey(tester, 'bar-reservation');
+    await tester.tap(find.textContaining(regular.id).last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('bar-vip-pending')), findsNothing);
+    await tapKey(tester, 'bar-paid');
+    await tapKey(tester, 'bar-register');
+    await tapKey(tester, 'dialog-confirm');
+    final sale = bar.book.sales.single;
+    expect(sale.reservationId, regular.id);
+    expect(sale.total, 35000);
+  });
 }
