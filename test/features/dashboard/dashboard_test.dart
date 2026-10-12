@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/features/bar/data/demo_bar_store.dart';
@@ -447,6 +448,127 @@ void main() {
           .widget<Text>(find.byKey(const ValueKey('goal-firstEntries-state')))
           .data,
       'Noche sin empezar: 0 de 50.',
+    );
+  });
+
+  group('resumen de la noche', () {
+    Future<void> pickFriday(WidgetTester tester) async {
+      await reveal(tester, find.byKey(const ValueKey('dash-night')), dy: 200);
+      await tester.tap(find.byKey(const ValueKey('dash-night')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Viernes 9 de octubre de 2026').last);
+      await tester.pumpAndSettle();
+    }
+
+    Future<String> openSummary(WidgetTester tester) async {
+      await reveal(tester, find.byKey(const ValueKey('dash-summary')), dy: 200);
+      await reveal(tester, find.byKey(const ValueKey('dash-summary')));
+      await tester.tap(find.byKey(const ValueKey('dash-summary')));
+      await tester.pumpAndSettle();
+      return tester
+          .widget<SelectableText>(find.byKey(const ValueKey('summary-text')))
+          .data!;
+    }
+
+    /// Portapapeles simulado: guarda lo copiado o falla a pedido.
+    String? clipboard;
+    void mockClipboard(WidgetTester tester, {bool fail = false}) {
+      clipboard = null;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            if (fail) throw PlatformException(code: 'denied');
+            clipboard = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+    }
+
+    testWidgets('solo para una noche: cifras del panel con cobertura, metas '
+        'e incidencias, sin datos personales; copiar solo al pulsar y la '
+        'noche elegida se conserva al volver', (tester) async {
+      await pumpApp(tester);
+      mockClipboard(tester);
+      final goals = tester.widget<RumbaapApp>(find.byType(RumbaapApp)).goals;
+      goals.perform(
+        (b) => b.set(_friday, GoalMetric.ticketIncome, 100000, actorId: 'a'),
+      );
+      tickets.perform(
+        (b) => b.confirmFirstEntry('ZZ0000000000', actorId: 'seguridad-1'),
+      );
+      await openDashboard(tester);
+      // Todo el período: sin resumen.
+      expect(find.byKey(const ValueKey('dash-summary')), findsNothing);
+      expect(find.byKey(const ValueKey('dash-summary-hint')), findsOneWidget);
+
+      await pickFriday(tester);
+      final text = await openSummary(tester);
+      expect(clipboard, isNull, reason: 'abrir no copia nada');
+      for (final part in [
+        'Resumen de la noche · Sagsa',
+        'Noche operativa: Viernes 9 de octubre de 2026',
+        'Corte: vie 9 oct, 10:00 p. m. de 2026',
+        'Noche en curso',
+        '- Primeros ingresos con entrada: 1',
+        '- Reservas con llegada registrada:',
+        // Solo el viernes: 3 × 40.000; no la del sábado (50.000).
+        '- Entradas pagadas: 120.000 COP',
+        '- Devoluciones autorizadas (aparte, no restadas): 40.000 COP',
+        '- Ventas de barra vigentes: 70.000 COP',
+        '- Prepagos VIP verificados: 1 (sin importe',
+        '- Entradas pagadas: Meta alcanzada: 120.000 COP de 100.000 COP.',
+        '- Primeros ingresos con entrada: Sin configurar',
+        'INCIDENCIAS DE PUERTA Y TAQUILLA (por noche de lectura): 1',
+        // 12 caracteres sin el prefijo del local: «de otro local».
+        '- De otro local: 1',
+        'BENEFICIOS VIP',
+        'Sin salidas registradas no se calculan ocupación ni permanencia.',
+      ]) {
+        expect(text, contains(part));
+      }
+      // Sin nombres, cuentas, cédulas ni credenciales.
+      for (final t in tickets.book.tickets) {
+        expect(text, isNot(contains(t.credential ?? '#')));
+      }
+      for (final bad in ['Invitado', 'cliente-a', 'Titular', 'ZZ0000000000']) {
+        expect(text, isNot(contains(bad)));
+      }
+
+      await tester.tap(find.byKey(const ValueKey('summary-copy')));
+      await tester.pumpAndSettle();
+      expect(clipboard, text);
+      expect(find.text('Resumen copiado al portapapeles.'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Sagsa · Viernes 9 de octubre de 2026'), findsOneWidget);
+    });
+
+    testWidgets(
+      'si el portapapeles falla se dice y el texto sigue seleccionable; '
+      'en 320 dp con texto al 200 % no desborda',
+      (tester) async {
+        await pumpApp(tester, textScale: 2);
+        mockClipboard(tester, fail: true);
+        await openDashboard(tester);
+        await pickFriday(tester);
+        await openSummary(tester);
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.byKey(const ValueKey('summary-copy')));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('No se pudo copiar'), findsOneWidget);
+        expect(clipboard, isNull);
+        expect(find.byKey(const ValueKey('summary-text')), findsOneWidget);
+      },
+      variant: TargetPlatformVariant.mobile(),
     );
   });
 

@@ -170,25 +170,10 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ];
     }
-    final now = VenueTime.of(widget.clock());
-    final phase = night.hasEnded(now)
-        ? _Phase.ended
-        : night.isInProgress(now)
-        ? _Phase.inProgress
-        : _Phase.notStarted;
+    final phase = _phaseOf(night, VenueTime.of(widget.clock()));
     return [
       Text(
-        switch (phase) {
-          _Phase.ended =>
-            'Noche terminada: se compara con lo registrado hasta el cierre en '
-                'este teléfono.',
-          _Phase.inProgress =>
-            'Noche en curso: el avance es parcial y no indica cómo terminará '
-                'la noche.',
-          _Phase.notStarted =>
-            'Noche sin empezar: aún no hay ingresos en puerta; los importes '
-                'pueden incluir ventas anticipadas.',
-        },
+        _coverageText(phase),
         key: const ValueKey('goal-coverage'),
         style: muted,
       ),
@@ -471,6 +456,53 @@ class _DashboardPageState extends State<DashboardPage> {
                 key: const ValueKey('dash-source'),
                 style: muted,
               ),
+              const SizedBox(height: 8),
+              if (_night case final night?)
+                OutlinedButton.icon(
+                  key: const ValueKey('dash-summary'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => NightSummaryPage(
+                        text: _nightSummary(
+                          venueName: venue.name,
+                          night: night,
+                          now: now,
+                          entries: entered.length,
+                          redeemed: redeemed.length,
+                          pendingRedeem: pendingRedeem.length,
+                          arrivals: seated.length,
+                          ticketIncome: ticketIncome,
+                          refundAmount: refundAmount,
+                          barIncome: barIncome,
+                          vipPrepaid: vipPrepaid.length,
+                          values: {
+                            GoalMetric.firstEntries: entered.length,
+                            GoalMetric.reservationArrivals: seated.length,
+                            GoalMetric.ticketIncome: ticketIncome,
+                            GoalMetric.barIncome: barIncome,
+                          },
+                          goals: {
+                            for (final m in GoalMetric.values)
+                              m: widget.goals?.book.goalFor(night, m),
+                          },
+                          incidents: incidents,
+                          vip: vipBenefits,
+                        ),
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.summarize_outlined),
+                  label: const Text('Resumen de la noche'),
+                )
+              else
+                Text(
+                  'Elige una noche para ver su resumen copiable.',
+                  key: const ValueKey('dash-summary-hint'),
+                  style: muted,
+                ),
               SectionLabel('Personas'),
               tile(
                 'entries',
@@ -814,6 +846,203 @@ class _IncidentPage extends StatelessWidget {
 
 enum _Phase { ended, inProgress, notStarted }
 
+_Phase _phaseOf(Night night, DateTime venueNow) => night.hasEnded(venueNow)
+    ? _Phase.ended
+    : night.isInProgress(venueNow)
+    ? _Phase.inProgress
+    : _Phase.notStarted;
+
+/// Cobertura de las cifras según el momento de la noche.
+String _coverageText(_Phase phase) => switch (phase) {
+  _Phase.ended =>
+    'Noche terminada: se compara con lo registrado hasta el cierre en este '
+        'teléfono.',
+  _Phase.inProgress =>
+    'Noche en curso: el avance es parcial y no indica cómo terminará la '
+        'noche.',
+  _Phase.notStarted =>
+    'Noche sin empezar: aún no hay ingresos en puerta; los importes pueden '
+        'incluir ventas anticipadas.',
+};
+
+/// Estado de una meta: el mismo texto en la tarjeta y en el resumen.
+String _goalStateText(
+  GoalMetric metric,
+  int value,
+  NightGoal? g,
+  _Phase phase,
+) {
+  if (g == null) return 'Sin configurar · registrado: ${metric.format(value)}';
+  final shown = '${metric.format(value)} de ${metric.format(g.target)}';
+  final missing = metric.format(g.target - value);
+  if (value >= g.target) return 'Meta alcanzada: $shown.';
+  return switch (phase) {
+    _Phase.ended => 'No alcanzada: $shown (faltaron $missing).',
+    _Phase.inProgress =>
+      'Avance parcial: $shown (faltan $missing). La noche sigue en curso.',
+    _Phase.notStarted => 'Noche sin empezar: $shown.',
+  };
+}
+
+/// Motivo breve de una incidencia para el resumen agregado.
+String _reasonShort(RejectReason r) => switch (r) {
+  RejectReason.notFound => 'Código sin entrada',
+  RejectReason.retiredCredential => 'Credencial retirada',
+  RejectReason.otherVenue => 'De otro local',
+  RejectReason.otherNight => 'De otra noche',
+  RejectReason.outsideNight => 'Fuera de horario',
+  RejectReason.unpaid => 'Sin pago',
+  RejectReason.voided => 'Entrada anulada',
+  RejectReason.redeemed => 'Ya canjeada',
+  RejectReason.wrongCircuit => 'Circuito equivocado',
+};
+
+/// Resumen de UNA noche, solo con cifras agregadas del panel: sin nombres,
+/// cédulas, cuentas ni credenciales. Cada bloque lleva su cobertura.
+String _nightSummary({
+  required String venueName,
+  required Night night,
+  required DateTime now,
+  required int entries,
+  required int redeemed,
+  required int pendingRedeem,
+  required int arrivals,
+  required int ticketIncome,
+  required int refundAmount,
+  required int barIncome,
+  required int vipPrepaid,
+  required Map<GoalMetric, int> values,
+  required Map<GoalMetric, NightGoal?> goals,
+  required List<TicketIncident> incidents,
+  required List<VipBenefits> vip,
+}) {
+  final venueNow = VenueTime.of(now);
+  final phase = _phaseOf(night, venueNow);
+  final byReason = <RejectReason, int>{};
+  for (final i in incidents) {
+    byReason[i.reason] = (byReason[i.reason] ?? 0) + 1;
+  }
+  final active = vip.where((b) => b.state == VipBenefitState.active).toList();
+  final pending = vip
+      .where((b) => b.state == VipBenefitState.pendingPrepayment)
+      .length;
+  final ended = vip
+      .where((b) => b.state == VipBenefitState.reservationEnded)
+      .length;
+  int sum(Iterable<VipBenefits> l, int Function(VipBenefits) f) =>
+      l.fold(0, (n, b) => n + f(b));
+  return [
+    'Resumen de la noche · $venueName',
+    'Noche operativa: ${night.label} de ${night.date.year} · '
+        '${night.scheduleLabel} (hora de Colombia)',
+    'Corte: ${venueDateTimeLabel(now)} de ${venueNow.year}',
+    _coverageText(phase),
+    'Fuente: datos ficticios de demostración guardados en este teléfono. Solo '
+        'cifras agregadas.',
+    '',
+    'PERSONAS (no se suman entre sí: una persona puede tener entrada y '
+        'reserva)',
+    '- Primeros ingresos con entrada: $entries',
+    '- Manillas canjeadas: $redeemed',
+    '- Entradas vigentes sin canjear: $pendingRedeem',
+    '- Reservas con llegada registrada: $arrivals',
+    'Sin salidas registradas no se calculan ocupación ni permanencia.',
+    '',
+    'IMPORTES REGISTRADOS (COP de demostración; ingresos, no ganancias)',
+    '- Entradas pagadas: ${copLabel(ticketIncome)}',
+    '- Devoluciones autorizadas (aparte, no restadas): '
+        '${copLabel(refundAmount)}',
+    '- Ventas de barra vigentes: ${copLabel(barIncome)}',
+    '- Prepagos VIP verificados: $vipPrepaid (sin importe; no se suman a '
+        'barra)',
+    '',
+    'METAS',
+    for (final m in GoalMetric.values)
+      '- ${m.label}: ${_goalStateText(m, values[m]!, goals[m], phase)}',
+    '',
+    'INCIDENCIAS DE PUERTA Y TAQUILLA (por noche de lectura): '
+        '${incidents.length}',
+    for (final e in byReason.entries) '- ${_reasonShort(e.key)}: ${e.value}',
+    '',
+    'BENEFICIOS VIP (6 cortesías y 1 botella fuera del consumo por mesa VIP)',
+    '- Reservas VIP confirmadas: ${active.length}; pendientes de prepago: '
+        '$pending; terminadas: $ended',
+    '- Cortesías de reservas confirmadas: ${sum(active, (b) => b.issued.length)} '
+        'emitidas de ${sum(active, (b) => b.entitledCourtesies)} · '
+        '${sum(active, (b) => b.redeemed)} canjeadas',
+    '- Cortesías ya emitidas de reservas pendientes o terminadas: '
+        '${sum(vip.where((b) => b.state != VipBenefitState.active), (b) => b.issued.length)}',
+    '- Botellas incluidas: ${sum(active, (b) => b.bottles)}; su entrega no '
+        'tiene registro definido.',
+    'Pendiente de regla: emitir cortesías antes del prepago y el efecto de '
+        'terminar la reserva.',
+  ].join('\n');
+}
+
+/// Resumen revisable de una noche. Se copia SOLO al pulsar el botón.
+class NightSummaryPage extends StatelessWidget {
+  const NightSummaryPage({super.key, required this.text});
+
+  final String text;
+
+  Future<void> _copy(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Resumen copiado al portapapeles.')),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No se pudo copiar. Puedes seleccionar el texto y copiarlo a '
+            'mano.',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Resumen de la noche')),
+      body: ListView(
+        key: const ValueKey('summary-page'),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          24 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
+          Text(
+            'Solo cifras agregadas: sin nombres, cédulas, cuentas ni '
+            'credenciales. Revisa el texto antes de copiarlo.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Builder(
+            builder: (context) => FilledButton.icon(
+              key: const ValueKey('summary-copy'),
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+              onPressed: () => _copy(context),
+              icon: const Icon(Icons.copy_rounded),
+              label: const Text('Copiar resumen'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SelectableText(text, key: const ValueKey('summary-text')),
+        ],
+      ),
+    );
+  }
+}
+
 extension GoalMetricLabels on GoalMetric {
   String get label => switch (this) {
     GoalMetric.firstEntries => 'Primeros ingresos con entrada',
@@ -873,22 +1102,7 @@ class _GoalCard extends StatelessWidget {
       color: AppColors.textMuted,
     );
     final g = goal;
-    final String state;
-    if (g == null) {
-      state = 'Sin configurar · registrado: ${metric.format(value)}';
-    } else {
-      final shown = '${metric.format(value)} de ${metric.format(g.target)}';
-      final missing = metric.format(g.target - value);
-      state = value >= g.target
-          ? 'Meta alcanzada: $shown.'
-          : switch (phase) {
-              _Phase.ended => 'No alcanzada: $shown (faltaron $missing).',
-              _Phase.inProgress =>
-                'Avance parcial: $shown (faltan $missing). La noche sigue en '
-                    'curso.',
-              _Phase.notStarted => 'Noche sin empezar: $shown.',
-            };
-    }
+    final state = _goalStateText(metric, value, g, phase);
     final key = metric.name;
     return Card(
       key: ValueKey('goal-$key'),
