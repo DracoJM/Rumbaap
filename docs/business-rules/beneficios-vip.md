@@ -5,10 +5,10 @@
 
 | Regla | Estado |
 |---|---|
-| Por cada mesa VIP: 6 cortesías y 1 botella fuera del consumo. Quien reserva las dos zonas VIP tiene dos reservas: 12 cortesías y 2 botellas. | VALIDATED (aclaración de Juanmi, 2026-10-09) |
+| Por cada mesa VIP: 6 entradas de cortesía (se canjean por manillas en taquilla) y 1 botella de champaña, adicionales al consumo prepagado. Quien reserva las dos zonas VIP tiene dos reservas: 12 cortesías y 2 botellas. | VALIDATED (aclaración de Juanmi, 2026-10-09; tipo de botella: champaña, aclaración del usuario 2026-10-12) |
 | Las cortesías se emiten por el circuito de cortesías existente: la administración las autoriza con nombre y motivo, se activan sin pago y se canjean en taquilla. Quedan enlazadas a la reserva y se cuentan una vez contra su derecho, en cualquier estado. Una cortesía general (sin reserva) no consume el beneficio. | VALIDATED (circuito de cortesías) |
 | La botella no cuenta en el consumo de la mesa. | VALIDATED |
-| Marca, precio o tipo de la botella; quién la entrega, cuándo y cómo se registra la entrega. La app la muestra pero no la marca como entregada. | NOT DECIDED |
+| Marca y precio de la botella de champaña; quién la entrega, cuándo y cómo se registra la entrega. La app la muestra pero no la marca como entregada. | NOT DECIDED |
 | Emitir cortesías antes de verificar el prepago (reserva pendiente). La app no las emite todavía. | NOT DECIDED |
 | Efecto de revocar, rechazar, liberar o dejar expirar la reserva sobre el beneficio. La app no emite más y conserva lo emitido. | NOT DECIDED |
 | Reponer una cortesía anulada, caducidad, transferencias y devoluciones del beneficio. | NOT DECIDED |
