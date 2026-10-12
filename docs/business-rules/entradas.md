@@ -31,7 +31,7 @@
   - Diferencia con el pedido: los identificadores no se reutilizan, para que una captura antigua nunca vuelva a ser válida y se conserve la trazabilidad.
 - **Límite que sigue vigente:** un QR vigente compartido puede usarlo primero otro portador. La comprobación física de la persona sigue siendo necesaria.
 - **Demo:** la ficha de la entrada muestra un QR real que codifica solo la credencial vigente. Puerta, Caja y el promotor (su lote) lo leen con la cámara, que activa el personal con su botón, o escriben la credencial a mano como respaldo. La lectura solo consulta: el primer ingreso y el canje siguen necesitando la confirmación de la persona. Detalle en [QR y cámara](../proposals/qr-escaneable-y-camara.md).
-- **«Mi QR» del cliente:** es el mismo QR real de su entrada de la noche en curso; no hay otro código de cuenta. Con varias entradas esa noche, o ninguna, lo indica y remite a «Entradas». Barra lo usa solo para identificar la cuenta (ver [pedidos de barra](pedidos-barra.md)).
+- **«Mi QR» del cliente:** es el mismo QR real de su entrada de la noche en curso; no hay otro código de cuenta. Con varias entradas propias esa noche, la persona elige cuál mostrar (un QR a la vez; no se crea, fusiona ni transfiere nada, y no implica una política de compras múltiples). La elección se descarta si cambian la cuenta, el local o la noche, o si la entrada deja de estar disponible. Sin entrada, lo dice. Barra lo usa solo para identificar la cuenta (ver [pedidos de barra](pedidos-barra.md)).
 
 ## Devoluciones y cambios
 
