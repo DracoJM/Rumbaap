@@ -12,6 +12,7 @@ import '../../data/demo_reservation_store.dart';
 import '../../domain/night_schedule.dart';
 import '../../domain/reservation.dart';
 import '../../domain/reservation_book.dart';
+import '../birthday_widgets.dart';
 import '../table_presentation.dart';
 import '../venue_map_parts.dart';
 import 'admin_labels.dart';
@@ -160,6 +161,14 @@ class _ReservationPageState extends State<ReservationPage> {
               ),
               const SizedBox(height: 12),
               HolderCard(reservation: r),
+              if (r.birthday != null) ...[
+                const SizedBox(height: 12),
+                BirthdayCard(
+                  reservation: r,
+                  store: widget.store,
+                  actorId: widget.identity?.id,
+                ),
+              ],
               const SizedBox(height: 16),
               ReservationActions(
                 key: ValueKey('actions-${r.id}'),

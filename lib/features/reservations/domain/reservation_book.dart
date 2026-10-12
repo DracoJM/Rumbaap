@@ -27,6 +27,13 @@ class ReservationBook {
 
   final Clock _clock;
   final Map<String, Reservation> _reservations = {};
+
+  /// Si una identidad puede confirmar las condiciones de un cumpleaños y
+  /// marcar su decoración preparada (la administración). Por defecto nadie:
+  /// sin conexión no se confirma nada.
+  bool Function(String actorId) canManageBirthdays = _nobody;
+
+  static bool _nobody(String _) => false;
   int _sequence = 0;
 
   /// Estado completo, para la persistencia local de la demostración.
@@ -85,11 +92,13 @@ class ReservationBook {
     required String tableId,
     required ReservationHolder holder,
     required ReservationOrigin origin,
+    BirthdayCelebration? birthday,
   }) {
     assert(origin != ReservationOrigin.admin, 'El admin usa createDirect.');
     if (!isValidRequestHolder(holder)) {
       throw const ReservationException(ReservationError.invalidHolder);
     }
+    _checkBirthday(birthday);
     _checkCanReserve(night, tableId, vip: false);
     return _create(
       night,
@@ -98,6 +107,7 @@ class ReservationBook {
       origin,
       ReservationStatus.inProcess,
       ReservationEventType.requested,
+      birthday: birthday,
     );
   }
 
@@ -131,6 +141,7 @@ class ReservationBook {
     String id, {
     required ReservationHolder holder,
     String? linkedAccountId,
+    BirthdayCelebration? birthday,
   }) {
     final r = _get(id);
     if (r.status == ReservationStatus.expired) {
@@ -147,12 +158,14 @@ class ReservationBook {
     if (!isValidRequestHolder(holder)) {
       throw const ReservationException(ReservationError.invalidHolder);
     }
+    _checkBirthday(birthday);
     return _apply(
       r,
       ReservationStatus.confirmed,
       ReservationEventType.completed,
       holder: holder,
       linkedAccountId: linkedAccountId,
+      birthday: birthday,
     );
   }
 
@@ -173,11 +186,13 @@ class ReservationBook {
     required ReservationOrigin origin,
     String? createdBy,
     String? linkedAccountId,
+    BirthdayCelebration? birthday,
   }) {
     assert(origin != ReservationOrigin.admin, 'El admin usa createDirect.');
     if (!isValidRequestHolder(holder)) {
       throw const ReservationException(ReservationError.invalidHolder);
     }
+    _checkBirthday(birthday);
     _checkCanReserve(night, tableId, vip: true);
     return _create(
       night,
@@ -188,6 +203,7 @@ class ReservationBook {
       ReservationEventType.requested,
       createdBy: createdBy,
       linkedAccountId: linkedAccountId,
+      birthday: birthday,
     );
   }
 
@@ -243,11 +259,13 @@ class ReservationBook {
     required String tableId,
     required ReservationHolder holder,
     required ReservationOrigin origin,
+    BirthdayCelebration? birthday,
   }) {
     assert(origin != ReservationOrigin.admin, 'El admin usa createDirect.');
     if (!isValidRequestHolder(holder)) {
       throw const ReservationException(ReservationError.invalidHolder);
     }
+    _checkBirthday(birthday);
     _checkCanReserve(night, tableId, vip: true);
     return _create(
       night,
@@ -256,6 +274,7 @@ class ReservationBook {
       origin,
       ReservationStatus.pendingPayment,
       ReservationEventType.requested,
+      birthday: birthday,
     );
   }
 
@@ -285,10 +304,12 @@ class ReservationBook {
     required String tableId,
     required ReservationHolder holder,
     String? linkedAccountId,
+    BirthdayCelebration? birthday,
   }) {
     if (!_isValidDirectHolder(holder)) {
       throw const ReservationException(ReservationError.invalidHolder);
     }
+    _checkBirthday(birthday);
     _checkCanReserve(night, tableId, vip: null);
     return _create(
       night,
@@ -298,6 +319,7 @@ class ReservationBook {
       ReservationStatus.confirmed,
       ReservationEventType.createdDirect,
       linkedAccountId: linkedAccountId,
+      birthday: birthday,
     );
   }
 
@@ -333,7 +355,100 @@ class ReservationBook {
     event: ReservationEventType.released,
   );
 
+  /// La administración confirma a mano las condiciones del cumpleaños y si
+  /// requiere decoración, y puede ajustarlas mientras la reserva siga
+  /// vigente y la noche no haya cerrado. El acuerdo anterior y su
+  /// preparación quedan en el historial; si había decoración preparada,
+  /// hay que revisarla otra vez. Repetir el mismo acuerdo no cambia nada.
+  Reservation confirmBirthday(
+    String id, {
+    required String conditions,
+    required bool decorationRequired,
+    required String actorId,
+  }) {
+    if (!canManageBirthdays(actorId)) {
+      throw const ReservationException(ReservationError.notAllowed);
+    }
+    final r = _get(id);
+    final b = r.birthday;
+    if (b == null) {
+      throw const ReservationException(ReservationError.invalidTransition);
+    }
+    final text = conditions.trim();
+    if (text.isEmpty) {
+      throw const ReservationException(ReservationError.invalidBirthday);
+    }
+    if (b.terms case final t?
+        when t.conditions == text &&
+            t.decorationRequired == decorationRequired) {
+      return r;
+    }
+    _checkBirthdayOpen(r, {
+      ReservationStatus.pendingPayment,
+      ReservationStatus.confirmed,
+      ReservationStatus.seated,
+    });
+    return _replace(
+      r.withBirthday(
+        b.withTerms(
+          BirthdayTerms(
+            conditions: text,
+            decorationRequired: decorationRequired,
+            confirmed: ActorStamp(actorId, _clock().toUtc()),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Decoración preparada (antes de la apertura, si corresponde): solo si
+  /// la administración la confirmó como necesaria. Repetirlo no cambia
+  /// nada.
+  Reservation markDecorationPrepared(String id, {required String actorId}) {
+    if (!canManageBirthdays(actorId)) {
+      throw const ReservationException(ReservationError.notAllowed);
+    }
+    final r = _get(id);
+    final b = r.birthday;
+    if (b?.terms?.decorationRequired != true) {
+      throw const ReservationException(ReservationError.invalidTransition);
+    }
+    if (b!.decorationPrepared != null) return r;
+    _checkBirthdayOpen(r, {
+      ReservationStatus.confirmed,
+      ReservationStatus.seated,
+    });
+    return _replace(
+      r.withBirthday(
+        b.withDecorationPrepared(ActorStamp(actorId, _clock().toUtc())),
+      ),
+    );
+  }
+
   // ---------------------------------------------------------------------
+
+  /// Cumpleaños de un alta: con nombre y sin condiciones ni decoración ya
+  /// confirmadas (eso lo hace después la administración).
+  static void _checkBirthday(BirthdayCelebration? b) {
+    if (b == null) return;
+    if (b.honoreeName.trim().isEmpty ||
+        b.terms != null ||
+        b.decorationPrepared != null) {
+      throw const ReservationException(ReservationError.invalidBirthday);
+    }
+  }
+
+  void _checkBirthdayOpen(Reservation r, Set<ReservationStatus> allowed) {
+    if (!allowed.contains(r.status)) {
+      throw const ReservationException(ReservationError.invalidTransition);
+    }
+    if (r.night.hasEnded(VenueTime.of(_clock()))) {
+      throw const ReservationException(ReservationError.nightEnded);
+    }
+  }
+
+  Reservation _replace(Reservation updated) =>
+      _reservations[updated.id] = updated;
 
   void _checkCanReserve(Night night, String tableId, {required bool? vip}) {
     final table = venue.tableById(tableId);
@@ -361,6 +476,7 @@ class ReservationBook {
     ReservationEventType event, {
     String? createdBy,
     String? linkedAccountId,
+    BirthdayCelebration? birthday,
   }) {
     final reservation = Reservation(
       id: 'R${++_sequence}',
@@ -372,6 +488,7 @@ class ReservationBook {
       history: [ReservationEvent(event, _clock().toUtc())],
       createdBy: createdBy,
       linkedAccountId: linkedAccountId,
+      birthday: _normalized(birthday),
     );
     _reservations[reservation.id] = reservation;
     return reservation;
@@ -396,12 +513,14 @@ class ReservationBook {
     ReservationEventType event, {
     ReservationHolder? holder,
     String? linkedAccountId,
+    BirthdayCelebration? birthday,
   }) {
     final updated = r.withEvent(
       status,
       ReservationEvent(event, _clock().toUtc()),
       holder: holder,
       linkedAccountId: linkedAccountId,
+      birthday: _normalized(birthday),
     );
     _reservations[r.id] = updated;
     return updated;
@@ -437,6 +556,15 @@ class ReservationBook {
         );
       }
     }
+  }
+
+  static BirthdayCelebration? _normalized(BirthdayCelebration? b) {
+    if (b == null) return null;
+    final notes = b.notes?.trim();
+    return BirthdayCelebration(
+      honoreeName: b.honoreeName.trim(),
+      notes: notes == null || notes.isEmpty ? null : notes,
+    );
   }
 
   static final _digits = RegExp(r'^\d+$');

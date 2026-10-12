@@ -1,6 +1,9 @@
+import '../../benefits/vip_benefits.dart';
 import '../../reservations/domain/night_schedule.dart';
+import '../../reservations/domain/reservation.dart';
 import '../../reservations/domain/venue_table.dart';
 import 'bar.dart';
+import 'champagne.dart';
 
 /// Registro de ventas de barra de un local, en memoria y con reloj
 /// inyectable.
@@ -28,7 +31,19 @@ class BarBook {
   final _sales = <String, BarSale>{};
   final _prepaids = <String, VipPrepaid>{};
   final _acceptances = <String, ConsumptionAcceptance>{};
+  final _champagne = <String, ChampagneRelease>{};
   int _next = 1;
+
+  /// Reservas del mismo local, para la champaña VIP. Por defecto ninguna:
+  /// sin conexión no sale ninguna botella.
+  Reservation? Function(String id) reservationById = _noReservation;
+
+  /// Responsabilidad de una identidad sobre la champaña VIP. Por defecto
+  /// ninguna: sin conexión nadie la opera.
+  ChampagneActor? Function(String actorId) champagneActorOf = _noActor;
+
+  static Reservation? _noReservation(String _) => null;
+  static ChampagneActor? _noActor(String _) => null;
 
   DateTime get _now => _clock();
 
@@ -87,6 +102,111 @@ class BarBook {
       registeredBy: actorId,
       registeredAt: _now,
     );
+  }
+
+  // ------------------------------------------------- Champaña VIP
+
+  ChampagneRelease? champagneOf(String reservationId) =>
+      _champagne[reservationId];
+
+  List<ChampagneRelease> get champagne => _champagne.values.toList();
+
+  /// Petición explícita de la mesa: el cliente titular desde su reserva o
+  /// el mesero, que refleja el pedido verbal. Solo con la mesa ocupada en
+  /// la noche en curso. Repetirla no crea otra botella.
+  ChampagneRelease requestChampagne(
+    String reservationId, {
+    required String actorId,
+  }) {
+    final role = champagneActorOf(actorId);
+    if (role != ChampagneActor.waiter && role != ChampagneActor.client) {
+      throw const BarException(BarError.champagneNotAllowed);
+    }
+    final r = _champagneReservation(reservationId);
+    if (role == ChampagneActor.client &&
+        r.createdBy != actorId &&
+        r.linkedAccountId != actorId) {
+      throw const BarException(BarError.champagneNotAllowed);
+    }
+    if (_champagne[reservationId] case final existing?) return existing;
+    if (r.status != ReservationStatus.seated) {
+      throw const BarException(BarError.tableNotOccupied);
+    }
+    return _champagne[reservationId] = ChampagneRelease(
+      reservationId: r.id,
+      tableId: r.tableId,
+      venueId: venueId,
+      night: r.night,
+      requestedBy: actorId,
+      requestedAt: _now.toUtc(),
+    );
+  }
+
+  /// Barra registra la salida de la botella pedida, con la mesa ocupada.
+  /// Repetirla no saca otra.
+  ChampagneRelease dispatchChampagne(
+    String reservationId, {
+    required String actorId,
+  }) {
+    if (champagneActorOf(actorId) != ChampagneActor.bar) {
+      throw const BarException(BarError.champagneNotAllowed);
+    }
+    final c = _champagne[reservationId];
+    if (c == null) throw const BarException(BarError.champagneOutOfOrder);
+    if (c.stage != ChampagneStage.requested) return c;
+    _checkOccupiedFor(c);
+    return _champagne[reservationId] = c.dispatched(actorId, _now);
+  }
+
+  /// El mesero confirma la entrega en la mesa de la botella que salió de
+  /// barra. Igual que la salida: reserva vigente con la mesa ocupada en esa
+  /// misma noche y local. Si la reserva terminó, el historial se conserva
+  /// pero no se confirma una entrega nueva. Repetirla no cambia nada.
+  ChampagneRelease deliverChampagne(
+    String reservationId, {
+    required String actorId,
+  }) {
+    if (champagneActorOf(actorId) != ChampagneActor.waiter) {
+      throw const BarException(BarError.champagneNotAllowed);
+    }
+    final c = _champagne[reservationId];
+    if (c == null || c.stage == ChampagneStage.requested) {
+      throw const BarException(BarError.champagneOutOfOrder);
+    }
+    if (c.stage == ChampagneStage.delivered) return c;
+    _checkOccupiedFor(c);
+    return _champagne[reservationId] = c.delivered(actorId, _now);
+  }
+
+  /// Para un paso nuevo: la reserva del registro sigue vigente con su mesa
+  /// ocupada, y reserva, mesa, local y noche del registro coinciden con
+  /// ella (no sirve otra ocupación de la misma mesa).
+  void _checkOccupiedFor(ChampagneRelease c) {
+    final r = _champagneReservation(c.reservationId);
+    if (r.id != c.reservationId ||
+        r.tableId != c.tableId ||
+        r.night != c.night ||
+        c.venueId != venueId) {
+      throw const BarException(BarError.invalidDestination);
+    }
+    if (r.status != ReservationStatus.seated) {
+      throw const BarException(BarError.tableNotOccupied);
+    }
+  }
+
+  /// Reserva VIP aprobada, con prueba histórica (prepago verificado o
+  /// directa de la administración), de la noche en curso.
+  Reservation _champagneReservation(String reservationId) {
+    final night = currentNight;
+    if (night == null) throw const BarException(BarError.outsideNight);
+    final r = reservationById(reservationId);
+    if (r == null || !hasVipApprovalEvidence(r, venue)) {
+      throw const BarException(BarError.champagneNotEligible);
+    }
+    if (r.night != night) {
+      throw const BarException(BarError.invalidDestination);
+    }
+    return r;
   }
 
   ConsumptionAcceptance? acceptanceFor(String reservationId) =>
@@ -252,22 +372,35 @@ class BarBook {
     List<BarSale> sales,
     List<ConsumptionAcceptance> acceptances,
     List<VipPrepaid> prepaids,
+    List<ChampagneRelease> champagne,
     int next,
   })
-  exportState() =>
-      (sales: sales, acceptances: acceptances, prepaids: prepaids, next: _next);
+  exportState() => (
+    sales: sales,
+    acceptances: acceptances,
+    prepaids: prepaids,
+    champagne: champagne,
+    next: _next,
+  );
 
   void importState({
     required List<BarSale> sales,
     required List<ConsumptionAcceptance> acceptances,
     List<VipPrepaid> prepaids = const [],
+    List<ChampagneRelease> champagne = const [],
     required int next,
   }) {
+    if (_sales.isNotEmpty ||
+        _acceptances.isNotEmpty ||
+        _prepaids.isNotEmpty ||
+        _champagne.isNotEmpty) {
+      throw StateError('Solo se restaura en un libro vacío');
+    }
     for (final p in prepaids) {
       _prepaids[p.reservationId] = p;
     }
-    if (_sales.isNotEmpty || _acceptances.isNotEmpty) {
-      throw StateError('Solo se restaura en un libro vacío');
+    for (final c in champagne) {
+      _champagne[c.reservationId] = c;
     }
     for (final s in sales) {
       _sales[s.id] = s;

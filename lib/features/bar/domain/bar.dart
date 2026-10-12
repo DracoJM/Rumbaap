@@ -215,6 +215,21 @@ enum BarError {
 
   /// Corregir o anular una venta contra prepago: no definido.
   vipCorrectionUndecided,
+
+  /// Champaña VIP: quien la opera no tiene esa responsabilidad (o, como
+  /// cliente, no es titular de la reserva).
+  champagneNotAllowed,
+
+  /// Champaña VIP: la reserva no es una VIP del local con la aprobación y
+  /// el prepago verificado acreditados.
+  champagneNotEligible,
+
+  /// Champaña VIP: la mesa no está ocupada; no se despacha por adelantado.
+  tableNotOccupied,
+
+  /// Champaña VIP: paso fuera de orden (salida sin petición, entrega sin
+  /// salida).
+  champagneOutOfOrder,
 }
 
 class BarException implements Exception {

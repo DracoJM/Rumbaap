@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../features/bar/data/demo_bar_store.dart';
+import '../features/bar/domain/champagne.dart';
 import '../features/benefits/vip_benefits.dart';
 import '../features/dashboard/data/demo_goal_store.dart';
 import '../features/reservations/data/demo_reservation_store.dart';
 import '../features/reservations/domain/night_schedule.dart';
+import '../features/session/demo_identities.dart';
 import '../features/tickets/data/demo_ticket_store.dart';
 import '../features/venues/venue_config.dart';
 import 'app_theme.dart';
@@ -44,6 +46,24 @@ class RumbaapApp extends StatelessWidget {
     final reservations = this.store;
     this.tickets.book.vipCourtesyCheck = (id) =>
         vipCourtesyCheckFor(reservations.book.byId, config.venue, id);
+    // Champaña VIP y cumpleaños: permisos según la identidad de la demo,
+    // comprobados en el dominio.
+    this.bar.book
+      ..reservationById = reservations.book.byId
+      ..champagneActorOf = champagneActorOf;
+    reservations.book.canManageBirthdays = (id) =>
+        DemoIdentities.byId(id)?.profile == DemoProfile.admin;
+  }
+
+  /// Responsabilidad de una identidad de la demo sobre la champaña VIP.
+  static ChampagneActor? champagneActorOf(String actorId) {
+    final i = DemoIdentities.byId(actorId);
+    return switch ((i?.profile, i?.staffRole)) {
+      (DemoProfile.client, _) => ChampagneActor.client,
+      (DemoProfile.staff, StaffRole.waiter) => ChampagneActor.waiter,
+      (DemoProfile.staff, StaffRole.bar) => ChampagneActor.bar,
+      _ => null,
+    };
   }
 
   /// Local que muestra la app: identidad, mesas, tema y distribución.

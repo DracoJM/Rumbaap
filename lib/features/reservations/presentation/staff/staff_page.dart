@@ -16,6 +16,7 @@ import '../admin/admin_labels.dart';
 import '../admin/admin_widgets.dart';
 import '../map/crystal_map_scaffold.dart';
 import '../map/glass_tab_bar.dart';
+import '../birthday_widgets.dart';
 import '../table_presentation.dart';
 import '../venue_map_controller.dart';
 
@@ -285,6 +286,12 @@ class _StaffPageState extends State<StaffPage> {
                       '${r.statusLabel} · ${r.id}',
                       style: TextStyle(color: NightNeutrals.glass(0.75)),
                     ),
+                    if (r.birthday case final b?)
+                      Text(
+                        '${b.honoreeName}: ${birthdayStageLabel(b)}',
+                        key: ValueKey('staff-birthday-${r.id}'),
+                        style: TextStyle(color: NightNeutrals.glass(0.75)),
+                      ),
                     if (r.status == ReservationStatus.confirmed) ...[
                       const SizedBox(height: 8),
                       FilledButton.icon(

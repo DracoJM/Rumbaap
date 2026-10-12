@@ -12,6 +12,7 @@ import '../../domain/reservation_book.dart';
 import '../../domain/venue_table.dart';
 import '../admin/admin_labels.dart';
 import '../admin/admin_widgets.dart';
+import '../birthday_widgets.dart';
 import '../table_presentation.dart';
 
 enum ReservationFlowResult { showMine }
@@ -52,6 +53,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
   final _name = TextEditingController();
   final _idNumber = TextEditingController();
   final _phone = TextEditingController();
+  final _birthday = BirthdayDraft();
   _Step _step = _Step.form;
   bool _forOther = false;
   bool _sending = false;
@@ -107,6 +109,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     _name.dispose();
     _idNumber.dispose();
     _phone.dispose();
+    _birthday.dispose();
     super.dispose();
   }
 
@@ -180,11 +183,12 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
 
   void _toSummary() {
     setState(() => _error = null);
+    final birthdayOk = _birthday.validate();
     if (_isClient && !_forOther) {
-      setState(() => _step = _Step.summary);
+      if (birthdayOk) setState(() => _step = _Step.summary);
       return;
     }
-    if (_formKey.currentState!.validate()) {
+    if (_formKey.currentState!.validate() && birthdayOk) {
       setState(() => _step = _Step.summary);
     }
   }
@@ -204,6 +208,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
                 widget.reservationId!,
                 holder: holder,
                 linkedAccountId: linked,
+                birthday: _birthday.value,
               )
             : b.submitVip(
                 night: widget.night,
@@ -214,6 +219,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
                     : ReservationOrigin.promoter,
                 createdBy: widget.identity.id,
                 linkedAccountId: linked,
+                birthday: _birthday.value,
               ),
       );
       setState(() {
@@ -392,6 +398,8 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
             ],
           ),
         ),
+      const SizedBox(height: 10),
+      BirthdayFields(draft: _birthday, prefix: 'flow'),
       const SizedBox(height: 16),
       FilledButton(
         key: const ValueKey('flow-review'),
@@ -439,6 +447,12 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
             ? 'Cuenta vinculada: ${linked.name}'
             : 'Cuenta encontrada: se vinculará al enviar',
       ),
+      if (_birthday.value case final b?)
+        row(
+          'Cumpleaños',
+          '${b.honoreeName.trim()} · pendiente de confirmar por la '
+              'administración (sin promoción ni decoración prometidas)',
+        ),
       row('Capacidad', terms.capacity),
       for (final c in terms.conditions) Text('· $c'),
       const SizedBox(height: 10),

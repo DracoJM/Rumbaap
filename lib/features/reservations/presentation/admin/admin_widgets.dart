@@ -6,6 +6,7 @@ import '../../../../theme/venue_theme.dart';
 import '../../../session/demo_identities.dart';
 import '../../../venues/venue_config.dart';
 import '../../domain/reservation.dart';
+import '../birthday_widgets.dart';
 import '../table_presentation.dart';
 import 'admin_labels.dart';
 
@@ -340,6 +341,12 @@ class ReservationTile extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (r.birthday case final b?)
+                          Text(
+                            birthdayShortLabel(b),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppColors.textMuted),
+                          ),
                       ],
                     ),
                   ),

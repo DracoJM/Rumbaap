@@ -10,6 +10,7 @@ import '../../data/demo_reservation_store.dart';
 import '../../domain/reservation.dart';
 import '../admin/admin_labels.dart';
 import '../admin/admin_widgets.dart';
+import '../birthday_widgets.dart';
 import '../table_presentation.dart';
 
 /// Ficha de solo lectura de una reserva de «Mis reservas».
@@ -134,6 +135,10 @@ class MyReservationDetailPage extends StatelessWidget {
           final id when id == identity.id => 'Vinculada a tu cuenta',
           _ => 'Vinculada a una cuenta existente',
         }),
+        if (r.birthday != null) ...[
+          const SizedBox(height: 12),
+          BirthdayCard(reservation: r),
+        ],
         if (tickets case final t?) ...[
           const SizedBox(height: 12),
           VipBenefitsCard(
@@ -141,6 +146,7 @@ class MyReservationDetailPage extends StatelessWidget {
             venue: store.venue,
             tickets: t,
             bar: bar,
+            clientId: _isClient ? identity.id : null,
           ),
         ],
         const SizedBox(height: 12),

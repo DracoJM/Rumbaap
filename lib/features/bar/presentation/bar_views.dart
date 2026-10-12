@@ -15,6 +15,8 @@ import '../../tickets/presentation/ticket_widgets.dart';
 import '../../venues/venue_config.dart';
 import '../data/demo_bar_store.dart';
 import '../domain/bar.dart';
+import '../domain/champagne.dart';
+import 'champagne_view.dart';
 
 String barErrorLabel(BarError e) => switch (e) {
   BarError.outsideNight =>
@@ -39,6 +41,18 @@ String barErrorLabel(BarError e) => switch (e) {
     'Corregir una venta contra prepago VIP no está definido: no se cambió.',
   BarError.onlyRemoveUnits =>
     'Una corrección solo puede quitar unidades. No se hizo ningún cambio.',
+  BarError.champagneNotAllowed =>
+    'Este paso de la champaña no corresponde a tu perfil. No se hizo ningún '
+        'cambio.',
+  BarError.champagneNotEligible =>
+    'La reserva no tiene la aprobación VIP con prepago verificado. No se hizo '
+        'ningún cambio.',
+  BarError.tableNotOccupied =>
+    'La mesa no está ocupada por esta reserva: la champaña no sale por '
+        'adelantado. No se hizo ningún cambio.',
+  BarError.champagneOutOfOrder =>
+    'Paso fuera de orden: primero la petición de la mesa, luego la salida de '
+        'barra y al final la entrega. No se hizo ningún cambio.',
 };
 
 /// Texto de barra para el resultado de identificar al cliente.
@@ -444,10 +458,18 @@ class _BarDeskState extends State<BarDesk> {
     final tonight = _tonight();
     final venue = widget.reservations.venue;
     return ListenableBuilder(
-      listenable: widget.store,
+      listenable: Listenable.merge([widget.store, widget.reservations]),
       builder: (context, _) {
         final night = widget.store.book.currentNight;
         final vipTarget = _isVipReservation(_reservationId);
+        // Champaña VIP pedida por la mesa esta noche: barra registra la
+        // salida.
+        final champagne = [
+          for (final c in widget.store.book.champagne)
+            if (c.night == night && c.stage == ChampagneStage.requested)
+              if (widget.reservations.book.byId(c.reservationId) case final r?)
+                r,
+        ];
         final balance = _balance(_reservationId);
         final orderTotal = _orderTotal(context);
         final plannedApplied = _plannedApplied(_reservationId, orderTotal);
@@ -474,6 +496,20 @@ class _BarDeskState extends State<BarDesk> {
                   text: 'No hay una noche en curso: no se registran ventas.',
                 ),
               ),
+            if (champagne.isNotEmpty) ...[
+              SectionLabel('Champaña VIP pedida', count: champagne.length),
+              for (final r in champagne)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ChampagneSection(
+                    key: ValueKey('bar-champagne-${r.id}'),
+                    reservation: r,
+                    venue: venue,
+                    bar: widget.store,
+                    actorId: widget.identity.id,
+                  ),
+                ),
+            ],
             for (final m in menu)
               Row(
                 children: [
@@ -961,7 +997,7 @@ class _ConsumptionPageState extends State<ConsumptionPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Consumo de la reserva')),
       body: ListenableBuilder(
-        listenable: widget.bar,
+        listenable: Listenable.merge([widget.bar, widget.reservations]),
         builder: (context, _) {
           final r = widget.reservations.book.byId(widget.reservationId);
           if (r == null) return const Center(child: Text('No encontrada.'));
@@ -1008,6 +1044,15 @@ class _ConsumptionPageState extends State<ConsumptionPage> {
                         '${copLabel(b.charged)}'
                         '${widget.bar.book.hasEnded(b.prepaid.night) ? '. La noche terminó: el saldo no consumido se perdió.' : ''}',
                 }, key: const ValueKey('consumption-prepaid')),
+              if (table.isVip) ...[
+                const SizedBox(height: 8),
+                ChampagneSection(
+                  reservation: r,
+                  venue: widget.reservations.venue,
+                  bar: widget.bar,
+                  actorId: widget.identity.id,
+                ),
+              ],
               const SizedBox(height: 12),
               if (accepted != null) ...[
                 NoticeBox(

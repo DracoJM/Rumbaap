@@ -8,6 +8,7 @@ import '../../data/demo_reservation_store.dart';
 import '../../domain/night_schedule.dart';
 import '../../domain/reservation.dart';
 import '../../domain/venue_table.dart';
+import '../birthday_widgets.dart';
 import '../table_presentation.dart';
 import 'admin_labels.dart';
 import 'admin_widgets.dart';
@@ -38,6 +39,7 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
   final _name = TextEditingController();
   final _idNumber = TextEditingController();
   final _phone = TextEditingController();
+  final _birthday = BirthdayDraft();
   bool _submitting = false;
   bool _validateOnChange = false;
   String? _error;
@@ -49,6 +51,7 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
     _name.dispose();
     _idNumber.dispose();
     _phone.dispose();
+    _birthday.dispose();
     super.dispose();
   }
 
@@ -155,6 +158,8 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
                       validator: (v) => _digitsError(v, 'el teléfono'),
                     ),
                     const SizedBox(height: 12),
+                    BirthdayFields(draft: _birthday, prefix: 'direct'),
+                    const SizedBox(height: 12),
                     Text(
                       'Demostración: los datos ficticios se guardan solo en '
                       'este teléfono, hasta que se reinicie la demostración.',
@@ -214,7 +219,8 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
       _validateOnChange = true;
       _error = null;
     });
-    if (!_formKey.currentState!.validate()) return;
+    final birthdayOk = _birthday.validate();
+    if (!_formKey.currentState!.validate() || !birthdayOk) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _submitting = true);
     final idNumber = _idNumber.text.trim();
@@ -230,6 +236,7 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
           ),
           // Se adjudica a una cuenta ficticia solo por cédula exacta (R12).
           linkedAccountId: DemoIdentities.accountByIdNumber(idNumber)?.id,
+          birthday: _birthday.value,
         ),
       );
       showResultMessage(

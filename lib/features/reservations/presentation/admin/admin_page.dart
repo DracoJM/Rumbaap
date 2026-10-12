@@ -446,9 +446,26 @@ class _AdminPageState extends State<AdminPage> {
   Widget _reservationsSection(BuildContext inner, NightReservations data) {
     final active = _byTable(data.reservations.where((r) => r.status.isActive));
     final ended = _byTable(data.reservations.where((r) => !r.status.isActive));
+    // Preparación de cumpleaños de la noche, por mesa, para verla antes de
+    // la apertura.
+    final birthdays = [
+      for (final r in active)
+        if (r.birthday != null) r,
+    ];
     return ListView(
       padding: _listPadding(inner, 8),
       children: [
+        if (birthdays.isNotEmpty) ...[
+          SectionLabel('Cumpleaños de esta noche', count: birthdays.length),
+          for (final r in birthdays)
+            ReservationTile(
+              key: ValueKey('birthday-prep-${r.id}'),
+              reservation: r,
+              subtitle: 'Cumpleaños de ${r.birthday!.honoreeName}',
+              onTap: () => _openReservation(r.id),
+            ),
+          const SizedBox(height: 8),
+        ],
         SectionLabel('Activas', count: active.length),
         if (active.isEmpty)
           const NoticeBox(

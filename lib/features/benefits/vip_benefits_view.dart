@@ -5,6 +5,7 @@ import '../../app/app_theme.dart';
 import '../../theme/night_neutrals.dart';
 import '../bar/data/demo_bar_store.dart';
 import '../bar/domain/bar.dart';
+import '../bar/presentation/champagne_view.dart';
 import '../reservations/domain/reservation.dart';
 import '../reservations/domain/venue_table.dart';
 import '../reservations/presentation/admin/admin_widgets.dart';
@@ -26,6 +27,7 @@ class VipBenefitsCard extends StatelessWidget {
     this.adminId,
     this.onOpenTicket,
     this.bar,
+    this.clientId,
   });
 
   final Reservation reservation;
@@ -37,6 +39,9 @@ class VipBenefitsCard extends StatelessWidget {
 
   /// Administración que actúa; `null` en la vista del titular.
   final String? adminId;
+
+  /// Cliente que mira su reserva: puede pedir la champaña a la mesa.
+  final String? clientId;
   final void Function(String ticketId)? onOpenTicket;
 
   @override
@@ -90,7 +95,16 @@ class VipBenefitsCard extends StatelessWidget {
               'en taquilla) y ${b.bottles} botella de champaña, adicionales '
               'al consumo prepagado.',
             ),
-            if (bar case final bar?) ..._prepaidSection(context, bar),
+            if (bar case final bar?) ...[
+              ..._prepaidSection(context, bar),
+              const SizedBox(height: 8),
+              ChampagneSection(
+                reservation: reservation,
+                venue: venue,
+                bar: bar,
+                actorId: clientId,
+              ),
+            ],
             const SizedBox(height: 8),
             Text(
               'Cortesías: ${b.issued.length} de ${b.entitledCourtesies} '

@@ -1,14 +1,16 @@
 # Beneficios de las reservas VIP (prototipo)
 
 - **Código:** `lib/features/benefits/` (`VipBenefits`, `issueVipCourtesies`, `VipBenefitsCard`).
-- **Leyenda:** `VALIDATED` (confirmado por el equipo), `NOT DECIDED`.
+- **Leyenda:** `VALIDATED` (confirmado por el equipo o el usuario), `DECISIÓN DE PROTOTIPO` (implementación decidida por el equipo, pendiente de validar con el cliente), `NOT DECIDED`.
 
 | Regla | Estado |
 |---|---|
 | Por cada mesa VIP: 6 entradas de cortesía (se canjean por manillas en taquilla) y 1 botella de champaña, adicionales al consumo prepagado. Quien reserva las dos zonas VIP tiene dos reservas: 12 cortesías y 2 botellas. | VALIDATED (aclaración de Juanmi, 2026-10-09; tipo de botella: champaña, aclaración del usuario 2026-10-12) |
 | Las cortesías se emiten por el circuito de cortesías existente: la administración las autoriza con nombre y motivo, se activan sin pago y se canjean en taquilla. Quedan enlazadas a la reserva y se cuentan una vez contra su derecho, en cualquier estado. Una cortesía general (sin reserva) no consume el beneficio. | VALIDATED (circuito de cortesías) |
 | La botella no cuenta en el consumo de la mesa. | VALIDATED |
-| Marca y precio de la botella de champaña; quién la entrega, cuándo y cómo se registra la entrega. La app la muestra pero no la marca como entregada. | NOT DECIDED |
+| Champaña: la reserva aprobada con el prepago verificado la habilita, pero NO la despacha. Solo con la mesa ocupada y una petición explícita de la mesa, Barra registra la salida de 1 botella por mesa y el mesero confirma la entrega en la mesa. El regalo no se cobra, no se descuenta del prepago ni suma ingresos. | VALIDATED (aclaración del usuario, 2026-10-12) |
+| Implementación del prototipo para cumplirlo (decisión del equipo, pendiente de validar con el cliente): la petición la registra el titular desde su reserva en la app o el mesero (pedido verbal); permisos resueltos por la identidad de la demo y comprobados en el dominio (`BarBook.requestChampagne`, `dispatchChampagne`, `deliverChampagne`), sin conexión nadie opera; orden petición → salida → entrega; noche en curso; para cada paso nuevo, reserva vigente con la mesa ocupada y vínculos reserva/mesa/local/noche coincidentes; habilitación con la prueba histórica de las cortesías, sin inventar importes; repetir un paso devuelve el mismo hecho; con la reserva terminada se conserva el historial y no se registra ningún paso nuevo; una botella por reserva. | DECISIÓN DE PROTOTIPO |
+| Marca y precio de la botella de champaña. La app no los muestra ni los inventa. | NOT DECIDED |
 | Las 6 cortesías de cada mesa se activan solo cuando la administración verifica el prepago Y aprueba la reserva (reserva confirmada con su prepago registrado); taquilla entrega las manillas. La regla se aplica al CANJEAR: consulta de puerta, confirmación de ingreso y canje de una cortesía enlazada a una reserva VIP (también credenciales ya emitidas) exigen prueba de aprobación y verificación en el historial de la reserva: «prepago verificado» o reserva VIP directa de la administración (R7: pago validado). Sin prueba se rechaza y requiere revisión de la administración. La falta de importe registrado no significa «sin pagar» ni crea un saldo. Una revocación posterior no cancela cortesías ya aprobadas (su efecto sigue NOT DECIDED). Cortesías generales: sin cambios. | VALIDATED (aprobado por el usuario, 2026-10-12) |
 | Efecto de revocar, rechazar, liberar o dejar expirar la reserva sobre el beneficio. La app no emite más y conserva lo emitido. | NOT DECIDED |
 | Reponer una cortesía anulada, caducidad, transferencias y devoluciones del beneficio. | NOT DECIDED |
@@ -16,6 +18,7 @@
 
 - **Quién ve qué:**
   - Administración: en la ficha de la reserva ve el derecho, las cortesías emitidas con nombre y estado, y emite hasta el derecho. En el panel, el indicador «Reservas VIP con beneficios» lista las reservas VIP de la noche o del período.
-  - Titular: en su reserva ve los recuentos (emitidas, canjeadas, por emitir) y la botella, sin nombres ni acciones.
+  - Titular: en su reserva ve los recuentos (emitidas, canjeadas, por emitir) y el estado de la champaña; con la mesa ocupada puede pedirla.
+  - Barra: ve las champañas pedidas de la noche y registra la salida. Mesero: en el consumo de la mesa ve el estado, registra la petición verbal y confirma la entrega. Administración: ve el estado y su historial en la ficha de la reserva.
 - **Trazabilidad:** cada cortesía emitida guarda el actor, la hora y el motivo «Beneficio VIP · reserva R…». El enlace con la reserva se guarda en el estado local de forma compatible: los datos anteriores cargan como cortesías generales.
 - **Fuera de alcance:** puntos, niveles, cobro real e inventario.

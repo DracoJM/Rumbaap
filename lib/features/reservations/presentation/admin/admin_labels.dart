@@ -98,4 +98,10 @@ String actionErrorMessage(ReservationError error) => switch (error) {
         'nuevo. No se hizo ningún cambio.',
   ReservationError.unknownTable || ReservationError.wrongTableKind =>
     'La mesa no admite esta operación. No se hizo ningún cambio.',
+  ReservationError.notAllowed =>
+    'Esta operación corresponde a la administración. No se hizo ningún '
+        'cambio.',
+  ReservationError.invalidBirthday =>
+    'Escribe el nombre de quien cumple años (y, al confirmar, las '
+        'condiciones). No se hizo ningún cambio.',
 };

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../features/bar/data/demo_bar_store.dart';
 import '../../features/bar/domain/bar.dart';
+import '../../features/bar/domain/champagne.dart';
 import '../../features/dashboard/data/demo_goal_store.dart';
 import '../../features/dashboard/domain/night_goals.dart';
 import '../../features/reservations/data/demo_reservation_store.dart';
@@ -71,6 +72,7 @@ String encodeDemoSnapshot({
       'sales': [for (final s in b.sales) _sale(s)],
       'acceptances': [for (final a in b.acceptances) _acceptance(a)],
       'prepaids': [for (final p in b.prepaids) _prepaid(p)],
+      'champagne': [for (final c in b.champagne) _champagne(c)],
     },
     if (goals != null) 'goals': [for (final g in goals.book.goals) _goal(g)],
   });
@@ -145,6 +147,11 @@ void decodeDemoSnapshot(
       for (final x in (bs?['prepaids'] as List?) ?? const [])
         _prepaidFrom(x as Map),
     ];
+    // Champaña VIP: añadida después; si falta, no había ninguna botella.
+    final champagne = [
+      for (final x in (bs?['champagne'] as List?) ?? const [])
+        _champagneFrom(x as Map),
+    ];
     // Las metas se añadieron después sin cambiar el formato: si faltan, no
     // había metas configuradas.
     final restoredGoals = [
@@ -174,6 +181,7 @@ void decodeDemoSnapshot(
       sales: sales,
       acceptances: acceptances,
       prepaids: prepaids,
+      champagne: champagne,
       next: ((bs?['next'] as num?) ?? 1).toInt(),
     );
     goals?.book.importState(restoredGoals);
@@ -201,6 +209,7 @@ Map<String, Object?> _reservation(Reservation r) => {
   'status': r.status.name,
   'createdBy': r.createdBy,
   'linkedAccountId': r.linkedAccountId,
+  if (r.birthday case final b?) 'birthday': _birthday(b),
   'history': [
     for (final e in r.history) {'type': e.type.name, 'at': _time(e.at)},
   ],
@@ -223,11 +232,71 @@ Reservation _reservationFrom(Map j) {
     status: ReservationStatus.values.byName(j['status'] as String),
     createdBy: j['createdBy'] as String?,
     linkedAccountId: j['linkedAccountId'] as String?,
+    // Añadido después: las reservas guardadas antes no lo tienen.
+    birthday: j['birthday'] == null
+        ? null
+        : _birthdayFrom(j['birthday']! as Map),
     history: [
       for (final e in j['history'] as List)
         ReservationEvent(
           ReservationEventType.values.byName((e as Map)['type'] as String),
           _parseTime(e['at']),
+        ),
+    ],
+  );
+}
+
+Map<String, Object?> _stamp(ActorStamp s) => {
+  'actorId': s.actorId,
+  'at': _time(s.at),
+};
+
+ActorStamp _stampFrom(Map j) =>
+    ActorStamp(j['actorId'] as String, _parseTime(j['at']));
+
+Map<String, Object?> _terms(BirthdayTerms t) => {
+  'conditions': t.conditions,
+  'decorationRequired': t.decorationRequired,
+  'confirmed': _stamp(t.confirmed),
+};
+
+BirthdayTerms _termsFrom(Map t) => BirthdayTerms(
+  conditions: t['conditions'] as String,
+  decorationRequired: t['decorationRequired'] as bool,
+  confirmed: _stampFrom(t['confirmed'] as Map),
+);
+
+Map<String, Object?> _birthday(BirthdayCelebration b) => {
+  'honoreeName': b.honoreeName,
+  'notes': b.notes,
+  if (b.terms case final t?) 'terms': _terms(t),
+  if (b.decorationPrepared case final d?) 'decorationPrepared': _stamp(d),
+  if (b.previous.isNotEmpty)
+    'previous': [
+      for (final a in b.previous)
+        {
+          'terms': _terms(a.terms),
+          if (a.decorationPrepared case final d?)
+            'decorationPrepared': _stamp(d),
+        },
+    ],
+};
+
+BirthdayCelebration _birthdayFrom(Map j) {
+  final t = j['terms'] as Map?;
+  final d = j['decorationPrepared'] as Map?;
+  return BirthdayCelebration(
+    honoreeName: j['honoreeName'] as String,
+    notes: j['notes'] as String?,
+    terms: t == null ? null : _termsFrom(t),
+    decorationPrepared: d == null ? null : _stampFrom(d),
+    previous: [
+      for (final a in (j['previous'] as List?) ?? const [])
+        BirthdayAgreement(
+          _termsFrom((a as Map)['terms'] as Map),
+          a['decorationPrepared'] == null
+              ? null
+              : _stampFrom(a['decorationPrepared'] as Map),
         ),
     ],
   );
@@ -471,6 +540,34 @@ VipPrepaid _prepaidFrom(Map j) => VipPrepaid(
   amount: (j['amount'] as num).toInt(),
   registeredBy: j['registeredBy'] as String,
   registeredAt: _parseTime(j['registeredAt']),
+);
+
+Map<String, Object?> _champagne(ChampagneRelease c) => {
+  'reservationId': c.reservationId,
+  'tableId': c.tableId,
+  'venueId': c.venueId,
+  'night': c.night.id,
+  'requestedBy': c.requestedBy,
+  'requestedAt': _time(c.requestedAt),
+  'dispatchedBy': c.dispatchedBy,
+  'dispatchedAt': c.dispatchedAt == null ? null : _time(c.dispatchedAt!),
+  'deliveredBy': c.deliveredBy,
+  'deliveredAt': c.deliveredAt == null ? null : _time(c.deliveredAt!),
+};
+
+ChampagneRelease _champagneFrom(Map j) => ChampagneRelease(
+  reservationId: j['reservationId'] as String,
+  tableId: j['tableId'] as String,
+  venueId: j['venueId'] as String,
+  night: _night(j['night'] as String),
+  requestedBy: j['requestedBy'] as String,
+  requestedAt: _parseTime(j['requestedAt']),
+  dispatchedBy: j['dispatchedBy'] as String?,
+  dispatchedAt: j['dispatchedAt'] == null
+      ? null
+      : _parseTime(j['dispatchedAt']),
+  deliveredBy: j['deliveredBy'] as String?,
+  deliveredAt: j['deliveredAt'] == null ? null : _parseTime(j['deliveredAt']),
 );
 
 Map<String, Object?> _acceptance(ConsumptionAcceptance a) => {
