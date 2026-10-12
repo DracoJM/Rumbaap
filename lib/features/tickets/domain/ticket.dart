@@ -112,6 +112,7 @@ class TicketPurchase {
     this.holderName,
     this.ownerId,
     this.note,
+    this.reservationId,
   });
 
   final String id;
@@ -135,6 +136,11 @@ class TicketPurchase {
 
   /// Motivo de una cortesía (por ejemplo, la reserva VIP).
   final String? note;
+
+  /// Cortesía emitida como beneficio de esta reserva VIP. Así se cuentan
+  /// contra su derecho sin contar dos veces ni mezclarla con otras
+  /// cortesías.
+  final String? reservationId;
   final DateTime createdAt;
   final PaymentStatus payment;
   final DateTime? paidAt;
@@ -159,6 +165,7 @@ class TicketPurchase {
         holderName: holderName,
         ownerId: ownerId,
         note: note,
+        reservationId: reservationId,
       );
 }
 

@@ -108,6 +108,8 @@ class _AdminPageState extends State<AdminPage> {
         store: widget.store,
         reservationId: id,
         clock: widget.clock,
+        tickets: widget.tickets,
+        identity: widget.identity,
       ),
     ),
   );

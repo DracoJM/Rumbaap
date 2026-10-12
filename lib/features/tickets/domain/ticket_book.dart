@@ -103,6 +103,15 @@ class TicketBook {
   TicketPurchase? purchaseById(String id) => _purchases[id];
   Ticket? ticketById(String id) => _tickets[id];
 
+  /// Cortesías emitidas como beneficio de la reserva [reservationId], en
+  /// cualquier estado (también canjeadas o anuladas).
+  List<Ticket> courtesiesOfReservation(String reservationId) => [
+    for (final p in _purchases.values)
+      if (p.channel == TicketChannel.courtesy &&
+          p.reservationId == reservationId)
+        ...ticketsOf(p.id),
+  ];
+
   List<Ticket> ticketsOf(String purchaseId) => [
     for (final t in _tickets.values)
       if (t.purchaseId == purchaseId) t,
@@ -160,6 +169,7 @@ class TicketBook {
     required String holderName,
     required String reason,
     String? ownerId,
+    String? reservationId,
   }) {
     if (holderName.trim().isEmpty || reason.trim().isEmpty) {
       throw const TicketException(TicketError.invalidHolder);
@@ -174,6 +184,7 @@ class TicketBook {
       ownerId: ownerId,
       holderName: holderName.trim(),
       note: reason.trim(),
+      reservationId: reservationId,
       payment: PaymentStatus.courtesy,
     );
     for (final t in ticketsOf(p.id)) {
@@ -611,6 +622,7 @@ class TicketBook {
     String? ownerId,
     String? holderName,
     String? note,
+    String? reservationId,
   }) {
     if (night.hasEnded(_venueNow)) {
       throw const TicketException(TicketError.nightEnded);
@@ -629,6 +641,7 @@ class TicketBook {
       ownerId: ownerId,
       holderName: holderName,
       note: note,
+      reservationId: reservationId,
       createdAt: _now,
       payment: payment,
     );

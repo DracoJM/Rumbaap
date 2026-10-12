@@ -244,6 +244,7 @@ Map<String, Object?> _purchase(TicketPurchase p) => {
   'holderName': p.holderName,
   'ownerId': p.ownerId,
   'note': p.note,
+  if (p.reservationId != null) 'reservationId': p.reservationId,
 };
 
 TicketPurchase _purchaseFrom(Map j, Map<String, TicketProduct> products) {
@@ -267,6 +268,8 @@ TicketPurchase _purchaseFrom(Map j, Map<String, TicketProduct> products) {
     holderName: j['holderName'] as String?,
     ownerId: j['ownerId'] as String?,
     note: j['note'] as String?,
+    // Añadido después sin cambiar el formato: si falta, no es de una VIP.
+    reservationId: j['reservationId'] as String?,
   );
 }
 

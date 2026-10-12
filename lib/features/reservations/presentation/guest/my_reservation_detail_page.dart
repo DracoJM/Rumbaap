@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
 import '../../../../theme/status_colors.dart';
+import '../../../benefits/vip_benefits_view.dart';
+import '../../../tickets/data/demo_ticket_store.dart';
 import '../../../session/demo_identities.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/reservation.dart';
@@ -20,11 +22,15 @@ class MyReservationDetailPage extends StatelessWidget {
     required this.store,
     required this.identity,
     required this.reservationId,
+    this.tickets,
   });
 
   final DemoReservationStore store;
   final DemoIdentity identity;
   final String reservationId;
+
+  /// Entradas del local: con él, el titular ve sus beneficios VIP.
+  final DemoTicketStore? tickets;
 
   bool get _isClient => identity.profile == DemoProfile.client;
 
@@ -123,6 +129,10 @@ class MyReservationDetailPage extends StatelessWidget {
           final id when id == identity.id => 'Vinculada a tu cuenta',
           _ => 'Vinculada a una cuenta existente',
         }),
+        if (tickets case final t?) ...[
+          const SizedBox(height: 12),
+          VipBenefitsCard(reservation: r, venue: store.venue, tickets: t),
+        ],
         const SizedBox(height: 12),
         Text('Cambios de estado', style: theme.textTheme.titleSmall),
         const SizedBox(height: 8),

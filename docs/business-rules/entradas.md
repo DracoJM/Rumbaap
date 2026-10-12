@@ -10,7 +10,7 @@
 |---|---|---|---|
 | Venta | Cliente (app) o promotor | Crea derechos sin activar y sin credencial. Mostrar una venta no activa nada. | VALIDATED |
 | Pago | Cliente: pago simulado. Promotor: confirma el pago comprobado de su venta. | Solo entonces el derecho se activa y se emite la credencial. | VALIDATED |
-| Cortesía | Administración | Activa sin pago, con nombre y motivo (p. ej. mesa VIP). La cantidad la decide quien autoriza. | VALIDATED (cortesías VIP); cantidad: NOT DECIDED |
+| Cortesía | Administración | Activa sin pago, con nombre y motivo (p. ej. mesa VIP). La cantidad la decide quien autoriza. | VALIDATED (cortesías VIP); cantidad: 6 por mesa VIP como beneficio de su reserva ([beneficios VIP](beneficios-vip.md)); fuera de ese beneficio, NOT DECIDED |
 | Consulta de puerta | Seguridad | Muestra el estado vigente para este local y la noche en curso, y los datos del registro. No cambia nada. | PROPUESTA |
 | Primer ingreso | Seguridad | «Confirmar primer ingreso» lo registra una vez. Un segundo intento muestra «Ingreso ya registrado» y no bloquea la taquilla. | PROPUESTA |
 | Canje | Taquilla (app y cortesías) o promotor con su lote (sus ventas) | Entrega la manilla una vez. Después, puerta y taquilla responden «No canjeable». El reingreso es con la manilla. | VALIDATED (canje único, reingreso con manilla); separación de pasos: PROPUESTA |

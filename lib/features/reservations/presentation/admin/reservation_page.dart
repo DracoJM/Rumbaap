@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_theme.dart';
+import '../../../benefits/vip_benefits_view.dart';
+import '../../../session/demo_identities.dart';
+import '../../../tickets/data/demo_ticket_store.dart';
+import '../../../tickets/presentation/admin_tickets.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/night_schedule.dart';
 import '../../domain/reservation.dart';
@@ -23,11 +27,18 @@ class ReservationPage extends StatefulWidget {
     required this.store,
     required this.reservationId,
     this.clock = systemClock,
+    this.tickets,
+    this.identity,
   });
 
   final DemoReservationStore store;
   final String reservationId;
   final Clock clock;
+
+  /// Entradas del local y administración que actúa: con ambos se muestran
+  /// y gestionan los beneficios VIP.
+  final DemoTicketStore? tickets;
+  final DemoIdentity? identity;
 
   @override
   State<ReservationPage> createState() => _ReservationPageState();
@@ -151,6 +162,26 @@ class _ReservationPageState extends State<ReservationPage> {
                 store: widget.store,
                 clock: widget.clock,
               ),
+              if (widget.tickets case final tickets?) ...[
+                const SizedBox(height: 12),
+                VipBenefitsCard(
+                  reservation: r,
+                  venue: widget.store.venue,
+                  tickets: tickets,
+                  adminId: widget.identity?.id,
+                  onOpenTicket: widget.identity == null
+                      ? null
+                      : (id) => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => AdminTicketPage(
+                              store: tickets,
+                              identity: widget.identity!,
+                              ticketId: id,
+                            ),
+                          ),
+                        ),
+                ),
+              ],
               const SizedBox(height: 16),
               const Divider(),
               const SectionLabel('Actividad de la reserva'),

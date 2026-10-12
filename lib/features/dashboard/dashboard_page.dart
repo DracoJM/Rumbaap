@@ -6,6 +6,7 @@ import '../../theme/night_neutrals.dart';
 import '../bar/data/demo_bar_store.dart';
 import '../bar/domain/bar.dart';
 import '../bar/presentation/bar_views.dart';
+import '../benefits/vip_benefits.dart';
 import 'data/demo_goal_store.dart';
 import 'domain/night_goals.dart';
 import '../reservations/data/demo_reservation_store.dart';
@@ -132,6 +133,8 @@ class _DashboardPageState extends State<DashboardPage> {
         store: widget.reservations,
         reservationId: id,
         clock: widget.clock,
+        tickets: widget.tickets,
+        identity: widget.identity,
       ),
     ),
   );
@@ -324,6 +327,16 @@ class _DashboardPageState extends State<DashboardPage> {
             (r) => r.history.any(
               (e) => e.type == ReservationEventType.prepaymentMarked,
             ),
+          );
+          final vipBenefits = [
+            for (final r in reservations)
+              if (r.status != ReservationStatus.inProcess)
+                if (VipBenefits.of(r, venue, widget.tickets.book) case final b?)
+                  b,
+          ];
+          final vipIssued = vipBenefits.fold<int>(
+            0,
+            (n, b) => n + b.issued.length,
           );
           final acceptances = widget.bar.book.acceptances
               .where((a) => _in(a.night))
@@ -569,6 +582,32 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                   ],
                 ),
+              ),
+              tile(
+                'vip-benefits',
+                'Reservas VIP con beneficios',
+                '${vipBenefits.length}',
+                () => _openList(
+                  'Beneficios VIP',
+                  'Por mesa VIP: 6 cortesías y 1 botella fuera del consumo. '
+                      'Las cortesías se emiten desde la ficha de la reserva; '
+                      'la entrega de la botella no tiene registro definido.',
+                  [
+                    for (final b in vipBenefits)
+                      (
+                        title:
+                            '${b.reservation.tableIn(venue).displayName} · '
+                            '${b.reservation.night.shortLabel} · '
+                            '${b.reservation.statusLabel}',
+                        subtitle:
+                            '${b.reservation.id} · cortesías '
+                            '${b.issued.length} de ${b.entitledCourtesies} '
+                            'emitidas, ${b.redeemed} canjeadas',
+                        open: () => _openReservation(b.reservation.id),
+                      ),
+                  ],
+                ),
+                note: 'Cortesías emitidas: $vipIssued. Sin importe.',
               ),
               tile(
                 'acceptances',

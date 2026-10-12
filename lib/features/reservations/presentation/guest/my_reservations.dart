@@ -4,6 +4,7 @@ import '../../../../app/app_theme.dart';
 import '../../../../theme/night_neutrals.dart';
 import '../../../../theme/status_colors.dart';
 import '../../../session/demo_identities.dart';
+import '../../../tickets/data/demo_ticket_store.dart';
 import '../../data/demo_reservation_store.dart';
 import '../../domain/reservation.dart';
 import '../admin/admin_labels.dart';
@@ -25,10 +26,14 @@ class MyReservations extends StatelessWidget {
     super.key,
     required this.store,
     required this.identity,
+    this.tickets,
   });
 
   final DemoReservationStore store;
   final DemoIdentity identity;
+
+  /// Entradas del local, para los beneficios VIP en la ficha.
+  final DemoTicketStore? tickets;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +87,7 @@ class MyReservations extends StatelessWidget {
                       store: store,
                       identity: identity,
                       reservationId: r.id,
+                      tickets: tickets,
                     ),
                   ),
                 ),

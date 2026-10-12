@@ -172,6 +172,7 @@ class _GuestHomePageState extends State<GuestHomePage> {
         _GuestSection.mine => MyReservations(
           store: widget.store!,
           identity: widget.identity,
+          tickets: widget.tickets,
         ),
         _GuestSection.tickets => GuestTickets(
           store: widget.tickets!,
