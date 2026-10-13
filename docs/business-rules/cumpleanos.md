@@ -9,6 +9,7 @@
 - **E1, pregunta 7:** las promociones actuales son solo de cumpleaños.
 - **E2, pregunta 13:** la decoración de cumpleaños es preparación antes de la apertura, si corresponde.
 - Las entrevistas NO definen importe, paquete, descuento fijo, entradas gratis ni ventana de fechas.
+- **Verificación (2026-10-12):** los documentos de Downloads titulados «Plan de entrevista…» son entrevistas diligenciadas, con las respuestas escritas bajo cada pregunta (no solo plantillas). Contienen las respuestas de P6 y P7 de la primera entrevista y de P13 de la segunda tal como se citan arriba. El detalle de ubicación y vigencia está en [fuentes y evidencia](../continuidad/fuentes-y-evidencia.md).
 
 ## Datos confirmados
 

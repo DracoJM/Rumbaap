@@ -1,5 +1,7 @@
 # Plan del siguiente incremento: diseño y navegación, y reserva del promotor
 
+> **Nota de vigencia (2026-10-12):** antecedente histórico y `HYPOTHESIS`. Describe un plan del 10 de octubre que ya se ejecutó o fue sustituido (ADR 0004 y 0005). NO es una orden vigente ni convierte sus propuestas en requisitos. Para retomar, ver [`continuacion-claude.md`](continuacion-claude.md).
+
 > **Nota (10/10/2026):** el estilo de la entrega 1 (ADR 0003) quedó sustituido por el [ADR 0004](decisions/0004-mapa-unico-noche-de-cristal.md). La entrega aprobada P22/P22.1 implementó el mapa único v7 compartido por la consulta y el administrador; ver [mapa-noche-de-cristal.md](architecture/mapa-noche-de-cristal.md). El resto del plan sigue como `HYPOTHESIS`.
 
 - **Estado del plan:** `HYPOTHESIS`. Es la propuesta de ejecución de Claude, todavía sin aprobar ni implementar. Las reglas en las que se apoya sí están aprobadas.

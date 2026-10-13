@@ -49,8 +49,9 @@ Las tomó Juanmi el 2026-10-10 para la demostración. No son una política atrib
 | R16 | **VIP del promotor:** la solicitud se crea solo al enviar el formulario final válido. Mientras se rellena no hay solicitud ni bloqueo, y abandonar no deja nada pendiente. Al enviar, el almacén vuelve a comprobar la disponibilidad: si otra reserva o solicitud activa ocupa la VIP, informa de que dejó de estar disponible, sin sobrescribir ni asignar otra mesa. El envío válido la deja Pendiente de pago/verificación, bloqueada y sin caducidad (R2); salir después no la cancela. La VIP directa del administrador sigue confirmándose al crearla (R7). | VALIDATED (prototipo) |
 
 Condiciones de mesa ya vigentes:
-- **Normal:** reserva sin costo ni prepago; consumo de referencia de 400.000 COP con tolerancia validada por el personal; capacidad `NOT DECIDED`.
-- **VIP:** hasta 20 personas y 2.000.000 COP prepagados por mesa.
+- **Normal:** reserva **gratis** (sin costo ni prepago) con **consumo mínimo de 400.000 COP** (E1 P10 y E2 P8; no se retira el mínimo). Hoy se maneja con flexibilidad humana: si no se alcanza, el personal lo gestiona y no es automático (E2 P8). «300 mil» lo dijo el entrevistado como ejemplo de un mínimo aceptable; no es otro umbral aprobado (aclaración previa A7 (apartado 4) del contexto maestro de ChatGPT v42, actualizado el 2026-10-11 19:09 (Colombia); fuente indirecta, mensaje original no localizado; verificación documental 2026-10-12). La app muestra el mínimo y no calcula el cumplimiento ni cobra, multa o bloquea por su cuenta. Capacidad: `NOT DECIDED`.
+- **Hora límite de llegada (mesa normal):** hasta las 11 p. m. (E1 P10); pasada esa hora la mesa normal puede volver a estar disponible. El prototipo solo lo informa, no la libera solo, y una mesa normal ya ocupada no se desaloja por la hora. La VIP pagada no usa esa hora de llegada (aclaraciones del hilo de trabajo; sin fecha individual que conste). La liberación automática NO está implementada: es un pendiente técnico además de este dato operativo conocido.
+- **VIP:** hasta 20 personas y 2.000.000 COP prepagados por mesa; las dos juntas, hasta 40 personas y 4.000.000 COP como dos mesas (E2 P9). Se pueden tomar ambas o solo una, y La unión física de las dos VIP, las 40 personas y los 4.000.000 COP están en E2 P9. Que una unión futura deba reservarse como un conjunto indivisible es un criterio técnico para implementarla, no una frase del entrevistado ni una pantalla existente: la unión transaccional no está implementada.
 
 ### Mapa de consulta de esta fase
 
@@ -94,6 +95,8 @@ No son reglas de negocio. Son formas técnicas de cumplir las reglas anteriores 
 
 ## 3. Todavía no implementado
 
+Prepago VIP en cancelación o no llegada: lo confirmado es la frontera manual (puede acordarse otra noche directamente con la administración, sin devolver, vencer ni trasladar automáticamente ese caso excepcional; ver [pedidos de barra](pedidos-barra.md)). Los pasos, condiciones y el circuito financiero específicos siguen `NOT DECIDED`.
+
 | Tema | Estado |
 |---|---|
 | Reglas R1–R8 en el dominio (`ReservationBook`) | Implementadas (Parte 2); las usa la vista del administrador |
@@ -105,7 +108,7 @@ No son reglas de negocio. Son formas técnicas de cumplir las reglas anteriores 
 | Puntos de beneficio | Fuera de alcance (futuro) |
 | Cobro real, ruta de pago en la app y reembolsos | `NOT DECIDED` (proveedor de pagos) |
 | Autenticación y perfiles reales | `NOT DECIDED` |
-| Liberación automática por falta de llegada a las 11 p. m. (normal) | Solo informativa; no implementada |
+| Liberación automática por falta de llegada a las 11 p. m. (normal) | Pendiente técnico: solo informativa, no implementada; no desaloja una mesa ocupada ni aplica a la VIP pagada |
 | Unión transaccional de las dos VIP | Fuera de alcance |
 | Persistencia y datos compartidos (backend) | `NOT DECIDED` |
 | Política de tratamiento de datos personales | `NOT DECIDED` |

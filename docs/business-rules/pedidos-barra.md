@@ -16,11 +16,11 @@
   - Cada mesa VIP tiene un consumo prepagado de 2.000.000 COP (importe de `TableTerms.prepaidConsumption` del local). La administración lo registra EXPRESAMENTE en la ficha de la reserva tras verificarlo; no se deduce de prepagos anteriores: sin registro, la mesa queda «prepago sin registrar» y barra no consume ni cobra como pago completo.
   - Barra consume contra el saldo y solo cobra el excedente, con la confirmación del pago presencial completo de la diferencia. Ejemplos: 1.500.000 → no se cobra nada, saldo 500.000; 2.300.000 → se cobran solo 300.000. Nunca se vuelven a cobrar los 2.000.000. Cada venta guarda lo aplicado del prepago y lo cobrado; el saldo se calcula de las ventas, sin doble descuento.
   - El saldo no consumido al terminar esa noche se pierde: sin devolución ni traslado automático.
-  - Cancelación o no llegada: el prepago solo puede aplicarse a otra noche por acuerdo directo con la administración. La app muestra esa gestión manual pendiente; no devuelve, no vence ni traslada automáticamente ese caso.
+  - Cancelación o no llegada: el prepago solo puede aplicarse a otra noche por acuerdo directo con la administración. La app muestra esa gestión manual pendiente; no devuelve, no vence ni traslada automáticamente ese caso excepcional. Lo confirmado es esa frontera manual; los pasos, condiciones y el circuito financiero específicos: NOT DECIDED.
   - Corregir o anular una venta contra prepago (qué pasa con el saldo y con el excedente cobrado): NOT DECIDED. La demo no permite corregirlas y no registra devoluciones de dinero.
   - Validación en `BarBook.register` (local con sus mesas obligatorio): reserva y mesa juntas, la mesa existe en el local; en mesa VIP, el prepago registrado debe ser de esa mesa y de la noche en curso. No comprueba que la reserva exista ni que corresponda a esa mesa: lo resuelve la vista de barra, que solo ofrece reservas vigentes de la noche con su mesa.
   - Mesero, cliente (su reserva) y administración ven prepago, consumido, saldo y excedente cobrado.
-- **Consumo de referencia:** se muestran las condiciones de la mesa (p. ej. el consumo de referencia de Sagsa), sin calcular si se cumplió.
+- **Consumo mínimo de la mesa normal:** se muestran las condiciones de la mesa (p. ej. el mínimo de 400.000 COP de Sagsa), sin calcular si se cumplió ni cobrar diferencias.
 - **Menú y precios:** de demostración, en `VenueConfig.menu`. Carta y precios reales: NOT DECIDED.
 - **Pago presencial:** medio de pago y verificación real: NOT DECIDED.
 - **Privacidad:** el cliente solo ve las ventas vinculadas a su cuenta. Barra no ve los datos de la cuenta al vincularla.

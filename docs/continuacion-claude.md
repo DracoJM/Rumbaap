@@ -1,80 +1,40 @@
-# Continuación — checkpoint del 2026-10-12
+# Continuación — checkpoint del 2026-10-12 (pausa hasta el 2026-10-13)
 
-Para retomar: `git rev-parse HEAD` y `git status`. Este archivo se guarda en un commit solo de documentación posterior al código; el hash de ese commit no se fija aquí.
+Entrada canónica para retomar. Leer este archivo, `git branch --show-current` y `git status`; después, solo el tema afectado en el [índice](README.md#índice-por-tema). El detalle (hashes, fuentes externas, estados, decisiones abiertas) está en [`continuidad/fuentes-y-evidencia.md`](continuidad/fuentes-y-evidencia.md). No releer todo `docs/` ni el transcript, ni repetir checks o builds aprobados.
 
 ## Estado
 
-- Rama: `feat/frontend-operations-demo` (solo local, sin push). Fase: prototipo frontend con datos de demostración (CLAUDE.md §1).
-- Último commit de código: `0b2324b0d0a19196adccb526c12a2cc8f4143ee8`, tree `44c0fee`. Contiene el flujo de champaña VIP y el cumpleaños en las reservas.
-- Checks de ese código: `git diff --check` limpio, `dart format` sin cambios, `flutter analyze` sin problemas y suite completa 477/477 (exit 0).
+- Rama `feat/frontend-operations-demo` (solo local, sin push). Prototipo frontend con datos ficticios, sin backend, pagos reales ni inventario (CLAUDE.md §1).
+- **Última entrega de CÓDIGO: `1279f61`** (árbol `42215944b125`). El commit de HEAD posterior a este solo cambia `docs/`: `lib/`, `test/`, `pubspec.*`, `android/` e `ios/` son idénticos a `1279f61` (comprobar con `git rev-parse HEAD:lib 1279f61:lib`, igual para las demás rutas).
+- Verificado por ejecución antes de `1279f61` (exit 0): `dart format`, `git diff --check`, `flutter analyze` y suite completa **506/506**. Los 31 de `map_interactions_test` ya están en los 506: no se suman.
+- APK de `1279f61`, sin `RUMBAAP_DEMO_NOW`, firmados con la clave de debug (válidos para la demostración, no para distribuir): carpeta `C:\Users\draco\Downloads\rumbaap-1279f61\` con `entrega.txt`, debug (177 289 347 B) y release (67 290 550 B); hashes en el detalle. Inmutables: no recompilar sin cambio de producción.
 
-## APK verificados (sin `RUMBAAP_DEMO_NOW`, firma verificada con apksigner)
+## Evidencia y límites
 
-Carpeta: `C:\Users\draco\Downloads\rumbaap-0b2324b\`
+- **Android nativo anterior (`0b2324b`)**: `Downloads\rumbaap-0b2324b\qa-nativa-2026-10-12\`. Cumpleaños, persistencia tras `force-stop` y champaña solo con su bloqueo fuera de horario. Se conserva intacta.
+- **QA nativa de `1279f61`: NINGÚN paso se hizo.**
+- **18 capturas de render de widgets** (`Downloads\rumbaap-qa-widgets-2026-10-12\`): datos ficticios y reloj inyectado solo en el montaje del test. No son QA Android. Límites: el mapa pinta sus etiquetas con `TextPainter` y en test salen como rectángulos Ahem, así que no es fiel; la barra inferior se desplaza en horizontal de forma intencional cuando no caben las secciones (con Roboto cabe a 393 dp y se desplaza al 200 %).
+- Emulador `Pixel_7` cerrado: lo abre el usuario a mano. El arranque por el asistente fue denegado por el clasificador («Interfere With Workloads»; sin reintentos ni alternativas), igual que guardar Sonnet como modelo por defecto. Modelo de la sesión: Sonnet 5.5. Equipo de 16 GB de RAM: medir la RAM antes del emulador, sin prometer RAM libre estable ni borrar datos de la app.
 
-| Archivo | Bytes | SHA-256 |
-|---|---|---|
-| `rumbaap-0b2324b-debug.apk` | 162271237 | `aef58463d4f00d96dbb9fbe1d1dfd3f74258ff8dec9970c956088bf1f07ad3de` |
-| `rumbaap-0b2324b-profile.apk` | 88529266 | `30e295b21f601a0bf9411d1ca4027d61e73a74b3f986011e916be2995037d5c6` |
+## Siguiente tarea (13 de octubre)
 
-Empaquetado limpio: antes de compilar se borran `build/app/outputs/apk/*/*.apk` y `build/app/outputs/flutter-apk/*.apk`; si no, quedan huecos vacíos (unos 15–18 MB) dentro del zip.
+1. El usuario abre `Pixel_7`. Confirmar con `adb devices` (ruta absoluta del SDK) que existe y qué versión (debug o release) está instalada; no borrar datos (`adb install -r` los conserva).
+2. Probar en dispositivo lo nuevo: formularios, foco y teclado real (en Barra, «Escribir la credencial» enfoca «Credencial»; cancelar el lector no); venta y entrega de manilla propia del promotor fuera de fecha (venta «Comprador QA diseno», con datos ficticios; contador «Sin entregar: N de M»; sin doble entrega); Barra «Cliente sin cuenta» (campos opcionales, estado no verificado, sin atribuir a una cuenta anterior) y los motivos de «Sin mesa» (el selector solo ofrece reservas confirmadas u ocupadas de la noche en curso); persistencia tras `force-stop`; Promotor y Barra a 320 dp / texto 200 % (restaurar `font_scale`).
+3. Flujo positivo de VIP, cortesías, llegada y consumo, y champaña con petición y entrega: solo en una noche activa real, sin falsear el reloj ni usar APK con reloj forzado. Sigue pendiente.
+4. Después: iOS nativo (macOS/Xcode), Android API 24 y cámara física. Al cerrar, actualizar este checkpoint (qué cambió, qué se probó, qué no, siguiente paso).
 
-## QA nativa ejecutada (Android, 2026-10-12)
+## Derechos y fronteras que no se deben perder
 
-- Pixel_7 (API 34) en `emulator-5580`: un solo arranque con `-memory 1536 -cores 2 -gpu host -no-window -no-snapshot -no-audio`, sin cámaras. Boot en 38 s; `adb install -r` del debug conservó los datos; `font_scale` restaurado a 1.0; AVD cerrado al terminar.
-- Probado por la interfaz, lunes 15:05 (Colombia):
-  - el cliente A creó la reserva R15 (mesa M03, viernes 16 de octubre) con un cumpleaños de demostración;
-  - el seguimiento del cliente no muestra acciones de administración;
-  - la administración confirmó condiciones con decoración, la marcó preparada y ajustó el acuerdo: la decoración pasó a «por revisar otra vez» y el acuerdo anterior quedó visible;
-  - todo persiste tras `force-stop` y reapertura.
-- Champaña: solo comprobado el bloqueo fuera de horario (Barra y mesero sin noche en curso, sin botón de salida). El flujo completo NO se probó en dispositivo.
-- Logcat: 0 errores de Flutter, 0 desbordes, 0 FATAL. La captura `04_form_lleno.png` muestra un error de escritura del teclado (las notas cayeron en el nombre) que se corrigió antes de enviar.
-- Evidencia: `C:\Users\draco\Downloads\rumbaap-0b2324b\qa-nativa-2026-10-12\`. Contiene 16 PNG, `logcat.txt`, `emu_out.log` y `emu_err.log`.
+(Detalle y estado en las reglas enlazadas; mandan las aclaraciones del hilo de trabajo actual sobre champaña, saldo VIP, comprador, entrega de manillas, cumpleaños y Barra. Manillas (A8) y el ejemplo de 300 mil (A7): aclaraciones previas del contexto maestro de ChatGPT v42 (11-oct 19:09), fuente indirecta.)
 
-## Reglas afectadas
+- **Reservas** ([reservas-y-noches](business-rules/reservas-y-noches.md)): mesa normal gratis, con consumo mínimo de 400.000 COP; la tolerancia la maneja el personal («300 mil» fue un ejemplo del entrevistado, no otro umbral) y no hay cobros, multas ni bloqueos automáticos. El borrador normal dura 10 min; la confirmada no usa ese temporizador de 10 min. Hora límite de 11 p. m.: dato operativo conocido; su liberación automática NO está implementada (pendiente técnico); no desaloja una mesa ocupada ni aplica a la VIP pagada. Capacidad de la normal: `NOT DECIDED`.
+- **Mapa y horario**: 20 mesas normales + 2 VIP, sin cambios. Viernes a domingo, 8:30 p. m.–3:00 a. m. de Colombia: horario registrado (N1, `VALIDATED`) y configuración actual del calendario del prototipo, no una imposición nueva al cliente.
+- **VIP** ([pedidos-barra](business-rules/pedidos-barra.md), [beneficios-vip](business-rules/beneficios-vip.md)): prepago de 2.000.000 COP por mesa; hasta 20 personas por mesa y 40 juntas (4M; E2 P9). La unión transaccional indivisible es un criterio técnico futuro, no implementada. Se cobra solo el excedente; el saldo no usado se pierde al terminar esa noche, sin devolución. En cancelación o no llegada, la frontera confirmada es manual: puede acordarse otra noche directamente con la administración (gestión pendiente, sin devolver, vencer ni trasladar automáticamente); los pasos, condiciones y circuito financiero específicos siguen `NOT DECIDED`. 1 botella de champaña y 6 cortesías por mesa, fuera del consumo, que se habilitan tras verificar el prepago y aprobar la reserva. La champaña sale solo con la mesa ocupada y una petición: Barra registra la salida y el mesero confirma la entrega. Caja canjea las cortesías por manillas solo en noche en curso y Barra solo registra ventas y la salida de la champaña (Barra no canjea manillas): restricciones de implementación, no condiciones ratificadas.
+- **Cumpleaños** ([cumpleanos](business-rules/cumpleanos.md)): según las entrevistas (E1 P6, P7; E2 P13); la administración confirma condiciones y decoración antes de abrir; sin beneficios automáticos. Importe, paquete y ventana: `NOT DECIDED`.
+- **Entradas y Promotor** ([entradas](business-rules/entradas.md)): venta con nombre, teléfono y cédula obligatorios; las ventas anteriores cargan sin ellos. El promotor entrega la manilla de su propio lote en cualquier momento, una vez por entrada, con pago comprobado, derecho activo y credencial; no da acceso automático ni hay lector QR. Otros actores (Caja, Seguridad, otro promotor) no tienen esa excepción. Las manillas son físicas, transferibles y no nominativas, y el reingreso se controla con ellas; la edad la comprueba el personal. Fórmula de puntos y vinculación futura: `NOT DECIDED`. Inventario, comisiones, subpromotores, monedero y traslado de consumos: fuera de alcance, no se abren por defecto.
+- **Barra** ([pedidos-barra](business-rules/pedidos-barra.md)): campo «Credencial» (con foco solo al elegir escribir a mano); cliente sin cuenta con datos opcionales y no verificados, separado de la cuenta (`accountId`) y guardado en la venta; «Sin mesa» disponible siempre.
+- **Siguen `NOT DECIDED`**: backend, base de datos, hosting, autenticación, pagos, analytics, CI/CD, macOS, flavors; marca y precio de la champaña; pasos, condiciones y circuito financiero de la cancelación/no-show de la VIP (solo la frontera manual está confirmada); destino de los beneficios no usados al finalizar; corrección de ventas contra el prepago; precios, carta y pagos reales.
 
-- [Beneficios VIP](business-rules/beneficios-vip.md): champaña y cortesías.
-- [Cumpleaños](business-rules/cumpleanos.md).
-- Datos confirmados:
-  - entrevistas: E1 P6 (registro en papel), E1 P7 (las promociones actuales son solo de cumpleaños) y E2 P13 (decoración antes de la apertura, si corresponde);
-  - pedido del usuario de incluir el cumpleaños;
-  - confirmado por el usuario sobre VIP:
-    - 1 botella de champaña por mesa y 6 entradas de cortesía, que se canjean por manillas en taquilla;
-    - las cortesías se canjean tras la verificación del prepago y la aprobación de la reserva;
-    - la champaña sale solo con la mesa ocupada y la petición de la mesa: salida en Barra y entrega del mesero;
-    - prepago de 2.000.000: con un consumo de 2.300.000 solo se cobran 300.000;
-    - el saldo no usado se pierde esa noche, sin devolución;
-    - aplicarlo a otra noche se acuerda directamente con la administración, sin transferencia automática.
-- Decisiones de prototipo, pendientes de validar con el cliente:
-  - cumpleaños: atributo opcional normal/VIP, sus campos y estados; la decoración la marca solo la administración; edición con historial;
-  - champaña: petición también desde la app; permisos resueltos por identidad; un solo evento por reserva/mesa/local/noche, idempotente; reserva terminada sin pasos nuevos.
+## Reglas de trabajo aplicables (CLAUDE.md)
 
-## Pendientes
-
-1. Flujo positivo completo de la champaña en una noche en curso (cliente o mesero → Barra → mesero), en dispositivo.
-2. Vista estrecha con texto grande en el dispositivo. En tests, a 320 px y 2×, las filas de la lista de reservas son más altas que la lista (era así antes de este cambio).
-3. Cámara física, iOS nativo (macOS/Xcode) y Android API 24.
-4. NOT DECIDED:
-   - marca y precio de la champaña;
-   - efecto de terminar la reserva sobre los demás beneficios (no afecta al vencimiento del saldo ni revoca derechos ya otorgados);
-   - correcciones de ventas contra el prepago;
-   - otros cargos que puedan marcar la decoración;
-   - promociones, importes y fechas de cumpleaños.
-
-## Siguiente paso
-
-Bloque nuevo con Sonnet (CLAUDE.md §15): definir con Codex la próxima tarea. Para la QA positiva de la champaña hace falta una noche en curso real, sin falsificar la fecha.
-
-## Bloque funcional y rediseño (2026-10-12)
-
-- Base `870b26a`; entregado en un commit local posterior (sin push). Detalle en [entradas](business-rules/entradas.md) y [pedidos de barra](business-rules/pedidos-barra.md).
-- Hecho: contacto del comprador del promotor; entrega de manilla del promotor en cualquier momento, sin lector QR; «Credencial» con foco al escribir a mano; vacío del selector de mesa explicado; cliente sin cuenta en Barra; texto de champaña de Beneficios VIP.
-- Rediseño compartido hecho: fondo lineal sin bolas, tokens y temas de componentes ([ADR 0005](decisions/0005-sistema-visual-compartido.md)). El mapa no se tocó.
-- Verificado por ejecución (exit 0): `dart format`, `git diff --check`, `flutter analyze` y suite completa 506/506. Revisión visual del render de widgets con datos ficticios y reloj inyectado solo en el montaje del test (no es prueba Android).
-- Bloqueo nativo: la QA en dispositivo de los seis pasos NO se hizo. El emulador `Pixel_7` se encontró cerrado y el sistema denegó arrancarlo; queda para que el usuario lo abra. No hay evidencia nativa de estos cambios.
-- Límites: teclado real, foco, cámara, glass en pantalla real, fuente al 200 % en dispositivo, iOS nativo y Android API 24 siguen sin comprobar.
-
-## Estado de la herramienta
-
-- Modelo activo: Sonnet 5.5.
-- Preferencia persistente local no guardada: el clasificador automático la rechazó; sin reintentos ni cambios de permisos.
+Humanos deciden; Claude no inventa requisitos (§2–3). Sin commit, push, merge ni tag sin aprobación (§7); sin dependencias nuevas (§8). Informar ejecutado, inspeccionado y pendiente (§5). Un bloque, sin subagentes, `rg` y lecturas acotadas; checkpoint al cerrar (§15).

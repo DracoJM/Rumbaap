@@ -1,5 +1,7 @@
 # Seguimiento — cierre de Parte 2 y panel administrador (Parte 3)
 
+> **Nota de vigencia (2026-10-12):** antecedente histórico. Se conserva como registro de la Parte 2 y 3 (rama `feat/admin-reservations-demo`, ya absorbida en `HEAD`) y NO es la orden de trabajo vigente. Para retomar, ver [`continuacion-claude.md`](continuacion-claude.md).
+
 Documento único de checkpoints del encargo del 10 de octubre de 2026. Solo recoge el estado: las decisiones están en `business-rules/`, `decisions/` y `architecture/`. Las horas son de Colombia (UTC−5).
 
 ## Terminado

@@ -95,12 +95,12 @@ Están en la configuración de Sagsa (`lib/features/venues/sagsa/sagsa_config.da
 - **Mesa normal:**
   - Capacidad «Por confirmar».
   - Reserva sin costo ni prepago.
-  - Consumo de referencia de 400.000 COP con tolerancia validada por el personal.
+  - Consumo mínimo de 400.000 COP; la tolerancia la maneja el personal (ver [reglas de reservas](../business-rules/reservas-y-noches.md)). La app no lo cobra ni lo calcula.
   - Confirmación automática al completar la reserva (regla R1). Es información sobre la regla aprobada; el formulario del cliente no está construido.
 - **Mesa VIP:**
   - Hasta 20 personas.
   - Consumo prepagado de 2.000.000 COP por mesa.
-  - Las dos juntas: hasta 40 personas y 4.000.000 COP, como dos mesas.
+  - Las dos juntas: hasta 40 personas y 4.000.000 COP, como dos mesas (E2 P9). Reservar el conjunto de forma indivisible sería un criterio técnico para una unión futura; la unión transaccional no está implementada.
 
 ## Pendiente
 

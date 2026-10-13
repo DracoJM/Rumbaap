@@ -33,6 +33,14 @@
 - **Demo:** la ficha de la entrada muestra un QR real que codifica solo la credencial vigente. Puerta y Caja lo leen con la cámara, que activa el personal con su botón, o escriben la credencial a mano como respaldo. La lectura solo consulta: el primer ingreso y el canje siguen necesitando la confirmación de la persona. Detalle en [QR y cámara](../proposals/qr-escaneable-y-camara.md).
 - **«Mi QR» del cliente:** es el mismo QR real de su entrada de la noche en curso; no hay otro código de cuenta. Con varias entradas propias esa noche, la persona elige cuál mostrar (un QR a la vez; no se crea, fusiona ni transfiere nada, y no implica una política de compras múltiples). La elección se descarta si cambian la cuenta, el local o la noche, o si la entrada deja de estar disponible. Sin entrada, lo dice. Barra lo usa solo para identificar la cuenta (ver [pedidos de barra](pedidos-barra.md)).
 
+## Manillas físicas y credenciales
+
+- La manilla es un objeto físico, distinto de la reserva y de la cuenta: se entrega al comprador, es transferible y no es nominativa (aclaración previa A8 (apartado 6) del contexto maestro de ChatGPT v42, actualizado el 2026-10-11 19:09 (Colombia); fuente indirecta, mensaje original no localizado; verificación documental 2026-10-12). Con ella se controla el reingreso (E1 P43: la manilla, entregada por el promotor o comprada, es lo que permite volver a ingresar; la P44 no tiene respuesta registrada). Una credencial de entrada (QR) y una cuenta de cliente son cosas distintas (ver «Credencial»).
+- La seguridad física y la comprobación de edad las hace el personal en la puerta; la app no sustituye esa comprobación (E1: menores, personas ebrias y documentos falsos son los problemas principales).
+- Las excepciones y devoluciones las autoriza la administración; no son un automatismo bancario (ver «Devoluciones y cambios»).
+- Fuera de alcance, no se abren por defecto: inventario de manillas, comisiones, subpromotores, monedero y traslado de consumos entre mesas.
+- `NOT DECIDED`: fórmula de puntos y vinculación futura de compradores con cuentas.
+
 ## Devoluciones y cambios
 
 - El cliente solicita la devolución o el cambio a otra noche de una entrada activa, sin primer ingreso.
