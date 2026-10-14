@@ -201,9 +201,17 @@ void main() {
         'de una noche sin reservas', (tester) async {
       await pump(tester, venueInstant(2026, 10, 12, 15)); // lunes
       expect(
-        find.textContaining('No hay una noche en curso. Las mesas con reserva'),
+        find.textContaining(
+          'Las mesas con reserva se habilitan durante la noche',
+        ),
         findsOneWidget,
       );
+      // Junto a «Sin mesa» solo una ayuda breve; el horario no se repite.
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('bar-no-tables'))).data,
+        'No hay una noche en curso.',
+      );
+      expect(find.textContaining('8:30 p. m.'), findsOneWidget);
       await pump(tester, venueInstant(2026, 10, 9, 22)); // viernes, sin sembrar
       expect(
         find.text('No hay mesas con reserva confirmada para esta noche.'),

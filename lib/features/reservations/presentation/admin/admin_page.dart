@@ -309,36 +309,63 @@ class _AdminPageState extends State<AdminPage> {
 
   // ---------------------------------------------------------- Listas
 
+  /// Selector de lista. Si los tres segmentos caben, ocupa todo el ancho y
+  /// comparten medida; con texto grande no se reduce ni se parte: la fila se
+  /// desplaza en horizontal en lugar de crecer en alto sobre la lista.
+  Widget _listSelector() {
+    const labels = {
+      AdminList.pending: 'Pendientes',
+      AdminList.reservations: 'Reservas',
+      AdminList.activity: 'Actividad',
+    };
+    final scaler = MediaQuery.textScalerOf(context);
+    final style = Theme.of(context).textTheme.labelLarge;
+    var widest = 0.0;
+    for (final label in labels.values) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+      )..layout();
+      if (painter.width > widest) widest = painter.width;
+      painter.dispose();
+    }
+    // 2 × 12 de relleno interior del segmento más un margen para el borde.
+    final needed = labels.length * (widest + 32);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fits = needed <= constraints.maxWidth - 32;
+        final button = SegmentedButton<AdminList>(
+          key: const ValueKey('admin-list-selector'),
+          showSelectedIcon: false,
+          expandedInsets: fits ? EdgeInsets.zero : null,
+          segments: [
+            for (final e in labels.entries)
+              ButtonSegment(
+                value: e.key,
+                label: Text(e.value, softWrap: false),
+              ),
+          ],
+          selected: {_list},
+          onSelectionChanged: (s) => setState(() => _list = s.first),
+        );
+        const padding = EdgeInsets.fromLTRB(16, 8, 16, 0);
+        if (fits) return Padding(padding: padding, child: button);
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: padding,
+          child: button,
+        );
+      },
+    );
+  }
+
   Widget _listsSection() {
     final body = _listState();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Una línea por segmento: con texto grande la fila se desplaza en
-        // horizontal en lugar de crecer en alto y quitar sitio a la lista.
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: SegmentedButton<AdminList>(
-            showSelectedIcon: false,
-            segments: const [
-              ButtonSegment(
-                value: AdminList.pending,
-                label: Text('Pendientes', softWrap: false),
-              ),
-              ButtonSegment(
-                value: AdminList.reservations,
-                label: Text('Reservas', softWrap: false),
-              ),
-              ButtonSegment(
-                value: AdminList.activity,
-                label: Text('Actividad', softWrap: false),
-              ),
-            ],
-            selected: {_list},
-            onSelectionChanged: (s) => setState(() => _list = s.first),
-          ),
-        ),
+        _listSelector(),
         Expanded(
           // El contexto de dentro del Scaffold del mapa: su relleno inferior
           // incluye la barra de cristal.
@@ -415,19 +442,19 @@ class _AdminPageState extends State<AdminPage> {
             ),
         const SizedBox(height: 12),
         SectionLabel('Mesas normales en proceso', count: inProcess.length),
-        const NoticeBox(
+        // Un solo aviso: la regla de las mesas normales y, si no hay ninguna,
+        // el estado vacío en el mismo bloque.
+        NoticeBox(
           icon: Icons.hourglass_top_rounded,
-          text:
-              'Se confirman solas al completar el trámite o expiran a los '
-              '10 min. No requieren acción del administrador.',
+          text: inProcess.isEmpty
+              ? 'No hay mesas normales en proceso en la noche seleccionada. '
+                    'Se confirman solas al completar el trámite o expiran a '
+                    'los 10 min; no requieren acción del administrador.'
+              : 'Se confirman solas al completar el trámite o expiran a los '
+                    '10 min. No requieren acción del administrador.',
         ),
         const SizedBox(height: 8),
-        if (inProcess.isEmpty)
-          const NoticeBox(
-            icon: Icons.inbox_outlined,
-            text: 'No hay mesas normales en proceso en la noche seleccionada.',
-          )
-        else
+        if (inProcess.isNotEmpty)
           for (final r in inProcess)
             ReservationTile(
               key: ValueKey('pending-${r.id}'),

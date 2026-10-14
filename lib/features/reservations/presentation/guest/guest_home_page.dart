@@ -242,7 +242,11 @@ class _GuestHomePageState extends State<GuestHomePage> {
           if (widget.store != null)
             GlassTab(
               icon: Icons.event_note_outlined,
-              label: 'Mis reservas',
+              // Texto breve para que ninguna etiqueta ocupe dos líneas; el
+              // lector de pantalla sigue anunciando «Mis reservas».
+              label: 'Reservas',
+              id: 'Mis reservas',
+              semanticLabel: 'Mis reservas',
               selected: _section == _GuestSection.mine,
               onTap: () => setState(() => _section = _GuestSection.mine),
             ),

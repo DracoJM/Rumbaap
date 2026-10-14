@@ -5,6 +5,8 @@ import '../../../app/app_theme.dart';
 /// Piezas de la pantalla del mapa compartidas por la consulta pública y la
 /// vista del administrador.
 
+/// Aviso informativo, no de advertencia: tono neutro para que no compita con
+/// el título ni con los avisos operativos (que conservan su énfasis).
 class DemoDataTag extends StatelessWidget {
   const DemoDataTag({super.key, this.text = 'Datos de demostración'});
 
@@ -18,7 +20,7 @@ class DemoDataTag extends StatelessWidget {
         const Icon(
           Icons.info_outline_rounded,
           size: 13,
-          color: AppColors.amber,
+          color: AppColors.textMuted,
         ),
         const SizedBox(width: 4),
         // El aviso se lee entero: con texto grande pasa a varias líneas.
@@ -27,7 +29,7 @@ class DemoDataTag extends StatelessWidget {
             text,
             style: Theme.of(
               context,
-            ).textTheme.labelSmall?.copyWith(color: AppColors.amberSoft),
+            ).textTheme.labelSmall?.copyWith(color: AppColors.textMuted),
           ),
         ),
       ],

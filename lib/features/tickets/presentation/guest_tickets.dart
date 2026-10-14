@@ -148,6 +148,12 @@ class _GuestTicketsState extends State<GuestTickets> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(product.name, style: theme.textTheme.titleMedium),
+                      // La etiqueta flotante «Noche» sobresale por encima del
+                      // campo: el hueco crece con el tamaño del texto para que
+                      // nunca pise el título.
+                      SizedBox(
+                        height: 8 + MediaQuery.textScalerOf(context).scale(8),
+                      ),
                       DropdownButtonFormField<Night>(
                         key: const ValueKey('ticket-night'),
                         initialValue: _night,

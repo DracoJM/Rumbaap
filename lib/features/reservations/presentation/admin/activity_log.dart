@@ -163,8 +163,12 @@ class _ActivityLogState extends State<ActivityLog> {
           key: const ValueKey('activity-search'),
           controller: _search,
           onChanged: (_) => setState(() {}),
+          // Etiqueta breve (cabe en una línea con texto ampliado) y los
+          // criterios de búsqueda en la ayuda, que puede ocupar varias líneas.
           decoration: const InputDecoration(
-            labelText: 'Buscar por mesa, ID de reserva o titular',
+            labelText: 'Buscar',
+            helperText: 'Por mesa, ID de reserva o titular',
+            helperMaxLines: 3,
             prefixIcon: Icon(Icons.search_rounded),
           ),
         ),

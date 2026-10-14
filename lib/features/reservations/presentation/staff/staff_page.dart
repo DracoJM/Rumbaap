@@ -246,8 +246,12 @@ class _StaffPageState extends State<StaffPage> {
             key: const ValueKey('staff-search'),
             controller: _search,
             onChanged: (_) => setState(() {}),
+            // Etiqueta breve (cabe con texto ampliado); los criterios van en
+            // la ayuda, que puede ocupar varias líneas.
             decoration: const InputDecoration(
-              labelText: 'Buscar por mesa, titular o ID de reserva',
+              labelText: 'Buscar',
+              helperText: 'Por mesa, titular o ID de reserva',
+              helperMaxLines: 3,
               prefixIcon: Icon(Icons.search_rounded),
             ),
           ),

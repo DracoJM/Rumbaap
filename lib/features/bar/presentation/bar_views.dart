@@ -549,12 +549,18 @@ class _BarDeskState extends State<BarDesk> {
               style: _muted(context),
             ),
             if (night == null)
+              // Un solo aviso fuera de noche: incluye por qué no hay mesas con
+              // reserva para elegir, en lugar de repetirlo junto al selector.
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: NoticeBox(
+                  key: ValueKey('bar-no-night'),
                   icon: Icons.schedule_rounded,
                   color: AppColors.amber,
-                  text: 'No hay una noche en curso: no se registran ventas.',
+                  text:
+                      'No hay una noche en curso: no se registran ventas. Las '
+                      'mesas con reserva se habilitan durante la noche (8:30 '
+                      'p. m. – 3:00 a. m., hora de Colombia).',
                 ),
               ),
             if (champagne.isNotEmpty) ...[
@@ -615,14 +621,14 @@ class _BarDeskState extends State<BarDesk> {
               ],
               onChanged: (v) => setState(() => _reservationId = v),
             ),
+            // Ayuda breve donde el operador elige la mesa; el horario y la
+            // restricción de ventas están solo en el aviso de arriba.
             if (tonight.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
                   night == null
-                      ? 'No hay una noche en curso. Las mesas con reserva se '
-                            'habilitan durante la noche (8:30 p. m. – 3:00 '
-                            'a. m., hora de Colombia).'
+                      ? 'No hay una noche en curso.'
                       : 'No hay mesas con reserva confirmada para esta noche.',
                   key: const ValueKey('bar-no-tables'),
                   style: _muted(context),

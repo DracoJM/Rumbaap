@@ -13,6 +13,8 @@ Detalle que NO se carga al retomar. La entrada es [`../continuacion-claude.md`](
 | `rumbaap-1279f61-release.apk` | 67 290 550 bytes, SHA-256 `b683a3f9b4bae13a5fb59dc76897b269bb953a940254fa52cddcf4b9c1a66856`. |
 | Firma y paquete | `com.rumbaap.app` 1.0.0, firmadas con la clave de debug: sirven para la demostración, no para distribuir. Sin `RUMBAAP_DEMO_NOW`. El debug se compiló antes del commit y desde entonces no cambió código; la release corresponde al árbol `42215944b125`. |
 | Entrega anterior | `C:\Users\draco\Downloads\rumbaap-0b2324b\` (debug y profile del commit `0b2324b`) y su QA nativa. No se toca. |
+| **Incremento visual actual** | Commit local posterior a `491028c` (su hash se comprueba con `git log --oneline -3`; no se escribe aquí). Fuente de la compilación: `491028c` más el diff de 13 archivos, antes de confirmarlo. Parche archivado: `C:\Users\draco\Downloads\rumbaap-diseno-2026-10-14-d\fuente-diff-sin-commit.patch` (SHA-256 `bac505f50c41acb810efe0866b62966565d8d1d091b3b4b394d74e0bf2f12c3e`; incluye los docs tal como estaban al compilar, no los definitivos). |
+| APK del incremento | `rumbaap-diseno-491028c+diff-d-debug.apk`: 177 291 443 B, SHA-256 `5216a2841a90320eab47b37c7205dad44c847fdf3fe9d71e36f5fe3f08421667`; `com.rumbaap.app` 1.0.0, minSdk 24, firma de debug. Compilado con límites temporales de Gradle verificados en la JVM propia (`-Xmx1024m`, metaspace 384m, code cache 128m). Candidatos previos conservados: `rumbaap-diseno-2026-10-14` (`712a1063…`), `-b` (`05201a03…`) y `-c` (`aef90a49…`). Entrega externa: `C:\Users\draco\Downloads\rumbaap-<hash-corto-del-commit>\` (`entrega.txt`). |
 | Otros APK y carpetas | Entregas anteriores en `C:\Users\draco\Downloads\` (`rumbaap-<hash>-debug/profile.apk`, `Rumbaap-P25-…`, `Rumbaap-P26-…`). Solo historia. |
 
 ## 2. Evidencia aprobada y pendiente
@@ -22,8 +24,21 @@ Detalle que NO se carga al retomar. La entrada es [`../continuacion-claude.md`](
 | `dart format`, `git diff --check`, `flutter analyze` y suite completa 506/506 | Ejecutado (exit 0) antes del commit `1279f61`. Los 31 de `map_interactions_test` (barra inferior) ya están incluidos en los 506; no se suman. Los 142 «acotados» fueron de un bloque previo. | Registro en `entrega.txt` y en el commit. |
 | 18 capturas de render de widgets | SOLO render de widget con datos ficticios y reloj inyectado en el montaje del test. No son QA Android. Límites: las etiquetas pintadas con `TextPainter` del mapa (IDs de mesas y VIP) salen como rectángulos Ahem, así que no son fieles al mapa; la barra inferior se desplaza en horizontal de forma intencional cuando no caben las secciones (con Roboto, 5 secciones miden 267 dp frente a 337 disponibles a 393 dp). | `C:\Users\draco\Downloads\rumbaap-qa-widgets-2026-10-12\` |
 | QA nativa del bloque `0b2324b` (Android, Pixel_7, 2026-10-12) | Ejecutada y anterior: cumpleaños, persistencia tras `force-stop`, champaña solo con bloqueo fuera de horario. 16 PNG, `logcat.txt`, `emu_out.log`, `emu_err.log`. | `C:\Users\draco\Downloads\rumbaap-0b2324b\qa-nativa-2026-10-12\` |
-| QA nativa del bloque `1279f61` | NINGÚN paso se hizo. | — |
-| Pendientes en dispositivo | Teclado y foco de «Credencial», cancelar el lector, formularios con teclado, venta y entrega del promotor fuera de fecha, Barra sin cuenta y motivos de «Sin mesa», persistencia, vista a 320 dp / texto 200 %, cámara, iOS nativo, Android API 24, flujo positivo de VIP, cortesías, llegada y champaña en una noche en curso. | `continuacion-claude.md` |
+| QA nativa de navegación de `1279f61` | Ejecutada (solo navegación, no QA funcional): Inicio, mapa cliente, Más, Promotor, Barra y Admin con el APK debug de `1279f61`. | `C:\Users\draco\Downloads\rumbaap-qa-diseno-2026-10-14\02-base-1279f61-*.png` |
+| Checks del incremento actual | `dart format`, `flutter analyze` y `git diff --check` sin incidencias. Suite completa **527/527** (una vez) **antes** del último ajuste pequeño (búsqueda de Personal); después, solo `shared_design_test` y `guest_reservation_test`: **103/103**. No son sumables ni hay suite completa posterior. | Esta sección y `continuacion-claude.md` |
+| QA nativa del incremento actual (Android, `Pixel_7`) | Ejecutada con el APK final y los intermedios: mapa, mesa abrir/cerrar, Más, Promotor (obligatorios, venta C1, pago, entrega única, persistencia tras `force-stop`), Admin, Barra («Escribir la credencial», cerrar el lector, cliente con/sin cuenta), Personal, 411 dp y 320 dp / texto 2.0, defectos de barra y de búsqueda reprobados. Densidad y `font_scale` restaurados. Datos ficticios; C1 conservada. | `03-nuevo-*`, `04-320-*`, `05-*`, `06-*`, `07-*`, `08-qty-*`, `09-320-fix-*`, `10-320-*`, `11-320-fix-*` y capturas finales, en `C:\Users\draco\Downloads\rumbaap-qa-diseno-2026-10-14\`; registros en `rumbaap-diseno-2026-10-14` y sus sufijos `-b`, `-c`, `-d` |
+| Pendientes en dispositivo | Flujo positivo de VIP, cortesías, llegada, consumo y champaña en una noche en curso real; iOS nativo (macOS/Xcode); Android API 24; cámara física (el lector solo se vio con la escena virtual del emulador). | `continuacion-claude.md` |
+
+## 2b. Fuentes primarias del incremento visual (ADR 0005)
+
+- Apple, Meet Liquid Glass (WWDC25): https://developer.apple.com/videos/play/wwdc2025/219/
+- Linear, A calmer interface for a product in motion (2026-03-12): https://linear.app/now/behind-the-latest-design-refresh
+- Google Design, investigación M3 Expressive: https://design.google/library/expressive-material-design-google-research
+- Flutter, accesibilidad y estilo de la interfaz: https://docs.flutter.dev/ui/accessibility/ui-design-and-styling
+- Flutter, tipografía: https://docs.flutter.dev/ui/design/text/typography
+- Gradle, entorno de compilación (opciones temporales del build): https://docs.gradle.org/current/userguide/build_environment.html
+
+Son principios, no copia ni «Liquid Glass» nativo en Flutter.
 
 ## 3. Fuentes externas (fuera del repo, en `C:\Users\draco\Downloads\`)
 
@@ -76,7 +91,7 @@ Citas verificadas el 2026-10-12 (solo respuestas necesarias, sin datos personale
 | Capacidad de la mesa normal; pasos, condiciones y circuito financiero de la cancelación/no-show de la VIP (solo está confirmada la frontera manual); destino de los beneficios no usados al finalizar | reservas-y-noches y beneficios-vip (sin decisión) |
 | Fuera de alcance, no se abren por defecto: inventario, comisiones, subpromotores, monedero y traslado de consumos. Sin definir (`NOT DECIDED`): fórmula de puntos y vinculación futura con cuentas | entradas |
 
-## 6. Código y pruebas por tema (31 archivos de test, 506 pruebas)
+## 6. Código y pruebas por tema (31 archivos de test; 506 pruebas en `1279f61` y 527 en la última suite completa del incremento actual)
 
 | Tema | Código | Pruebas |
 |---|---|---|

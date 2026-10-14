@@ -41,30 +41,59 @@ class SessionPanel extends StatelessWidget {
           'Sesión de demostración',
           style: theme.textTheme.titleMedium?.copyWith(color: AppColors.text),
         ),
-        const SizedBox(height: 8),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.badge_outlined, color: venue.vip),
-          title: Text(
-            identity.name,
-            style: const TextStyle(color: AppColors.text),
-          ),
-          subtitle: Text(
-            identity.profile.label,
-            style: TextStyle(color: AppColors.textMuted),
-          ),
-        ),
-        Text(
-          'Identidad ficticia, sin contraseña ni autenticación real.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.textMuted,
+        const SizedBox(height: 12),
+        // La identidad y su aviso van juntos en una sola tarjeta: el nombre
+        // es lo principal y el aviso queda como texto de apoyo.
+        Card(
+          key: const ValueKey('session-identity'),
+          color: AppColors.surface,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.badge_outlined, color: venue.vip),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            identity.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: AppColors.text,
+                            ),
+                          ),
+                          Text(
+                            identity.profile.label,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Identidad ficticia, sin contraseña ni autenticación real.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         for (final w in extras) ...[const SizedBox(height: 12), w],
-        const SizedBox(height: 16),
-        FilledButton.icon(
+        const SizedBox(height: 24),
+        // Acción secundaria: cambiar de identidad no es la tarea principal.
+        OutlinedButton.icon(
           key: const ValueKey('switch-identity'),
-          style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
+          style: OutlinedButton.styleFrom(minimumSize: const Size(0, 52)),
           onPressed: () => switchIdentity(context),
           icon: const Icon(Icons.switch_account_outlined),
           label: const Text('Cambiar identidad'),

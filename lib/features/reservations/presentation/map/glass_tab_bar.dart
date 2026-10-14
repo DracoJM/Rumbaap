@@ -10,6 +10,8 @@ class GlassTab {
   const GlassTab({
     required this.icon,
     required this.label,
+    this.id,
+    this.semanticLabel,
     this.selected = false,
     this.badge = 0,
     this.onTap,
@@ -17,6 +19,14 @@ class GlassTab {
 
   final IconData icon;
   final String label;
+
+  /// Identificador estable de la sección (clave de pruebas); por defecto, la
+  /// etiqueta. Permite acortar el texto visible sin cambiar la sección.
+  final String? id;
+
+  /// Nombre completo para el lector de pantalla cuando la etiqueta visible es
+  /// una forma breve («Reservas» → «Mis reservas»).
+  final String? semanticLabel;
   final bool selected;
 
   /// Aviso numérico, por ejemplo pagos VIP por verificar; 0 = ninguno.
@@ -25,7 +35,7 @@ class GlassTab {
 }
 
 /// Barra inferior de cristal de la maqueta v7.
-class GlassTabBar extends StatelessWidget {
+class GlassTabBar extends StatefulWidget {
   const GlassTabBar({super.key, required this.tabs});
 
   /// Texto bajo las secciones todavía sin pantalla.
@@ -43,47 +53,7 @@ class GlassTabBar extends StatelessWidget {
   static const _itemPadding = 4.0;
 
   @override
-  Widget build(BuildContext context) {
-    // Respeta el tamaño de texto del sistema: si las secciones no caben en
-    // una fila a esa escala, la fila se desplaza en horizontal en lugar de
-    // reducir el texto, ocultar etiquetas o crecer en alto sobre el plano.
-    final scaler = MediaQuery.textScalerOf(context);
-    return GlassPanel(
-      radius: 28,
-      blur: 20,
-      saturation: 1.6,
-      tint: const [0.1, 0.1],
-      borderAlpha: 0.16,
-      highlightAlpha: 0.35,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            Widget item(GlassTab tab) =>
-                _TabItem(key: ValueKey('tab-${tab.label}'), tab: tab);
-            final itemWidth = itemWidthFor(tabs, scaler: scaler);
-            if (itemWidth * tabs.length <= constraints.maxWidth) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [for (final tab in tabs) Expanded(child: item(tab))],
-              );
-            }
-            return SingleChildScrollView(
-              key: const ValueKey('tab-bar-scroll'),
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final tab in tabs)
-                    SizedBox(width: itemWidth, child: item(tab)),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
+  State<GlassTabBar> createState() => _GlassTabBarState();
 
   /// Ancho de cada sección para que ninguna palabra de sus textos se parta
   /// a la escala de texto efectiva.
@@ -112,6 +82,115 @@ class GlassTabBar extends StatelessWidget {
   }
 }
 
+class _GlassTabBarState extends State<GlassTabBar> {
+  final _scroll = ScrollController();
+
+  /// Selección y medidas con las que se reveló por última vez. Solo un
+  /// cambio en alguna de ellas vuelve a desplazar la fila: el desplazamiento
+  /// manual del usuario no se pisa mientras todo siga igual.
+  ({int selected, double itemWidth, double viewport})? _revealed;
+  bool _firstReveal = true;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Deja la sección seleccionada entera a la vista cuando la fila se
+  /// desplaza. Se calcula con la medida fija de cada sección y se mueve solo
+  /// esta fila (no `Scrollable.ensureVisible`, que también movería los
+  /// contenedores desplazables que la rodean).
+  void _scheduleReveal(int selected, double itemWidth, double viewport) {
+    final next = (selected: selected, itemWidth: itemWidth, viewport: viewport);
+    if (next == _revealed) return;
+    _revealed = next;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients || selected < 0) return;
+      final position = _scroll.position;
+      final left = selected * itemWidth;
+      final right = left + itemWidth;
+      if (left >= position.pixels &&
+          right <= position.pixels + position.viewportDimension) {
+        _firstReveal = false;
+        return;
+      }
+      final target = (left - (position.viewportDimension - itemWidth) / 2)
+          .clamp(position.minScrollExtent, position.maxScrollExtent);
+      if (_firstReveal || MediaQuery.disableAnimationsOf(context)) {
+        _scroll.jumpTo(target);
+      } else {
+        _scroll.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+        );
+      }
+      _firstReveal = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = widget.tabs;
+    // Respeta el tamaño de texto del sistema: si las secciones no caben en
+    // una fila a esa escala, la fila se desplaza en horizontal en lugar de
+    // reducir el texto, ocultar etiquetas o crecer en alto sobre el plano.
+    final scaler = MediaQuery.textScalerOf(context);
+    return GlassPanel(
+      radius: 28,
+      blur: 20,
+      saturation: 1.6,
+      tint: const [0.1, 0.1],
+      borderAlpha: 0.16,
+      highlightAlpha: 0.35,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            Widget item(GlassTab tab) =>
+                _TabItem(key: ValueKey('tab-${tab.id ?? tab.label}'), tab: tab);
+            final itemWidth = GlassTabBar.itemWidthFor(tabs, scaler: scaler);
+            if (itemWidth * tabs.length <= constraints.maxWidth) {
+              // Sin desplazamiento: al volver a necesitarlo se revela de nuevo.
+              _revealed = null;
+              // Todas las secciones miden lo mismo (la más alta): iconos y
+              // etiquetas quedan alineados aunque una ocupe dos líneas.
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final tab in tabs) Expanded(child: item(tab)),
+                  ],
+                ),
+              );
+            }
+            _scheduleReveal(
+              tabs.indexWhere((t) => t.selected),
+              itemWidth,
+              constraints.maxWidth,
+            );
+            return SingleChildScrollView(
+              key: const ValueKey('tab-bar-scroll'),
+              controller: _scroll,
+              scrollDirection: Axis.horizontal,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final tab in tabs)
+                      SizedBox(width: itemWidth, child: item(tab)),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _TabItem extends StatelessWidget {
   const _TabItem({super.key, required this.tab});
 
@@ -120,6 +199,7 @@ class _TabItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = tab.onTap != null;
+    final name = tab.semanticLabel ?? tab.label;
     final ink = tab.selected
         ? NightNeutrals.white
         : NightNeutrals.glass(enabled ? 0.65 : 0.32);
@@ -128,10 +208,8 @@ class _TabItem extends StatelessWidget {
       enabled: enabled,
       selected: tab.selected,
       label: enabled
-          ? (tab.badge > 0
-                ? '${tab.label}, ${tab.badge} por revisar'
-                : tab.label)
-          : '${tab.label}, ${GlassTabBar.pendingNote.toLowerCase()}',
+          ? (tab.badge > 0 ? '$name, ${tab.badge} por revisar' : name)
+          : '$name, ${GlassTabBar.pendingNote.toLowerCase()}',
       excludeSemantics: true,
       onTap: tab.onTap,
       child: GestureDetector(
@@ -151,7 +229,7 @@ class _TabItem extends StatelessWidget {
               : null,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Badge.count(
                 count: tab.badge,
