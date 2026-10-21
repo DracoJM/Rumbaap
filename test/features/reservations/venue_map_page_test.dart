@@ -483,6 +483,7 @@ void main() {
         latency: Duration.zero,
         clock: () => now,
       );
+      allowDemoReservationActions(store.book);
       await _openMap(tester, repository: store, clock: () => now);
       expect(find.text('Vie 9 oct'), findsOneWidget);
       expect(
@@ -521,7 +522,7 @@ void main() {
           .forNight(Night(DateTime.utc(2026, 10, 9)))
           .firstWhere((r) => r.status == ReservationStatus.confirmed);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      store.book.markArrival(reserved.id);
+      store.book.markArrival(reserved.id, actorId: 'admin-1');
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
       expect(_statusOf(tester, reserved.tableId), TableMapStatus.occupied);
@@ -538,6 +539,7 @@ void main() {
           latency: Duration.zero,
           clock: () => now,
         );
+        allowDemoReservationActions(store.book);
         await _openMap(tester, repository: store, clock: () => now);
         final inProcess = store.book
             .forNight(Night(DateTime.utc(2026, 10, 9)))
@@ -559,16 +561,18 @@ void main() {
         latency: Duration.zero,
         clock: fixedClock,
       );
+      allowDemoReservationActions(store.book);
       await _openMap(tester, repository: store);
       final friday = Night(DateTime.utc(2026, 10, 9));
       final reserved = store.book
           .forNight(friday)
           .firstWhere((r) => r.status == ReservationStatus.confirmed);
-      store.book.revoke(reserved.id);
+      store.book.revoke(reserved.id, actorId: 'admin-1');
       final free = sagsaVenue.tables.firstWhere(
         (t) => store.book.activeFor(friday, t.id) == null,
       );
       store.book.createDirect(
+        actorId: 'admin-1',
         night: friday,
         tableId: free.id,
         holder: const ReservationHolder(

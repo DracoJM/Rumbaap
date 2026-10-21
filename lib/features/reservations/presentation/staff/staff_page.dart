@@ -131,8 +131,11 @@ class _StaffPageState extends State<StaffPage> {
     if (ok != true || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      // El libro vuelve a comprobar estado y horario (R5, N6).
-      widget.store.perform((b) => b.markArrival(r.id));
+      // El libro vuelve a comprobar estado, horario (R5, N6) y el cargo de
+      // la identidad activa, que queda en el historial.
+      widget.store.perform(
+        (b) => b.markArrival(r.id, actorId: widget.identity.id),
+      );
       messenger.showSnackBar(
         SnackBar(content: Text('Llegada registrada: $table queda ocupada.')),
       );

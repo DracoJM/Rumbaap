@@ -459,8 +459,10 @@ void main() {
 
     test('el libro de un local rechaza mesas de otro', () {
       final book = ReservationBook(venue: _otherVenue, clock: fixedClock);
+      allowDemoReservationActions(book);
       expect(
         () => book.createDirect(
+          actorId: 'admin-1',
           night: _friday,
           tableId: 'M01',
           holder: const ReservationHolder(name: 'X', idNumber: '1', phone: '1'),

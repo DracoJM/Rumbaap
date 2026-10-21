@@ -131,7 +131,7 @@ class _GuestHomePageState extends State<GuestHomePage> {
                 night: night,
                 tableId: table.id,
                 origin: _origin,
-                createdBy: widget.identity.id,
+                actorId: widget.identity.id,
               ),
             )
             .id;

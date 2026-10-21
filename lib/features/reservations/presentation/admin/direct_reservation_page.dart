@@ -24,11 +24,16 @@ class DirectReservationPage extends StatefulWidget {
     required this.store,
     required this.night,
     required this.table,
+    required this.actorId,
   });
 
   final DemoReservationStore store;
   final Night night;
   final VenueTable table;
+
+  /// Identidad activa, que el libro autoriza y guarda como actor del alta.
+  /// Vacía si no hay identidad: el libro la rechaza.
+  final String actorId;
 
   @override
   State<DirectReservationPage> createState() => _DirectReservationPageState();
@@ -237,6 +242,7 @@ class _DirectReservationPageState extends State<DirectReservationPage> {
           // Se adjudica a una cuenta ficticia solo por cédula exacta (R12).
           linkedAccountId: DemoIdentities.accountByIdNumber(idNumber)?.id,
           birthday: _birthday.value,
+          actorId: widget.actorId,
         ),
       );
       showResultMessage(

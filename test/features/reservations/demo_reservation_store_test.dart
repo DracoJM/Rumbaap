@@ -8,11 +8,15 @@ import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'fakes.dart';
 
 void main() {
-  DemoReservationStore storeAt(DateTime instant) => DemoReservationStore(
-    venue: sagsaVenue,
-    latency: Duration.zero,
-    clock: () => instant,
-  );
+  DemoReservationStore storeAt(DateTime instant) {
+    final store = DemoReservationStore(
+      venue: sagsaVenue,
+      latency: Duration.zero,
+      clock: () => instant,
+    );
+    allowDemoReservationActions(store.book);
+    return store;
+  }
 
   Future<List<TableAvailability?>> statuses(
     DemoReservationStore store,
@@ -60,6 +64,18 @@ void main() {
     expect(during, contains(TableAvailability.occupied));
   });
 
+  test('las llegadas sembradas no inventan quién las registró', () async {
+    final store = storeAt(venueInstant(2026, 10, 9, 23));
+    await store.availabilityFor(friday);
+    final arrivals = [
+      for (final r in store.book.forNight(friday))
+        for (final e in r.history)
+          if (e.type == ReservationEventType.arrived) e,
+    ];
+    expect(arrivals, isNotEmpty);
+    expect(arrivals.map((e) => e.actorId), everyElement(isNull));
+  });
+
   test('el mapa lee la misma fuente que las operaciones de reserva', () async {
     final store = storeAt(fixedClock());
     await store.availabilityFor(friday);
@@ -67,6 +83,7 @@ void main() {
       (t) => store.book.activeFor(friday, t.id) == null,
     );
     store.book.createDirect(
+      actorId: 'admin-1',
       night: friday,
       tableId: free.id,
       holder: const ReservationHolder(
@@ -103,6 +120,7 @@ void main() {
       latency: Duration.zero,
       clock: () => now,
     );
+    allowDemoReservationActions(store.book);
     final first = await store.availabilityFor(friday);
     expect(first.refreshAt, now.add(const Duration(minutes: 10)));
     final table = store.book
@@ -124,7 +142,7 @@ void main() {
     final r = store.book
         .forNight(friday)
         .firstWhere((r) => r.status == ReservationStatus.confirmed);
-    store.book.revoke(r.id);
+    store.book.revoke(r.id, actorId: 'admin-1');
     await store.availabilityFor(friday);
     expect(store.book.forNight(friday), hasLength(count));
     expect(store.book.byId(r.id)!.status, ReservationStatus.revoked);
@@ -144,6 +162,7 @@ void main() {
       final created = [
         for (final (i, t) in normals.indexed)
           store.book.createDirect(
+            actorId: 'admin-1',
             night: night,
             tableId: t.id,
             holder: ReservationHolder(
@@ -153,8 +172,8 @@ void main() {
             ),
           ),
       ];
-      store.book.revoke(created[0].id);
-      store.book.release(created[1].id);
+      store.book.revoke(created[0].id, actorId: 'admin-1');
+      store.book.release(created[1].id, actorId: 'admin-1');
       final before = {
         for (final r in store.book.forNight(night))
           r.id: (r.tableId, r.holder!.name, r.status, events(r)),
@@ -179,6 +198,7 @@ void main() {
       final busy = Night(DateTime.utc(2026, 10, 16));
       final fresh = Night(DateTime.utc(2026, 10, 17));
       store.book.createDirect(
+        actorId: 'admin-1',
         night: busy,
         tableId: sagsaVenue.tables.first.id,
         holder: const ReservationHolder(

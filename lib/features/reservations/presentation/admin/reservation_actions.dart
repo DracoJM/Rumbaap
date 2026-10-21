@@ -19,20 +19,25 @@ import 'admin_widgets.dart';
 /// Cada acción conserva el ID de la reserva: su mesa y su noche no dependen
 /// de lo que se esté mostrando. Tras cada confirmación se comprueba que la
 /// reserva siga exactamente en el estado en que se abrió el recorrido, y el
-/// libro vuelve a validar la operación; si algo cambió, no se hace nada y se
-/// explica.
+/// libro vuelve a validar la operación y el permiso de la identidad activa;
+/// si algo cambió, no se hace nada y se explica.
 class ReservationActions extends StatefulWidget {
   const ReservationActions({
     super.key,
     required this.reservation,
     required this.store,
     required this.clock,
+    required this.actorId,
     this.enabled = true,
   });
 
   final Reservation reservation;
   final DemoReservationStore store;
   final Clock clock;
+
+  /// Identidad activa, que el libro autoriza y guarda en el historial. Sin
+  /// ella no se ofrece ninguna acción.
+  final String? actorId;
 
   /// `false` mientras la vista se actualiza tras un cambio.
   final bool enabled;
@@ -51,7 +56,7 @@ class _ReservationActionsState extends State<ReservationActions> {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = widget.enabled && !_busy;
+    final enabled = widget.enabled && !_busy && widget.actorId != null;
     final venueNow = VenueTime.of(widget.clock());
     return switch (r.status) {
       ReservationStatus.pendingPayment => _column([
@@ -169,7 +174,8 @@ class _ReservationActionsState extends State<ReservationActions> {
         confirmLabel: 'Confirmar prepago',
       ),
     ],
-    operation: (book, id) => book.markPrepaymentReceived(id),
+    operation: (book, id, actor) =>
+        book.markPrepaymentReceived(id, actorId: actor),
     success:
         'Prepago confirmado: ${r.tableIn(widget.store.venue).displayName} queda reservada para el '
         '${r.night.label.toLowerCase()}.',
@@ -186,7 +192,7 @@ class _ReservationActionsState extends State<ReservationActions> {
         destructive: true,
       ),
     ],
-    operation: (book, id) => book.rejectRequest(id),
+    operation: (book, id, actor) => book.rejectRequest(id, actorId: actor),
     success:
         'Solicitud rechazada: ${r.tableIn(widget.store.venue).displayName} queda disponible para el '
         '${r.night.label.toLowerCase()}.',
@@ -202,7 +208,7 @@ class _ReservationActionsState extends State<ReservationActions> {
         confirmLabel: 'Registrar llegada',
       ),
     ],
-    operation: (book, id) => book.markArrival(id),
+    operation: (book, id, actor) => book.markArrival(id, actorId: actor),
     success:
         'Llegada registrada: ${r.tableIn(widget.store.venue).displayName} queda ocupada.',
   );
@@ -218,7 +224,7 @@ class _ReservationActionsState extends State<ReservationActions> {
         destructive: true,
       ),
     ],
-    operation: (book, id) => book.revoke(id),
+    operation: (book, id, actor) => book.revoke(id, actorId: actor),
     success:
         'Reserva revocada: ${r.tableIn(widget.store.venue).displayName} queda disponible para el '
         '${r.night.label.toLowerCase()}.',
@@ -243,7 +249,7 @@ class _ReservationActionsState extends State<ReservationActions> {
         destructive: true,
       ),
     ],
-    operation: (book, id) => book.release(id),
+    operation: (book, id, actor) => book.release(id, actorId: actor),
     success:
         'Uso finalizado: ${r.tableIn(widget.store.venue).displayName} queda '
         'disponible para el ${r.night.label.toLowerCase()}.',
@@ -251,7 +257,8 @@ class _ReservationActionsState extends State<ReservationActions> {
 
   Future<void> _run({
     required List<_Step> steps,
-    required Reservation Function(ReservationBook book, String id) operation,
+    required Reservation Function(ReservationBook book, String id, String actor)
+    operation,
     required String success,
   }) async {
     if (_busy) return;
@@ -261,6 +268,10 @@ class _ReservationActionsState extends State<ReservationActions> {
     // de una mesa Ocupada), aunque la operación admita otros (I13).
     final id = r.id;
     final status = r.status;
+    // También la identidad: la que abrió el recorrido es la que se autoriza
+    // y queda en el historial.
+    final actor = widget.actorId;
+    if (actor == null) return;
     setState(() => _busy = true);
     try {
       for (final step in steps) {
@@ -268,7 +279,7 @@ class _ReservationActionsState extends State<ReservationActions> {
         if (!_stillIn(id, status, messenger)) return;
       }
       try {
-        widget.store.perform((book) => operation(book, id));
+        widget.store.perform((book) => operation(book, id, actor));
         showResultMessage(messenger, success);
       } on ReservationException catch (e) {
         showResultMessage(messenger, actionErrorMessage(e.error), error: true);

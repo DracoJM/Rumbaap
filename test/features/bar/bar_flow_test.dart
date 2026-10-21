@@ -249,7 +249,9 @@ void main() {
         .forNight(_friday)
         .firstWhere((r) => venue.tableById(r.tableId)!.isVip);
     if (vip.status == ReservationStatus.pendingPayment) {
-      store.perform((b) => b.markPrepaymentReceived(vip.id));
+      store.perform(
+        (b) => b.markPrepaymentReceived(vip.id, actorId: 'admin-1'),
+      );
     }
     final regular = store.book
         .forNight(_friday)

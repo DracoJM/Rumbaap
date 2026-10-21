@@ -165,7 +165,9 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     if (leave != true) return false;
     final id = widget.reservationId!;
     try {
-      widget.store.perform((b) => b.cancelInProcess(id));
+      widget.store.perform(
+        (b) => b.cancelInProcess(id, actorId: widget.identity.id),
+      );
     } on ReservationException {
       // Ya no estaba En proceso (venció o se envió): no hay nada que cancelar.
     }
@@ -209,6 +211,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
                 holder: holder,
                 linkedAccountId: linked,
                 birthday: _birthday.value,
+                actorId: widget.identity.id,
               )
             : b.submitVip(
                 night: widget.night,
@@ -217,7 +220,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
                 origin: _isClient
                     ? ReservationOrigin.client
                     : ReservationOrigin.promoter,
-                createdBy: widget.identity.id,
+                actorId: widget.identity.id,
                 linkedAccountId: linked,
                 birthday: _birthday.value,
               ),

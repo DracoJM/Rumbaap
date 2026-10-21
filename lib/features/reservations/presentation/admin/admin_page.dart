@@ -122,6 +122,7 @@ class _AdminPageState extends State<AdminPage> {
             store: widget.store,
             night: night,
             table: table,
+            actorId: widget.identity?.id ?? '',
           ),
         ),
       );
@@ -303,6 +304,7 @@ class _AdminPageState extends State<AdminPage> {
         clock: widget.clock,
         onOpenReservation: _openReservation,
         onCreate: () => _openDirectForm(night, table),
+        actorId: widget.identity?.id,
       ),
     );
   }
@@ -568,6 +570,7 @@ class _AdminTablePanel extends StatelessWidget {
     required this.clock,
     required this.onOpenReservation,
     required this.onCreate,
+    required this.actorId,
   });
 
   final VenueTable table;
@@ -578,6 +581,9 @@ class _AdminTablePanel extends StatelessWidget {
   final Clock clock;
   final ValueChanged<String> onOpenReservation;
   final VoidCallback onCreate;
+
+  /// Identidad activa, para las acciones de la reserva.
+  final String? actorId;
 
   @override
   Widget build(BuildContext context) {
@@ -621,6 +627,7 @@ class _AdminTablePanel extends StatelessWidget {
             reservation: active,
             store: store,
             clock: clock,
+            actorId: actorId,
             enabled: !controller.isRefreshing,
           ),
           const SizedBox(height: 4),

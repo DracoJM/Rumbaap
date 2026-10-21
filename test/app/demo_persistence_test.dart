@@ -63,7 +63,7 @@ final _key = demoStorageKey(sagsaVenue.id);
     venue: sagsaVenue,
     latency: Duration.zero,
     clock: () => _tonight,
-  ),
+  )..book.canCreate = RumbaapApp.reservationCreationAllowed,
   DemoTicketStore(
     venueId: sagsaVenue.id,
     venueTag: sagsaConfig.ticketTag,
@@ -96,9 +96,10 @@ void main() {
           night: _friday,
           tableId: 'M01',
           origin: ReservationOrigin.client,
-          createdBy: 'cliente-a',
+          actorId: 'cliente-a',
         );
         return b.submitNormal(
+          actorId: 'cliente-a',
           s.id,
           holder: const ReservationHolder(name: 'Titular demo', phone: '1'),
         );
@@ -373,9 +374,10 @@ void main() {
           night: _friday,
           tableId: 'M02',
           origin: ReservationOrigin.client,
-          createdBy: 'cliente-a',
+          actorId: 'cliente-a',
         );
         return b.submitNormal(
+          actorId: 'cliente-a',
           s.id,
           holder: const ReservationHolder(name: 'Titular demo', phone: '1'),
         );
@@ -607,6 +609,166 @@ void main() {
     expect(t3.book.purchaseById(p.id)!.buyerIdNumber, isNull);
     expect(b3.book.saleById(sale.id)!.customer, isNull);
     expect(b3.book.saleById(sale.id)!.total, s2.total);
+  });
+
+  test('el actor de las acciones de reserva se conserva; los eventos '
+      'guardados antes, sin actor, cargan sin inventarlo', () {
+    final (r, t, b) = _stores();
+    allowDemoReservationActions(r.book);
+    final vip = r.perform(
+      (x) => x.submitVip(
+        night: _friday,
+        tableId: 'VIP 1',
+        holder: const ReservationHolder(name: 'Titular demo', phone: '300'),
+        origin: ReservationOrigin.client,
+        actorId: 'cliente-a',
+      ),
+    );
+    r.perform((x) => x.markPrepaymentReceived(vip.id, actorId: 'admin-1'));
+    const holder = ReservationHolder(
+      name: 'Titular demo',
+      idNumber: '100',
+      phone: '300',
+    );
+    final seated = r.perform(
+      (x) => x.createDirect(
+        actorId: 'admin-1',
+        night: _friday,
+        tableId: 'M01',
+        holder: holder,
+      ),
+    );
+    r.perform((x) => x.markArrival(seated.id, actorId: 'personal-1'));
+    final released = r.perform(
+      (x) => x.createDirect(
+        actorId: 'admin-1',
+        night: _friday,
+        tableId: 'M02',
+        holder: holder,
+      ),
+    );
+    r.perform((x) => x.release(released.id, actorId: 'admin-1'));
+    final raw = _encode(r, t, b);
+
+    List<(ReservationEventType, String?)> events(
+      DemoReservationStore s,
+      String id,
+    ) => [for (final e in s.book.byId(id)!.history) (e.type, e.actorId)];
+
+    final (r2, t2, b2) = _stores();
+    decodeDemoSnapshot(
+      raw,
+      config: sagsaConfig,
+      reservations: r2,
+      tickets: t2,
+      bar: b2,
+    );
+    expect(events(r2, vip.id), [
+      (ReservationEventType.requested, 'cliente-a'),
+      (ReservationEventType.prepaymentMarked, 'admin-1'),
+    ]);
+    expect(r2.book.byId(vip.id)!.createdBy, 'cliente-a');
+    expect(events(r2, seated.id).first, (
+      ReservationEventType.createdDirect,
+      'admin-1',
+    ));
+    expect(events(r2, seated.id).last, (
+      ReservationEventType.arrived,
+      'personal-1',
+    ));
+    expect(events(r2, released.id).last, (
+      ReservationEventType.released,
+      'admin-1',
+    ));
+
+    // Formato anterior: los eventos de reserva no tenían actor.
+    final legacy = jsonDecode(raw) as Map;
+    for (final item in (legacy['reservations'] as Map)['items'] as List) {
+      for (final e in (item as Map)['history'] as List) {
+        (e as Map).remove('actorId');
+      }
+    }
+    final (r3, t3, b3) = _stores();
+    decodeDemoSnapshot(
+      jsonEncode(legacy),
+      config: sagsaConfig,
+      reservations: r3,
+      tickets: t3,
+      bar: b3,
+    );
+    for (final id in [vip.id, seated.id, released.id]) {
+      expect(events(r3, id).map((e) => e.$2), everyElement(isNull));
+      expect(r3.book.byId(id)!.status, r2.book.byId(id)!.status);
+    }
+    expect(r3.book.byId(vip.id)!.createdBy, 'cliente-a');
+  });
+
+  // Riesgo: el permiso de enviar un trámite depende de su creador; si no se
+  // recupera al cargar (o con datos anteriores, sin actores), quien lo empezó
+  // quedaría bloqueado o lo podría enviar otro. Además, consultar la noche
+  // recuperada no debe sembrar encima (siembra solo en noches vacías).
+  test('un trámite en curso se recupera con su creador: tras cargar solo lo '
+      'envía quien lo empezó, también con datos anteriores sin actores, y '
+      'consultar la noche no siembra encima', () async {
+    final (r, t, b) = _stores();
+    allowDemoReservationActions(r.book);
+    final draft = r.perform(
+      (x) => x.startNormal(
+        night: _friday,
+        tableId: 'M01',
+        origin: ReservationOrigin.client,
+        actorId: 'cliente-a',
+      ),
+    );
+    final raw = _encode(r, t, b);
+    // Formato anterior: los eventos de reserva no tenían actor (el creador
+    // sí se guardaba).
+    final legacy = jsonDecode(raw) as Map;
+    for (final item in (legacy['reservations'] as Map)['items'] as List) {
+      for (final e in (item as Map)['history'] as List) {
+        (e as Map).remove('actorId');
+      }
+    }
+    const holder = ReservationHolder(name: 'Titular demo', phone: '300');
+    for (final source in [raw, jsonEncode(legacy)]) {
+      final (r2, t2, b2) = _stores();
+      allowDemoReservationActions(r2.book);
+      decodeDemoSnapshot(
+        source,
+        config: sagsaConfig,
+        reservations: r2,
+        tickets: t2,
+        bar: b2,
+      );
+      final loaded = r2.book.byId(draft.id)!;
+      expect(loaded.status, ReservationStatus.inProcess);
+      expect(loaded.createdBy, 'cliente-a');
+      final count = r2.book.forNight(_friday).length;
+      await r2.availabilityFor(_friday);
+      expect(r2.book.forNight(_friday), hasLength(count));
+
+      expect(
+        () => r2.book.submitNormal(
+          draft.id,
+          holder: holder,
+          actorId: 'cliente-b',
+        ),
+        throwsA(
+          isA<ReservationException>().having(
+            (e) => e.error,
+            'error',
+            ReservationError.notAllowed,
+          ),
+        ),
+      );
+      final done = r2.book.submitNormal(
+        draft.id,
+        holder: holder,
+        actorId: 'cliente-a',
+      );
+      expect(done.status, ReservationStatus.confirmed);
+      expect(done.history.last.actorId, 'cliente-a');
+    }
   });
 
   test('cada local guarda en su propia clave', () {

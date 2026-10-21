@@ -238,11 +238,12 @@ void main() {
         night: _friday,
         tableId: freeTable(store, vip: false),
         origin: ReservationOrigin.client,
-        createdBy: 'cliente-a',
+        actorId: 'cliente-a',
       ),
     );
     return store.perform(
       (b) => b.submitNormal(
+        actorId: 'cliente-a',
         started.id,
         holder: const ReservationHolder(name: 'Titular', phone: '300'),
         birthday: const BirthdayCelebration(honoreeName: 'Ana'),

@@ -28,6 +28,7 @@ void main() {
       latency: Duration.zero,
       clock: () => now,
     );
+    allowDemoReservationActions(store.book);
     store.book.canManageBirthdays = (id) => id == 'admin-1';
   });
 
@@ -46,9 +47,10 @@ void main() {
       night: _friday,
       tableId: 'M01',
       origin: ReservationOrigin.client,
-      createdBy: 'cliente-a',
+      actorId: 'cliente-a',
     );
     final normal = store.book.submitNormal(
+      actorId: 'cliente-a',
       started.id,
       holder: _holder,
       birthday: _party,
@@ -59,6 +61,7 @@ void main() {
     expect(normal.birthday!.stage, BirthdayStage.requested);
 
     final vipR = store.book.submitVip(
+      actorId: 'promotor-1',
       night: _friday,
       tableId: vip.id,
       holder: _holder,
@@ -71,6 +74,7 @@ void main() {
     expect(
       errorOf(
         () => store.book.createDirect(
+          actorId: 'admin-1',
           night: _friday,
           tableId: vip.id,
           holder: _holder,
@@ -83,6 +87,7 @@ void main() {
     expect(
       errorOf(
         () => store.book.createDirect(
+          actorId: 'admin-1',
           night: _friday,
           tableId: 'M02',
           holder: _holder,
@@ -94,6 +99,7 @@ void main() {
     expect(
       errorOf(
         () => store.book.createDirect(
+          actorId: 'admin-1',
           night: _friday,
           tableId: 'M02',
           holder: _holder,
@@ -114,6 +120,7 @@ void main() {
   test('solo la administración confirma condiciones y decoración; marcar '
       'cumpleaños no confirma nada solo', () {
     final r = store.book.createDirect(
+      actorId: 'admin-1',
       night: _friday,
       tableId: 'M01',
       holder: _holder,
@@ -191,6 +198,7 @@ void main() {
       'vigente: el anterior y su preparación quedan en el historial y la '
       'decoración vuelve a revisión; con la noche cerrada ya no', () {
     final r = store.book.createDirect(
+      actorId: 'admin-1',
       night: _friday,
       tableId: 'M01',
       holder: _holder,
@@ -264,6 +272,7 @@ void main() {
   test('sin decoración requerida no se marca; una reserva terminada o sin '
       'cumpleaños no se confirma', () {
     final r = store.book.createDirect(
+      actorId: 'admin-1',
       night: _friday,
       tableId: 'M01',
       holder: _holder,
@@ -283,12 +292,13 @@ void main() {
       ReservationError.invalidTransition,
     );
     final other = store.book.createDirect(
+      actorId: 'admin-1',
       night: _friday,
       tableId: 'M02',
       holder: _holder,
       birthday: _party,
     );
-    store.book.revoke(other.id);
+    store.book.revoke(other.id, actorId: 'admin-1');
     expect(
       errorOf(
         () => store.book.confirmBirthday(
@@ -301,6 +311,7 @@ void main() {
       ReservationError.invalidTransition,
     );
     final plain = store.book.createDirect(
+      actorId: 'admin-1',
       night: _friday,
       tableId: 'M03',
       holder: _holder,
@@ -322,6 +333,7 @@ void main() {
   test('persistencia: cumpleaños con condiciones y decoración se conserva; '
       'reservas guardadas antes, sin cumpleaños, quedan intactas', () {
     final r = store.book.createDirect(
+      actorId: 'admin-1',
       night: _friday,
       tableId: 'M01',
       holder: _holder,
@@ -341,6 +353,7 @@ void main() {
       actorId: 'admin-1',
     );
     final plain = store.book.createDirect(
+      actorId: 'admin-1',
       night: _friday,
       tableId: 'M02',
       holder: _holder,
@@ -363,6 +376,7 @@ void main() {
         latency: Duration.zero,
         clock: () => now,
       );
+      allowDemoReservationActions(s.book);
       decodeDemoSnapshot(
         raw,
         config: sagsaConfig,

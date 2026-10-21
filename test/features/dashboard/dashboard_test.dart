@@ -135,7 +135,7 @@ void main() {
     final vip = store.book
         .forNight(_friday)
         .firstWhere((r) => r.status == ReservationStatus.pendingPayment);
-    store.perform((b) => b.markPrepaymentReceived(vip.id));
+    store.perform((b) => b.markPrepaymentReceived(vip.id, actorId: 'admin-1'));
     await tester.pumpAndSettle();
   }
 

@@ -39,6 +39,80 @@ Entrada canónica para retomar. Leer este archivo, `git branch --show-current` y
 - iOS nativo (macOS/Xcode): `iOS NATIVE VALIDATION PENDING`; el código Dart compartido pasó los tests, incluidas las variantes `TargetPlatform.iOS` (`iOS SHARED CODE VALIDATED`).
 - Android API 24 y cámara física (el lector solo se vio con la escena virtual del emulador).
 
+**Plan de QA operativa (2026-10-20, solo documentación; nada ejecutado):** [`qa/plan-validacion-operativa.md`](qa/plan-validacion-operativa.md). Recoge la matriz de 8 escenarios, las discrepancias señaladas sin corregir (reservas sin actor, prepago en dos pasos) y las diferencias con el resumen de continuidad externo.
+
+## Actualización 2026-10-20 (actor y cargo de las acciones de reserva; sin commit)
+
+- **Encargo:** opción A, autorizada por Juanmi con el adjunto `Rumbaap_Continuidad 1.md` (corte RC-20261019-2337). Antes de cambiar nada se verificó en el código el hallazgo 1 del plan de QA.
+- **Cambio** (sobre `9d50e1d`, sin commit ni push):
+  - Confirmar prepago, rechazar, registrar llegada, revocar y liberar exigen un `actorId`, que el libro autoriza (`ReservationBook.canPerform`) y guarda en el evento (`ReservationEvent.actorId`).
+  - La matriz es la que ya aplicaban las vistas: administración todas; el mesero, además, la llegada. Está en `RumbaapApp.reservationActionAllowed`.
+  - Las vistas pasan la identidad activa y conservan la comprobación de estado tras las confirmaciones.
+  - Los eventos antiguos, las altas y vencimientos, y la siembra (`seedArrival`) quedan sin actor.
+  - El snapshot añade la clave opcional `actorId` sin cambiar el formato.
+  - Detalle en [actor y cargo](architecture/admin-reservations-demo.md#actor-y-cargo-de-las-acciones-de-reserva-2026-10-20).
+- **Sin tocar:** el circuito de prepago, los beneficios, el saldo, el cumpleaños, el mapa y el diseño. Tampoco dependencias, `android/`, `ios/` ni `pubspec.lock`.
+- **Comprobación (ejecutada, Windows):**
+  - format sin cambios, analyze sin problemas y `git diff --check` limpio;
+  - tests afectados en serie: 434/434;
+  - suite completa en serie, una vez: **537/537**, que incluye a los anteriores.
+  - La evidencia está en el plan de QA.
+- **Límites:** no se compiló APK ni se abrió el emulador. La interfaz no muestra todavía el actor de las reservas (cambio visible, pendiente de aprobación). Sin identidad activa, `ReservationActions` no ofrece acciones, y en la app siempre la hay. Son identidades ficticias, no autenticación.
+- **Siguiente paso:** revisión de Juanmi y commit, si lo aprueba. Después, la QA nativa del plan en una noche válida real.
+
+## Actualización 2026-10-20 (QA nativa Android de A; sin commit)
+
+- **APK:** `Downloads\rumbaap-9d50e1d+A-2026-10-20\rumbaap-9d50e1d+A-debug.apk`, SHA-256 `939d64aebd87bef0c47ee23698aee3a6a6aaf70fbc853c589168a62d932ebefa`. Fuente: 9d50e1d más el parche sin commit. El instalado en `Pixel_7` tiene el mismo SHA y los datos se conservaron.
+- **ANDROID VALIDATED:**
+  - el actor guardado tras un cierre forzado y la reapertura: revocar R22, confirmar el prepago de R23 y rechazar R31, los tres `admin-1`;
+  - la navegación por roles;
+  - la llegada desactivada fuera de horario.
+  - Las altas, sin actor, como estaba previsto.
+- **Bloqueado por horario:** la llegada, liberar, Barra, VIP, cortesías y champaña.
+- **Detalle:** [plan de QA](qa/plan-validacion-operativa.md#qa-nativa-android-de-a-2026-10-20-0055-0106-fuera-de-la-noche) y el `entrega.txt` de la carpeta.
+- **Siguiente bloque autorizado por Juanmi:** extender el actor y el cargo a las altas, conservando los permisos de cada flujo (solicitudes del cliente y del promotor, operaciones del personal y reservas directas), sin copiar la matriz de las cinco acciones ni restringir todo a la administración.
+
+## Actualización 2026-10-20 (altas con actor y cargo, y revisión del prepago; sin commit)
+
+- **Cambio** (sobre 9d50e1d + A, sin commit ni push):
+  - Las altas comprueban el permiso del flujo en la lógica (`ReservationBook.canCreate`, matriz en `RumbaapApp.reservationCreationAllowed`) y guardan su actor: `startNormal`, `submitNormal`, `cancelInProcess`, `submitVip` y `createDirect`.
+  - Cliente y promotor: sus solicitudes. Administración: la directa. El personal no crea reservas.
+  - El trámite solo lo envía o cancela quien lo empezó.
+  - Se retiraron las rutas sin actor (`requestNormal`, `completeRequest`, `requestVip`, `seedArrival`). La siembra va en un único `seedDemoNight`, sin actor.
+  - Las pantallas pasan la identidad activa. `DirectReservationPage` recibe `actorId`.
+  - Detalle en [altas](architecture/admin-reservations-demo.md#actor-y-cargo-de-las-acciones-de-reserva-2026-10-20).
+- **Comprobación (ejecutada):** format, analyze y diff-check sin incidencias; afectados en serie 438/438; suite completa en serie **541/541**, una vez.
+- **Android:** APK `Downloads\rumbaap-9d50e1d+altas-2026-10-20\rumbaap-9d50e1d+altas-debug.apk`, SHA-256 `cd196e23f9944f82885eb7e9a906c8d8bba9ffd7e1821081ee801f0dd2c2d7d0`; el instalado coincide. **ANDROID VALIDATED:** el actor de las altas R32, R33, R34 y R42 se conserva tras un cierre forzado; el mesero no tiene altas. Detalle en el [plan de QA](qa/plan-validacion-operativa.md#altas-de-reserva-con-actor-y-cargo-2026-10-20-sin-commit).
+- **Prepago VIP:** revisión documental y propuesta (P1 un solo acto, P2, P3) en [prepago en dos pasos](proposals/prepago-vip-dos-pasos.md). No se tocó dinero, saldo ni beneficios. Hallazgo: `BarBook.registerPrepaid` no comprueba en la lógica ni el cargo ni el estado de la reserva.
+- **Pendiente:**
+  - las respuestas a las preguntas del prepago;
+  - la ventana de noches por perfil (N5 y N7), que limitan las vistas y no la lógica;
+  - la QA en una noche válida;
+  - Android físico, API 24 e iOS nativo;
+  - la revisión de Juanmi y el commit, si lo aprueba.
+
+## Actualización 2026-10-20 (paquete para Codex y regresión de reservas; sin commit)
+
+- **Paquete de revisión, corte REV-20261020-0402:** `Downloads\rumbaap-revision-codex-2026-10-20\`.
+  - `01` diff `9d50e1d -- lib test` (SHA-256 `9082929a…313f`);
+  - `02` la propuesta del prepago;
+  - `03` la lista de archivos;
+  - `04` los puntos señalados: registro del importe, aislamiento de la siembra y ventana de noches.
+- **Regresión:** se añadió un solo test, porque los demás casos ya estaban cubiertos: un trámite recuperado tras cargar, incluidos datos anteriores, solo lo envía su creador, y la noche no se siembra encima. Archivo afectado 15/15; suite completa en serie **542/542**.
+  - Sin cambios en el código de producción ni defectos reproducidos.
+  - Diff aislado: `Downloads\rumbaap-revision-codex-2026-10-20\05-diff-regresion.patch`.
+  - Hallazgos pendientes en el [plan de QA](qa/plan-validacion-operativa.md#regresión-de-reservas-2026-10-20-después-del-corte-rev-20261020-0402).
+
+## Actualización 2026-10-20 (corrección C1 de Codex; sin commit)
+
+- **Hallazgo C1:** `startNormal` y `submitVip` excluían el origen administrativo solo con un `assert`. Con los asserts desactivados, `admin-1` + origen admin pasaba `canCreate`.
+- **Corrección:** `ReservationBook._authorizeRequestOrigin` rechaza ese origen con `ReservationException(notAllowed)` en ambos métodos, antes de tocar la mesa. `createDirect` sigue permitido a la administración; los flujos del cliente y del promotor, sin cambios. Se actualizó el comentario de `ReservationEvent.actorId`: las altas de usuario sí guardan actor.
+- **Prueba nueva** (`reservation_book_test`, grupo «altas»): ambos rechazos dan la excepción de dominio con los asserts activados, sin crear nada, sin ocupar mesa ni consumir número. La directa siguiente recibe `R1`.
+- **Comprobación (ejecutada):** format, analyze y diff-check sin incidencias; `test/features/reservations` en serie 322/322; suite completa en serie **547/547**, una vez (542 + los 4 diagnósticos de la auditoría + 1).
+- **Sin cambios:** prepago, beneficios, ventanas por perfil y demás hallazgos. Sin APK ni emulador.
+- **Diff del bloque:** `Downloads\rumbaap-c1-2026-10-20.patch`.
+- **VIP (regla vigente y revisión de Codex):** R7 ya define la reserva directa con el pago validado. P1 sigue siendo la recomendación, pendiente de confirmar. La condición actual «noche no terminada» permite registrar el importe antes de abrir.
+
 ## Derechos y fronteras que no se deben perder
 
 (Detalle y estado en las reglas enlazadas; mandan las aclaraciones del hilo de trabajo actual sobre champaña, saldo VIP, comprador, entrega de manillas, cumpleaños y Barra. Manillas (A8) y el ejemplo de 300 mil (A7): aclaraciones previas del contexto maestro de ChatGPT v42 (11-oct 19:09), fuente indirecta.)

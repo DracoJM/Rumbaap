@@ -174,6 +174,7 @@ class _ReservationPageState extends State<ReservationPage> {
                 key: ValueKey('actions-${r.id}'),
                 reservation: r,
                 store: widget.store,
+                actorId: widget.identity?.id,
                 clock: widget.clock,
               ),
               if (widget.tickets case final tickets?) ...[

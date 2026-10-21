@@ -211,7 +211,12 @@ Map<String, Object?> _reservation(Reservation r) => {
   'linkedAccountId': r.linkedAccountId,
   if (r.birthday case final b?) 'birthday': _birthday(b),
   'history': [
-    for (final e in r.history) {'type': e.type.name, 'at': _time(e.at)},
+    for (final e in r.history)
+      {
+        'type': e.type.name,
+        'at': _time(e.at),
+        if (e.actorId case final a?) 'actorId': a,
+      },
   ],
 };
 
@@ -241,6 +246,9 @@ Reservation _reservationFrom(Map j) {
         ReservationEvent(
           ReservationEventType.values.byName((e as Map)['type'] as String),
           _parseTime(e['at']),
+          // Añadido después: los eventos guardados antes no lo tienen y
+          // quedan sin actor; no se reconstruye.
+          actorId: e['actorId'] as String?,
         ),
     ],
   );

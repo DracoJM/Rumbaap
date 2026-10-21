@@ -36,6 +36,7 @@ void main() {
     setUp(() {
       clock = _Clock(fixedClock());
       book = ReservationBook(venue: sagsaVenue, clock: clock.call);
+      allowDemoReservationActions(book);
     });
 
     test('normal: iniciar bloquea sin titular; enviar lo confirma', () {
@@ -43,13 +44,14 @@ void main() {
         night: _friday,
         tableId: 'M01',
         origin: ReservationOrigin.promoter,
-        createdBy: 'promotor-1',
+        actorId: 'promotor-1',
       );
       expect(r.status, ReservationStatus.inProcess);
       expect(r.holder, isNull);
       expect(book.activeFor(_friday, 'M01')?.id, r.id);
       expect(
         () => book.startNormal(
+          actorId: 'cliente-a',
           night: _friday,
           tableId: 'M01',
           origin: ReservationOrigin.client,
@@ -57,7 +59,11 @@ void main() {
         throwsA(isA<ReservationException>()),
       );
 
-      final done = book.submitNormal(r.id, holder: _holder);
+      final done = book.submitNormal(
+        actorId: 'promotor-1',
+        r.id,
+        holder: _holder,
+      );
       expect(done.status, ReservationStatus.confirmed);
       expect(done.holder!.name, 'Titular demo P');
       expect(done.history.map((e) => e.type), [
@@ -70,6 +76,7 @@ void main() {
     test('enviar con titular no válido no cambia nada (sin efectos '
         'parciales)', () {
       final r = book.startNormal(
+        actorId: 'promotor-1',
         night: _friday,
         tableId: 'M02',
         origin: ReservationOrigin.promoter,
@@ -80,7 +87,7 @@ void main() {
         ReservationHolder(name: 'X', phone: '1', idNumber: '1.2'),
       ]) {
         expect(
-          () => book.submitNormal(r.id, holder: bad),
+          () => book.submitNormal(actorId: 'promotor-1', r.id, holder: bad),
           throwsA(
             isA<ReservationException>().having(
               (e) => e.error,
@@ -100,13 +107,14 @@ void main() {
       'vencido a los 10 min: no se puede confirmar y la mesa queda libre',
       () {
         final r = book.startNormal(
+          actorId: 'cliente-a',
           night: _friday,
           tableId: 'M03',
           origin: ReservationOrigin.client,
         );
         clock.now = clock.now.add(ReservationBook.inProcessTimeout);
         expect(
-          () => book.submitNormal(r.id, holder: _holder),
+          () => book.submitNormal(actorId: 'cliente-a', r.id, holder: _holder),
           throwsA(
             isA<ReservationException>().having(
               (e) => e.error,
@@ -123,31 +131,34 @@ void main() {
 
     test('cancelar solo afecta a un trámite En proceso', () {
       final r = book.startNormal(
+        actorId: 'promotor-1',
         night: _friday,
         tableId: 'M04',
         origin: ReservationOrigin.promoter,
       );
-      final cancelled = book.cancelInProcess(r.id);
+      final cancelled = book.cancelInProcess(actorId: 'promotor-1', r.id);
       expect(cancelled.status, ReservationStatus.cancelled);
       expect(cancelled.holder, isNull);
       expect(book.activeFor(_friday, 'M04'), isNull);
       expect(
-        () => book.submitNormal(r.id, holder: _holder),
+        () => book.submitNormal(actorId: 'promotor-1', r.id, holder: _holder),
         throwsA(isA<ReservationException>()),
       );
 
       final confirmed = book.submitNormal(
         book
             .startNormal(
+              actorId: 'promotor-1',
               night: _friday,
               tableId: 'M04',
               origin: ReservationOrigin.promoter,
             )
             .id,
         holder: _holder,
+        actorId: 'promotor-1',
       );
       expect(
-        () => book.cancelInProcess(confirmed.id),
+        () => book.cancelInProcess(actorId: 'promotor-1', confirmed.id),
         throwsA(isA<ReservationException>()),
       );
       expect(book.byId(confirmed.id)!.status, ReservationStatus.confirmed);
@@ -160,7 +171,7 @@ void main() {
         tableId: 'VIP 1',
         holder: _holder,
         origin: ReservationOrigin.promoter,
-        createdBy: 'promotor-1',
+        actorId: 'promotor-1',
         linkedAccountId: 'cliente-a',
       );
       expect(vip.status, ReservationStatus.pendingPayment);
@@ -169,6 +180,7 @@ void main() {
       expect(book.byId(vip.id)!.status, ReservationStatus.pendingPayment);
       expect(
         () => book.submitVip(
+          actorId: 'cliente-a',
           night: _friday,
           tableId: 'VIP 1',
           holder: _holder,
@@ -197,15 +209,16 @@ void main() {
       'las 03:00, con la noche ya cerrada (I7), y no cambia nada', () {
     final clock = _Clock(venueInstant(2026, 10, 10, 2, 55));
     final book = ReservationBook(venue: sagsaVenue, clock: clock.call);
+    allowDemoReservationActions(book);
     final r = book.startNormal(
       night: _friday,
       tableId: 'M01',
       origin: ReservationOrigin.client,
-      createdBy: 'cliente-a',
+      actorId: 'cliente-a',
     );
     clock.now = venueInstant(2026, 10, 10, 3);
     expect(
-      () => book.submitNormal(r.id, holder: _holder),
+      () => book.submitNormal(actorId: 'cliente-a', r.id, holder: _holder),
       throwsA(
         isA<ReservationException>().having(
           (e) => e.error,
@@ -227,6 +240,7 @@ void main() {
       latency: Duration.zero,
       clock: fixedClock,
     );
+    allowDemoReservationActions(store.book);
     final free = sagsaVenue.tables
         .where((t) => !t.isVip && store.book.activeFor(_friday, t.id) == null)
         .map((t) => t.id)
@@ -236,9 +250,10 @@ void main() {
         night: _friday,
         tableId: free[0],
         origin: ReservationOrigin.promoter,
-        createdBy: 'promotor-1',
+        actorId: 'promotor-1',
       );
       return b.submitNormal(
+        actorId: 'promotor-1',
         r.id,
         holder: const ReservationHolder(
           name: 'Cliente demo A',
@@ -253,7 +268,7 @@ void main() {
         night: _friday,
         tableId: free[1],
         origin: ReservationOrigin.client,
-        createdBy: 'cliente-a',
+        actorId: 'cliente-a',
       ),
     );
     expect(byPromoter.createdBy, 'promotor-1');
@@ -268,17 +283,26 @@ void main() {
   });
 
   group('rutas antiguas y adjudicación a cuenta', () {
-    test('completeRequest no confirma un trámite sin titular ni con la noche '
-        'cerrada, y no cambia nada', () {
+    // Las rutas antiguas sin actor (requestNormal, completeRequest,
+    // requestVip) se retiraron: la siembra usa seedDemoNight. Estas pruebas
+    // conservan sus comprobaciones sobre las altas de usuario.
+    test('el envío del trámite no confirma un titular no válido ni con la '
+        'noche cerrada, y no cambia nada', () {
       final clock = _Clock(venueInstant(2026, 10, 10, 2, 55));
       final book = ReservationBook(venue: sagsaVenue, clock: clock.call);
-      final noHolder = book.startNormal(
+      allowDemoReservationActions(book);
+      final draft = book.startNormal(
         night: _friday,
         tableId: 'M01',
         origin: ReservationOrigin.client,
+        actorId: 'cliente-a',
       );
       expect(
-        () => book.completeRequest(noHolder.id),
+        () => book.submitNormal(
+          draft.id,
+          holder: const ReservationHolder(name: ' ', phone: 'abc'),
+          actorId: 'cliente-a',
+        ),
         throwsA(
           isA<ReservationException>().having(
             (e) => e.error,
@@ -287,17 +311,10 @@ void main() {
           ),
         ),
       );
-      expect(book.byId(noHolder.id)!.status, ReservationStatus.inProcess);
-
-      final legacy = book.requestNormal(
-        night: _friday,
-        tableId: 'M02',
-        holder: _holder,
-        origin: ReservationOrigin.client,
-      );
       clock.now = venueInstant(2026, 10, 10, 3);
       expect(
-        () => book.completeRequest(legacy.id),
+        () =>
+            book.submitNormal(draft.id, holder: _holder, actorId: 'cliente-a'),
         throwsA(
           isA<ReservationException>().having(
             (e) => e.error,
@@ -306,28 +323,20 @@ void main() {
           ),
         ),
       );
-      expect(book.byId(legacy.id)!.status, ReservationStatus.inProcess);
+      expect(book.byId(draft.id)!.status, ReservationStatus.inProcess);
     });
 
-    test('requestVip y requestNormal antiguos rechazan un titular no '
-        'válido', () {
+    test('la solicitud VIP rechaza un titular no válido', () {
       final book = ReservationBook(venue: sagsaVenue, clock: fixedClock);
+      allowDemoReservationActions(book);
       const bad = ReservationHolder(name: ' ', phone: 'abc');
       expect(
-        () => book.requestVip(
+        () => book.submitVip(
           night: _friday,
           tableId: 'VIP2',
           holder: bad,
           origin: ReservationOrigin.client,
-        ),
-        throwsA(isA<ReservationException>()),
-      );
-      expect(
-        () => book.requestNormal(
-          night: _friday,
-          tableId: 'M03',
-          holder: bad,
-          origin: ReservationOrigin.client,
+          actorId: 'cliente-a',
         ),
         throwsA(isA<ReservationException>()),
       );
@@ -341,6 +350,9 @@ void main() {
         latency: Duration.zero,
         clock: fixedClock,
       );
+      // Prueba la proyección por creador, no los permisos: admite un segundo
+      // promotor que la demo no tiene (promotor-2).
+      store.book.canCreate = (_, _) => true;
       final free = sagsaVenue.tables
           .where((t) => !t.isVip && store.book.activeFor(_friday, t.id) == null)
           .map((t) => t.id)
@@ -367,9 +379,14 @@ void main() {
             night: _friday,
             tableId: free[i],
             origin: origin ?? ReservationOrigin.promoter,
-            createdBy: creator,
+            actorId: creator,
           );
-          return b.submitNormal(r.id, holder: h, linkedAccountId: linked);
+          return b.submitNormal(
+            actorId: creator,
+            r.id,
+            holder: h,
+            linkedAccountId: linked,
+          );
         });
       }
 
@@ -391,6 +408,7 @@ void main() {
       );
       final direct = store.perform(
         (b) => b.createDirect(
+          actorId: 'admin-1',
           night: _friday,
           tableId: free[4],
           holder: holderB,
@@ -547,6 +565,11 @@ void main() {
       expect(done.status, ReservationStatus.confirmed);
       expect(done.linkedAccountId, 'cliente-a');
       expect(done.createdBy, 'promotor-1');
+      // Actor de cada paso: quien hizo el trámite, no la cuenta vinculada.
+      expect(done.history.map((e) => (e.type, e.actorId)), [
+        (ReservationEventType.requested, 'promotor-1'),
+        (ReservationEventType.completed, 'promotor-1'),
+      ]);
 
       await tapKey(tester, 'flow-show-mine');
       expect(find.byKey(ValueKey('mine-${done.id}')), findsOneWidget);
@@ -694,6 +717,7 @@ void main() {
       await tapKey(tester, 'leave-confirm');
       expect(find.byType(ReservationFlowPage), findsNothing);
       expect(store.book.byId(r.id)!.status, ReservationStatus.cancelled);
+      expect(store.book.byId(r.id)!.history.last.actorId, 'cliente-a');
       expect(store.book.activeFor(_friday, tableId), isNull);
     }, variant: TargetPlatformVariant.mobile());
 
@@ -758,6 +782,7 @@ void main() {
       await tapKey(tester, 'staff-arrive-${r.id}');
       await tapKey(tester, 'dialog-confirm');
       expect(store.book.byId(r.id)!.status, ReservationStatus.seated);
+      expect(store.book.byId(r.id)!.history.last.actorId, 'personal-1');
     }, variant: TargetPlatformVariant.mobile());
 
     testWidgets(
@@ -936,6 +961,7 @@ void main() {
       expect(find.byType(GuestHomePage), findsNothing);
       expect(find.byKey(const ValueKey('identity-admin-1')), findsOneWidget);
       expect(store.book.byId(r.id)!.status, ReservationStatus.cancelled);
+      expect(store.book.byId(r.id)!.history.last.actorId, 'promotor-1');
       expect(store.book.activeFor(_friday, tableId), isNull);
 
       await enter(tester, 'promotor-1');
@@ -1021,7 +1047,7 @@ void main() {
           .widget<Text>(find.byKey(const ValueKey('mine-detail-status')))
           .data!;
       expect(statusShown(), 'Reservada');
-      store.perform((b) => b.revoke(r.id));
+      store.perform((b) => b.revoke(r.id, actorId: 'admin-1'));
       await tester.pumpAndSettle();
       expect(statusShown(), store.book.byId(r.id)!.statusLabel);
       expect(statusShown(), isNot('Reservada'));
@@ -1048,9 +1074,13 @@ void main() {
           night: _friday,
           tableId: free[i],
           origin: ReservationOrigin.client,
-          createdBy: 'cliente-a',
+          actorId: 'cliente-a',
         );
-        return b.submitNormal(started.id, holder: _holder);
+        return b.submitNormal(
+          actorId: 'cliente-a',
+          started.id,
+          holder: _holder,
+        );
       });
       final keep = make(0);
       final revoked = make(1);
@@ -1059,11 +1089,13 @@ void main() {
           night: _friday,
           tableId: free[2],
           origin: ReservationOrigin.client,
-          createdBy: 'cliente-a',
+          actorId: 'cliente-a',
         ),
       );
-      store.perform((b) => b.revoke(revoked.id));
-      store.perform((b) => b.cancelInProcess(cancelled.id));
+      store.perform((b) => b.revoke(revoked.id, actorId: 'admin-1'));
+      store.perform(
+        (b) => b.cancelInProcess(actorId: 'cliente-a', cancelled.id),
+      );
 
       await enter(tester, 'cliente-a');
       await tapKey(tester, 'tab-Mis reservas');
@@ -1099,7 +1131,7 @@ void main() {
       );
 
       // En vivo: si se revoca la activa, pasa al historial.
-      store.perform((b) => b.revoke(keep.id));
+      store.perform((b) => b.revoke(keep.id, actorId: 'admin-1'));
       await tester.pumpAndSettle();
       expect(find.byKey(ValueKey('mine-${keep.id}')), findsNothing);
       expect(find.text('Historial (3)'), findsOneWidget);
@@ -1151,9 +1183,13 @@ void main() {
           night: future,
           tableId: 'M01',
           origin: ReservationOrigin.promoter,
-          createdBy: 'promotor-1',
+          actorId: 'promotor-1',
         );
-        return b.submitNormal(started.id, holder: _holder);
+        return b.submitNormal(
+          actorId: 'promotor-1',
+          started.id,
+          holder: _holder,
+        );
       });
       await enter(tester, 'promotor-1');
       await tapKey(tester, 'tab-Mis reservas');

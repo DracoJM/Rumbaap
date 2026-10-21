@@ -33,6 +33,7 @@ void main() {
       latency: Duration.zero,
       clock: () => now,
     );
+    allowDemoReservationActions(reservations.book);
     tickets = DemoTicketStore(
       venueId: sagsaVenue.id,
       venueTag: sagsaConfig.ticketTag,
@@ -67,7 +68,8 @@ void main() {
   }
 
   Reservation request(int i) => reservations.perform(
-    (b) => b.requestVip(
+    (b) => b.submitVip(
+      actorId: 'cliente-a',
       night: _friday,
       tableId: vipTables[i].id,
       holder: _holder,
@@ -143,7 +145,9 @@ void main() {
       expect(still.firstEntryAt, isNull);
 
       // Prueba histórica: «prepago verificado» (sin importe registrado).
-      reservations.perform((b) => b.markPrepaymentReceived(r.id));
+      reservations.perform(
+        (b) => b.markPrepaymentReceived(r.id, actorId: 'admin-1'),
+      );
       expect(bar.book.balanceOf(r.id), isNull);
       expect(
         tickets.book.doorCheck(code, actorId: 'seguridad-1').outcome,
@@ -166,13 +170,14 @@ void main() {
     wire();
     final direct = reservations.perform(
       (b) => b.createDirect(
+        actorId: 'admin-1',
         night: _friday,
         tableId: vipTables[1].id,
         holder: _holder,
       ),
     );
     final t = linkedCourtesy(direct);
-    reservations.perform((b) => b.revoke(direct.id));
+    reservations.perform((b) => b.revoke(direct.id, actorId: 'admin-1'));
     tonight();
     expect(
       tickets.book.doorCheck(t.credential!, actorId: 'seguridad-1').outcome,
@@ -185,7 +190,12 @@ void main() {
     () {
       wire();
       final normal = reservations.perform(
-        (b) => b.createDirect(night: _friday, tableId: 'M01', holder: _holder),
+        (b) => b.createDirect(
+          actorId: 'admin-1',
+          night: _friday,
+          tableId: 'M01',
+          holder: _holder,
+        ),
       );
       final t = linkedCourtesy(normal);
       tonight();

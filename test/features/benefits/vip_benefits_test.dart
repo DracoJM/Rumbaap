@@ -39,6 +39,7 @@ void main() {
       latency: Duration.zero,
       clock: fixedClock,
     );
+    allowDemoReservationActions(reservations.book);
     tickets = DemoTicketStore(
       venueId: sagsaVenue.id,
       venueTag: sagsaConfig.ticketTag,
@@ -64,7 +65,8 @@ void main() {
   );
 
   Reservation vipRequest(String table) => reservations.perform(
-    (b) => b.requestVip(
+    (b) => b.submitVip(
+      actorId: 'cliente-a',
       night: _friday,
       tableId: table,
       holder: _holder,
@@ -74,7 +76,9 @@ void main() {
 
   /// Aprobada (prepago verificado) y con el prepago registrado.
   Reservation confirm(Reservation r) {
-    final c = reservations.perform((b) => b.markPrepaymentReceived(r.id));
+    final c = reservations.perform(
+      (b) => b.markPrepaymentReceived(r.id, actorId: 'admin-1'),
+    );
     registerPrepaid(c);
     return c;
   }
@@ -110,7 +114,12 @@ void main() {
       expect(all.map((x) => x.bottles).reduce((p, q) => p + q), 2);
       // Una mesa normal no tiene beneficios VIP.
       final normal = reservations.perform(
-        (x) => x.createDirect(night: _friday, tableId: 'M01', holder: _holder),
+        (x) => x.createDirect(
+          actorId: 'admin-1',
+          night: _friday,
+          tableId: 'M01',
+          holder: _holder,
+        ),
       );
       expect(
         VipBenefits.of(
@@ -126,7 +135,10 @@ void main() {
     test('gate de cortesías: aprobada sin prepago registrado no emite; tras '
         'registrarlo sí', () {
       final r = reservations.perform(
-        (b) => b.markPrepaymentReceived(vipRequest('VIP 1').id),
+        (b) => b.markPrepaymentReceived(
+          vipRequest('VIP 1').id,
+          actorId: 'admin-1',
+        ),
       );
       expect(benefits(r).state, VipBenefitState.prepaidNotRegistered);
       expect(() => issue(r, 1), throwsA(isA<VipBenefitException>()));
@@ -193,7 +205,7 @@ void main() {
       // que no cuenta como canjeada.
       expect(benefits(r).redeemed, 0);
 
-      reservations.perform((b) => b.revoke(r.id));
+      reservations.perform((b) => b.revoke(r.id, actorId: 'admin-1'));
       final after = benefits(r);
       expect(after.state, VipBenefitState.reservationEnded);
       expect(after.issued, hasLength(2));
@@ -223,6 +235,7 @@ void main() {
         latency: Duration.zero,
         clock: fixedClock,
       );
+      allowDemoReservationActions(r2.book);
       final t2 = DemoTicketStore(
         venueId: sagsaVenue.id,
         venueTag: sagsaConfig.ticketTag,
@@ -328,6 +341,7 @@ void main() {
         // dos cortesías emitidas. Su ficha no muestra nombres ni el botón.
         final own = reservations.perform(
           (b) => b.createDirect(
+            actorId: 'admin-1',
             night: _friday,
             tableId: 'VIP 2',
             holder: _holder,
@@ -360,7 +374,10 @@ void main() {
       tester,
     ) async {
       final r = reservations.perform(
-        (b) => b.markPrepaymentReceived(vipRequest('VIP 1').id),
+        (b) => b.markPrepaymentReceived(
+          vipRequest('VIP 1').id,
+          actorId: 'admin-1',
+        ),
       );
       await pump(
         tester,
@@ -388,7 +405,7 @@ void main() {
         findsNothing,
       );
 
-      reservations.perform((b) => b.revoke(r.id));
+      reservations.perform((b) => b.revoke(r.id, actorId: 'admin-1'));
       await tester.pumpAndSettle();
       await revealKey(tester, 'vip-prepaid-manual-${r.id}');
       expect(

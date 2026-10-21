@@ -27,7 +27,7 @@ No hay pantallas duplicadas para rellenar pestañas.
 - **Cliente y promotor:** leen la consulta pública, sin titulares ajenos. «Mis reservas» pide al almacén la proyección propia (`DemoReservationStore.ownReservations`). El promotor ve solo lo que creó (`createdBy`). El cliente ve, además, lo adjudicado a su cuenta ficticia (`linkedAccountId`) por un promotor, por otro cliente o por una reserva directa del administrador (decisión de interfaz de la demo, 2026-10-11). La adjudicación no cambia quién la creó.
 - **Orden de «Mis reservas» (P24):** primero las activas (en proceso, pendiente de pago, reservada u ocupada); las terminadas (canceladas, expiradas, revocadas o liberadas) van en «Historial», plegado al abrir. Cada terminada muestra su motivo (último cambio y hora) y se despliega con sus cambios de estado. Se actualiza en vivo: una reserva que termina pasa sola al historial.
 - **Ficha de «Mis reservas»:** tocar una reserva abre una ficha de solo lectura (`guest/my_reservation_detail_page.dart`) con local, noche, mesa, estado, datos de la reserva y cambios de estado. Lee la misma proyección y se actualiza en vivo; no tiene acciones.
-- **Personal:** solo localiza reservas confirmadas y registra la llegada (R5) durante la noche en curso (N6), con confirmación. No revoca, no libera ni verifica prepagos.
+- **Personal:** solo localiza reservas confirmadas y registra la llegada (R5) durante la noche en curso (N6), con confirmación. No revoca, no libera ni verifica prepagos. El libro de reservas también lo comprueba: solo el mesero y la administración registran llegadas, y queda quién lo hizo ([actor y cargo](admin-reservations-demo.md#actor-y-cargo-de-las-acciones-de-reserva-2026-10-20)).
 
 ## Trámite de reserva (`guest/reservation_flow_page.dart`)
 

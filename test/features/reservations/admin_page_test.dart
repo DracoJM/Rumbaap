@@ -165,7 +165,8 @@ Future<Reservation> _pendingVip(
     (t) => t.isVip && store.book.activeFor(night, t.id) == null,
   );
   final r = store.perform(
-    (b) => b.requestVip(
+    (b) => b.submitVip(
+      actorId: 'cliente-a',
       night: night,
       tableId: table.id,
       holder: const ReservationHolder(
@@ -302,6 +303,9 @@ void main() {
       expect(created.history.map((e) => e.type), [
         ReservationEventType.createdDirect,
       ]);
+      // El alta guarda la identidad activa; el creador sigue vacío.
+      expect(created.history.single.actorId, 'admin-1');
+      expect(created.createdBy, isNull);
       expect(find.textContaining('Reserva ${created.id} creada'), findsOne);
       expect(_statusOf(tester, tableId), TableMapStatus.reserved);
       expect(find.text('Titular demo nuevo'), findsOneWidget);
@@ -468,6 +472,8 @@ void main() {
       expect(store.book.byId(r.id)!.status, ReservationStatus.seated);
       expect(_statusOf(tester, r.tableId), TableMapStatus.occupied);
       expect(find.textContaining('Llegada registrada'), findsWidgets);
+      // Queda la identidad activa, no el titular ni el origen.
+      expect(store.book.byId(r.id)!.history.last.actorId, 'admin-1');
     });
   });
 
@@ -486,6 +492,7 @@ void main() {
       await _tapVisible(tester, find.byKey(const ValueKey('action-revoke')));
       await _dialog(tester, confirm: true);
       expect(store.book.byId(r.id)!.status, ReservationStatus.revoked);
+      expect(store.book.byId(r.id)!.history.last.actorId, 'admin-1');
       expect(_statusOf(tester, r.tableId), TableMapStatus.available);
       expect(find.byKey(ValueKey('previous-${r.id}')), findsOneWidget);
     });
@@ -528,7 +535,7 @@ void main() {
       await _tapVisible(tester, find.byKey(const ValueKey('action-revoke')));
 
       // Otra vista la libera mientras el diálogo sigue abierto.
-      store.perform((b) => b.release(r.id));
+      store.perform((b) => b.release(r.id, actorId: 'admin-1'));
       await tester.pump();
       await _dialog(tester, confirm: true);
 
@@ -587,7 +594,9 @@ void main() {
         absent: ['action-release', 'action-revoke'],
       );
       // VIP confirmada: la misma salida única que una normal.
-      store.perform((b) => b.markPrepaymentReceived(pending.id));
+      store.perform(
+        (b) => b.markPrepaymentReceived(pending.id, actorId: 'admin-1'),
+      );
       await tester.pumpAndSettle();
       await expectActions(
         store.book.byId(pending.id)!,
@@ -625,7 +634,7 @@ void main() {
         await _pick(tester, r.tableId);
 
         await _tapVisible(tester, find.byKey(const ValueKey('action-revoke')));
-        store.perform((b) => b.markArrival(r.id));
+        store.perform((b) => b.markArrival(r.id, actorId: 'admin-1'));
         await tester.pump();
         await _dialog(tester, confirm: true);
         expectStillSeatedAfterArrival(tester, store, r);
@@ -659,7 +668,7 @@ void main() {
         await _tapVisible(tester, find.byKey(const ValueKey('action-release')));
         await _dialog(tester, confirm: true);
         expect(find.text('¿Confirmas la liberación?'), findsOneWidget);
-        store.perform((b) => b.release(r.id));
+        store.perform((b) => b.release(r.id, actorId: 'admin-1'));
         await tester.pump();
         await _dialog(tester, confirm: true);
         final after = store.book.byId(r.id)!;
@@ -742,7 +751,7 @@ void main() {
     ) async {
       final store = await _openAdmin(tester);
       final r = _first(store, _friday, ReservationStatus.confirmed);
-      store.perform((b) => b.release(r.id));
+      store.perform((b) => b.release(r.id, actorId: 'admin-1'));
       await tester.pumpAndSettle();
 
       await _list(tester, 'Actividad');
@@ -806,7 +815,7 @@ void main() {
         'día, con búsqueda, filtros, conteo y reinicio', (tester) async {
       final store = await _openAdmin(tester);
       final revoked = _first(store, _friday, ReservationStatus.confirmed);
-      store.perform((b) => b.revoke(revoked.id));
+      store.perform((b) => b.revoke(revoked.id, actorId: 'admin-1'));
       await tester.pumpAndSettle();
       await _list(tester, 'Actividad');
 
@@ -976,7 +985,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('form-submit')));
       await tester.pumpAndSettle();
       final released = _first(store, _friday, ReservationStatus.confirmed);
-      store.perform((b) => b.release(released.id));
+      store.perform((b) => b.release(released.id, actorId: 'admin-1'));
       await tester.pumpAndSettle();
 
       await tester.binding.handlePopRoute();
@@ -1020,6 +1029,7 @@ void main() {
 
       store.perform(
         (b) => b.createDirect(
+          actorId: 'admin-1',
           night: _friday,
           tableId: tableId,
           holder: const ReservationHolder(

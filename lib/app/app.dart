@@ -6,6 +6,8 @@ import '../features/benefits/vip_benefits.dart';
 import '../features/dashboard/data/demo_goal_store.dart';
 import '../features/reservations/data/demo_reservation_store.dart';
 import '../features/reservations/domain/night_schedule.dart';
+import '../features/reservations/domain/reservation.dart';
+import '../features/reservations/domain/reservation_book.dart';
 import '../features/session/demo_identities.dart';
 import '../features/tickets/data/demo_ticket_store.dart';
 import '../features/venues/venue_config.dart';
@@ -51,8 +53,41 @@ class RumbaapApp extends StatelessWidget {
     this.bar.book
       ..reservationById = reservations.book.byId
       ..champagneActorOf = champagneActorOf;
-    reservations.book.canManageBirthdays = (id) =>
-        DemoIdentities.byId(id)?.profile == DemoProfile.admin;
+    reservations.book
+      ..canManageBirthdays = ((id) =>
+          DemoIdentities.byId(id)?.profile == DemoProfile.admin)
+      ..canPerform = reservationActionAllowed
+      ..canCreate = reservationCreationAllowed;
+  }
+
+  /// Quién crea reservas, según el flujo vigente de cada perfil: el cliente
+  /// y el promotor, sus propias solicitudes (R1, R14, R16); la
+  /// administración, la reserva directa (R7). El personal no crea reservas.
+  /// No es la matriz de [reservationActionAllowed].
+  static bool reservationCreationAllowed(
+    String actorId,
+    ReservationOrigin origin,
+  ) => switch ((DemoIdentities.byId(actorId)?.profile, origin)) {
+    (DemoProfile.client, ReservationOrigin.client) => true,
+    (DemoProfile.promoter, ReservationOrigin.promoter) => true,
+    (DemoProfile.admin, ReservationOrigin.admin) => true,
+    _ => false,
+  };
+
+  /// Quién ejecuta cada acción de reserva: la administración todas (R2,
+  /// R4–R6); el mesero, además, la llegada (R5). Es la matriz que ya
+  /// aplicaban las vistas, ahora comprobada en el dominio.
+  static bool reservationActionAllowed(
+    String actorId,
+    ReservationAction action,
+  ) {
+    final i = DemoIdentities.byId(actorId);
+    return switch ((i?.profile, i?.staffRole)) {
+      (DemoProfile.admin, _) => true,
+      (DemoProfile.staff, StaffRole.waiter) =>
+        action == ReservationAction.arrival,
+      _ => false,
+    };
   }
 
   /// Responsabilidad de una identidad de la demo sobre la champaña VIP.

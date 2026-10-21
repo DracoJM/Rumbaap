@@ -36,6 +36,7 @@ void main() {
       latency: Duration.zero,
       clock: () => now,
     );
+    allowDemoReservationActions(reservations.book);
     bar = DemoBarStore(
       venue: sagsaVenue,
       menu: sagsaConfig.menu,
@@ -53,14 +54,17 @@ void main() {
         tableId: vipTables[table].id,
         holder: _holder,
         origin: ReservationOrigin.client,
-        createdBy: 'cliente-a',
+        actorId: 'cliente-a',
       ),
     );
-    return reservations.perform((b) => b.markPrepaymentReceived(r.id));
+    return reservations.perform(
+      (b) => b.markPrepaymentReceived(r.id, actorId: 'admin-1'),
+    );
   }
 
   void tonight() => now = venueInstant(2026, 10, 9, 22);
-  void seat(Reservation r) => reservations.perform((b) => b.markArrival(r.id));
+  void seat(Reservation r) =>
+      reservations.perform((b) => b.markArrival(r.id, actorId: 'admin-1'));
 
   BarError? errorOf(void Function() f) {
     try {
@@ -140,6 +144,7 @@ void main() {
   test('mesa normal, VIP sin aprobación o de otra noche: no hay botella', () {
     final normal = reservations.perform(
       (b) => b.createDirect(
+        actorId: 'admin-1',
         night: _friday,
         tableId: 'M01',
         holder: const ReservationHolder(
@@ -220,7 +225,7 @@ void main() {
     seat(r);
     bar.book.requestChampagne(r.id, actorId: 'personal-1');
     bar.book.dispatchChampagne(r.id, actorId: 'barra-1');
-    reservations.perform((b) => b.release(r.id));
+    reservations.perform((b) => b.release(r.id, actorId: 'admin-1'));
     expect(
       errorOf(() => bar.book.deliverChampagne(r.id, actorId: 'personal-1')),
       BarError.tableNotOccupied,
@@ -229,6 +234,7 @@ void main() {
     // se entrega a esa ocupación.
     final next = reservations.perform(
       (b) => b.createDirect(
+        actorId: 'admin-1',
         night: _friday,
         tableId: r.tableId,
         holder: const ReservationHolder(
@@ -252,7 +258,7 @@ void main() {
     final other = approvedVip(table: 1);
     seat(other);
     bar.book.requestChampagne(other.id, actorId: 'personal-1');
-    reservations.perform((b) => b.release(other.id));
+    reservations.perform((b) => b.release(other.id, actorId: 'admin-1'));
     expect(
       errorOf(() => bar.book.dispatchChampagne(other.id, actorId: 'barra-1')),
       BarError.tableNotOccupied,

@@ -1,7 +1,15 @@
 import 'dart:async';
 
+import 'package:rumbaap/app/app.dart';
 import 'package:rumbaap/features/reservations/domain/night_availability.dart';
 import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
+import 'package:rumbaap/features/reservations/domain/reservation_book.dart';
+
+/// Los permisos de la demo para las altas y las acciones de reserva, los
+/// mismos que inyecta la app, para los tests que usan el libro sin montarla.
+void allowDemoReservationActions(ReservationBook book) => book
+  ..canPerform = RumbaapApp.reservationActionAllowed
+  ..canCreate = RumbaapApp.reservationCreationAllowed;
 
 /// Instante en hora del establecimiento (UTC−5), expresado como instante
 /// UTC real para usarlo como reloj.

@@ -195,12 +195,18 @@ class BirthdayAgreement {
 
 /// Cambio registrado en el historial de una reserva (trazabilidad).
 class ReservationEvent {
-  const ReservationEvent(this.type, this.at);
+  const ReservationEvent(this.type, this.at, {this.actorId});
 
   final ReservationEventType type;
 
   /// Instante real (UTC) del cambio.
   final DateTime at;
+
+  /// Identidad que ejecutó la acción: las altas de usuario y las acciones
+  /// de un cargo la guardan. `null` si no consta: eventos guardados antes
+  /// de registrarla, la siembra de demostración y el vencimiento
+  /// automático. Nunca se reconstruye.
+  final String? actorId;
 }
 
 /// Reserva de una mesa en una noche concreta. La noche nunca cambia: no

@@ -140,10 +140,10 @@ void main() {
           tableId: table.id,
           holder: const ReservationHolder(name: 'Titular VIP', phone: '300'),
           origin: ReservationOrigin.client,
-          createdBy: 'cliente-a',
+          actorId: 'cliente-a',
         ),
       );
-      store.perform((b) => b.markPrepaymentReceived(r.id));
+      store.perform((b) => b.markPrepaymentReceived(r.id, actorId: 'admin-1'));
 
       // Aprobada y verificada, pero sin ocupar: el cliente no puede pedirla.
       await enter(tester, 'cliente-a');
@@ -153,7 +153,7 @@ void main() {
       expect(textOf(tester, 'champagne-${r.id}'), contains('habilitada'));
       expect(find.byKey(ValueKey('champagne-request-${r.id}')), findsNothing);
 
-      r = store.perform((b) => b.markArrival(r.id));
+      r = store.perform((b) => b.markArrival(r.id, actorId: 'admin-1'));
       await enter(tester, 'cliente-a');
       await tapKey(tester, 'tab-Mis reservas');
       await tapKey(tester, 'mine-${r.id}');
