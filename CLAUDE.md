@@ -4,7 +4,8 @@ Reglas de trabajo de Claude Code en este repositorio. Versión 1.
 
 ## 1. Contexto
 
-- Rumbaap es un **producto de software real** orientado inicialmente al sector de entretenimiento nocturno. No es un prototipo.
+- Rumbaap es un **producto de software real** orientado inicialmente al sector de entretenimiento nocturno. El objetivo es un producto real; el prototipo de la fase actual es un paso hacia él, no un fin en sí mismo.
+- **Fase actual (aprobada por Juanmi, D16):** prototipo frontend funcional y presentable, con datos y sesiones ficticios, para presentar los recorridos al cliente y obtener su aprobación. Base de datos, autenticación, pagos y servicios remotos reales se abordan después de esa aprobación explícita. El código se escribe con calidad de producto, aunque los datos y las sesiones sean de demostración.
 - **Sagsa** actúa como cliente/design partner inicial para la elicitación y la validación, pero las decisiones de arquitectura no deben acoplar innecesariamente el producto a un único establecimiento. Esto no autoriza a desarrollar funcionalidades multiempresa ni arquitectura SaaS especulativa (sección 13).
 - La elicitación de requisitos **sigue en curso**. Lo no aprobado explícitamente por el equipo no es un requisito.
 - Stack: **Flutter/Dart**. Plataformas obligatorias: **iOS y Android**. iOS es de primera clase y potencialmente prioritaria.
@@ -202,3 +203,13 @@ Reglas de tests:
 - Los requisitos y las decisiones de producto pertenecen al equipo. En documentos de requisitos se distingue `VALIDATED`, `HYPOTHESIS` y `NOT DECIDED`.
 - Claude documenta lo implementado y aprobado. La documentación se actualiza en el mismo cambio que el código.
 - Los comentarios en el código explican el *porqué*, no el *qué*.
+
+## 15. Gestión del uso de Claude
+
+- Codex planifica y revisa; Claude ejecuta. El modelo se elige al inicio de cada bloque: Sonnet para la ejecución habitual; Opus para arquitectura, reglas ambiguas o fallos complejos.
+- No cambiar de modelo con historiales enormes: obliga a reconstruir la caché. Mejor cerrar el bloque y abrir contexto nuevo.
+- Una tarea coherente por bloque, sin subagentes ni bucles automáticos.
+- Buscar con `rg`; leer archivos y logs de forma acotada (rangos, `tail`, filtros), nunca completos sin necesidad.
+- Checks según riesgo: tests de dominio y UI para reglas y permisos; `flutter analyze` y los tests necesarios antes de entregar un APK. No repetir checks aprobados si no hay cambios ni dudas nuevas.
+- No encadenar compactaciones. Al cerrar un bloque, checkpoint en `docs/continuacion-claude.md` y contexto nuevo para el siguiente.
+- Se mantienen el alcance frontend/demo y las restricciones anteriores. No reducir permisos ni protecciones ni activar créditos de pago.

@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rumbaap/app/app.dart';
-import 'package:rumbaap/features/reservations/data/demo_night_availability_repository.dart';
+import 'package:rumbaap/theme/venues/sagsa.dart';
+import 'package:rumbaap/features/venues/venue_config.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
+import 'package:rumbaap/app/app_theme.dart';
+import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
+import 'package:rumbaap/features/reservations/domain/reservation.dart';
 import 'package:rumbaap/features/reservations/domain/night_availability.dart';
-import 'package:rumbaap/features/reservations/domain/venue_table.dart';
+import 'package:rumbaap/features/reservations/domain/night_schedule.dart';
 import 'package:rumbaap/features/reservations/presentation/table_detail.dart';
 import 'package:rumbaap/features/reservations/presentation/table_presentation.dart';
-import 'package:rumbaap/features/reservations/presentation/table_widget.dart';
+import 'package:rumbaap/features/reservations/presentation/map/crystal_table.dart';
+import 'package:rumbaap/features/reservations/presentation/guest/guest_home_page.dart';
+import 'package:rumbaap/features/session/demo_identities.dart';
 
 import 'fakes.dart';
 
@@ -16,15 +23,88 @@ final _iosAndAndroid = TargetPlatformVariant({
   TargetPlatform.iOS,
 });
 
+/// Monta la app con reloj fijo (miércoles 7 de octubre de 2026, 3:00 p. m.
+/// en el local) y, salvo que se pida lo contrario, con «reducir movimiento»
+/// activado: la animación ambiental es infinita y pumpAndSettle no
+/// terminaría nunca.
+Future<void> _pumpApp(
+  WidgetTester tester,
+  NightAvailabilityRepository repository, {
+  Clock clock = fixedClock,
+  bool reduceMotion = true,
+}) async {
+  if (reduceMotion) {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+  }
+  await tester.pumpWidget(
+    _MapOnlyApp(
+      repository: repository,
+      clock: clock,
+      changes: repository is DemoReservationStore ? repository : null,
+    ),
+  );
+}
+
+/// La consulta del mapa (perspectiva de cliente o promotor) sin almacén de
+/// reservas, sobre una fuente controlable: solo consulta, sin «Reservar».
+/// Usa el catálogo de noches del promotor (N7, M1–M3); el del cliente (N5)
+/// se prueba aparte.
+class _MapOnlyApp extends StatelessWidget {
+  const _MapOnlyApp({
+    required this.repository,
+    required this.clock,
+    this.changes,
+  });
+
+  final NightAvailabilityRepository repository;
+  final Clock clock;
+  final Listenable? changes;
+
+  @override
+  Widget build(BuildContext context) => VenueScope(
+    config: sagsaConfig,
+    child: MaterialApp(
+      theme: AppTheme.build(sagsaTheme),
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: FilledButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => GuestHomePage(
+                    identity: DemoIdentities.of(DemoProfile.promoter).first,
+                    venue: sagsaVenue,
+                    repository: repository,
+                    changes: changes,
+                    clock: clock,
+                  ),
+                ),
+              ),
+              child: const Text('Mapa y disponibilidad'),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 Future<void> _openMap(
   WidgetTester tester, {
   NightAvailabilityRepository? repository,
+  Clock clock = fixedClock,
 }) async {
-  await tester.pumpWidget(
-    RumbaapApp(
-      availabilityRepository:
-          repository ?? DemoNightAvailabilityRepository(latency: Duration.zero),
-    ),
+  await _pumpApp(
+    tester,
+    repository ??
+        DemoReservationStore(
+          venue: sagsaVenue,
+          latency: Duration.zero,
+          clock: clock,
+        ),
+    clock: clock,
   );
   await tester.tap(find.text('Mapa y disponibilidad'));
   await tester.pumpAndSettle();
@@ -33,22 +113,27 @@ Future<void> _openMap(
 Finder _table(String id) => find.byKey(ValueKey('table-$id'));
 
 TableMapStatus _statusOf(WidgetTester tester, String id) =>
-    tester.widget<TableWidget>(_table(id)).status;
+    tester.widget<CrystalTable>(_table(id)).status;
 
 Finder _pickerRow(String id) => find.byKey(ValueKey('picker-$id'));
 
-/// Abre «Elegir mesa» y toca la fila de [id], desplazando la lista como lo
+/// Abre «Buscar mesa» y toca la fila de [id], desplazando la lista como lo
 /// haría la persona si la fila no está a la vista.
 Future<void> _pickFromList(WidgetTester tester, String id) async {
-  await tester.tap(find.text('Elegir mesa'));
+  await tester.tap(find.byTooltip('Buscar mesa'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byKey(const ValueKey('table-search')), id);
   await tester.pumpAndSettle();
   await tester.scrollUntilVisible(
     _pickerRow(id),
     80,
-    scrollable: find.descendant(
-      of: find.byType(BottomSheet),
-      matching: find.byType(Scrollable),
-    ),
+    // La lista de resultados; el campo de búsqueda tiene su propio Scrollable.
+    scrollable: find
+        .descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byType(Scrollable),
+        )
+        .first,
   );
   await tester.tap(_pickerRow(id));
   await tester.pumpAndSettle();
@@ -68,8 +153,24 @@ Future<void> _semanticTap(WidgetTester tester, Finder finder) async {
 }
 
 Map<String, TableMapStatus> _allStatuses(WidgetTester tester) => {
-  for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+  for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
 };
+
+/// Abre el detalle de la ficha (la ficha v7 empieza cerrada).
+Future<void> _expandDetail(WidgetTester tester) async {
+  await tester.tap(find.bySemanticsLabel('Ver detalle de la mesa'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _nextNight(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('Noche siguiente'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _previousNight(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('Noche anterior'));
+  await tester.pumpAndSettle();
+}
 
 Finder _inDetail(String text) =>
     find.descendant(of: find.byType(TableDetail), matching: find.text(text));
@@ -89,16 +190,27 @@ void main() {
     (tester) async {
       await _openMap(tester);
 
-      expect(find.text('Datos de demostración'), findsOneWidget);
-      expect(find.byType(TableWidget), findsNWidgets(22));
-      for (final table in VenueTables.all) {
+      expect(
+        find.text('Datos ficticios · Promotor (demostración)'),
+        findsOneWidget,
+      );
+      expect(find.byType(CrystalTable), findsNWidgets(22));
+      for (final table in sagsaVenue.tables) {
         expect(_table(table.id), findsOneWidget);
       }
-      expect(find.text('Viernes 16 de octubre'), findsOneWidget);
-      expect(find.text('Sábado 17 de octubre'), findsOneWidget);
-      // Leyenda con texto para cada estado.
-      for (final status in TableMapStatus.values) {
-        expect(find.text(status.label), findsWidgets);
+      // Fin de semana en curso según el reloj fijo, noche a noche.
+      for (final night in ['Vie 9 oct', 'Sáb 10 oct', 'Dom 11 oct']) {
+        expect(find.text(night), findsOneWidget);
+        expect(
+          find.text('8:30 p. m. – 3:00 a. m. (hora de Colombia)'),
+          findsOneWidget,
+        );
+        await _nextNight(tester);
+      }
+      // Resumen con icono, conteo y texto para cada estado presente.
+      final statuses = _allStatuses(tester).values.toSet();
+      for (final status in statuses) {
+        expect(find.textContaining(status.summaryLabel), findsWidgets);
       }
 
       // Regresión: cerrar el mapa sin haber usado el zoom no lanza errores.
@@ -117,19 +229,22 @@ void main() {
 
       await tester.tap(_table('M05'));
       await tester.pumpAndSettle();
+      expect(_inDetail('Mesa M05'), findsOneWidget);
+      expect(_inDetail('Mesa normal'), findsNothing);
+      await _expandDetail(tester);
 
       expect(_inDetail('Mesa M05'), findsOneWidget);
       expect(_inDetail('Mesa normal'), findsOneWidget);
       expect(_inDetail('Lado occidental'), findsOneWidget);
-      expect(_inDetail('Viernes 16 de octubre'), findsOneWidget);
+      expect(_inDetail('Viernes 9 de octubre'), findsOneWidget);
       expect(_inDetail('Por confirmar'), findsOneWidget);
       expect(_inDetail(_statusOf(tester, 'M05').label), findsOneWidget);
-      expect(tester.widget<TableWidget>(_table('M05')).selected, isTrue);
+      expect(tester.widget<CrystalTable>(_table('M05')).selected, isTrue);
 
       await tester.tap(find.byTooltip('Cerrar detalle'));
       await tester.pumpAndSettle();
       expect(find.byType(TableDetail), findsNothing);
-      expect(tester.widget<TableWidget>(_table('M05')).selected, isFalse);
+      expect(tester.widget<CrystalTable>(_table('M05')).selected, isFalse);
     },
     variant: _iosAndAndroid,
   );
@@ -157,6 +272,7 @@ void main() {
 
       await tester.tap(_table('VIP 2'));
       await tester.pumpAndSettle();
+      await _expandDetail(tester);
 
       expect(_inDetail('VIP 2'), findsOneWidget);
       expect(_inDetail('Mesa VIP'), findsOneWidget);
@@ -174,27 +290,26 @@ void main() {
   ) async {
     await _openMap(tester);
     final firstNight = {
-      for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+      for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
     };
 
     await tester.tap(_table('M05'));
     await tester.pumpAndSettle();
     expect(find.byType(TableDetail), findsOneWidget);
 
-    await tester.tap(find.text('Sábado 17 de octubre'));
-    await tester.pumpAndSettle();
+    await _nextNight(tester);
 
+    expect(find.text('Sáb 10 oct'), findsOneWidget);
     expect(find.byType(TableDetail), findsNothing);
     final secondNight = {
-      for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+      for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
     };
     expect(secondNight, isNot(equals(firstNight)));
     expect(secondNight.values, isNot(contains(TableMapStatus.unknown)));
 
-    await tester.tap(find.text('Viernes 16 de octubre'));
-    await tester.pumpAndSettle();
+    await _previousNight(tester);
     expect({
-      for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+      for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
     }, firstNight);
   });
 
@@ -202,14 +317,14 @@ void main() {
     tester,
   ) async {
     final repository = ControlledRepository();
-    await tester.pumpWidget(RumbaapApp(availabilityRepository: repository));
+    await _pumpApp(tester, repository);
     await tester.tap(find.text('Mapa y disponibilidad'));
     // No se usa pumpAndSettle: el indicador de carga sigue animándose.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Consultando disponibilidad…'), findsOneWidget);
-    for (final table in VenueTables.all) {
+    for (final table in sagsaVenue.tables) {
       expect(_statusOf(tester, table.id), TableMapStatus.unknown);
     }
   });
@@ -218,11 +333,11 @@ void main() {
     tester,
   ) async {
     final repository = ControlledRepository();
-    await tester.pumpWidget(RumbaapApp(availabilityRepository: repository));
+    await _pumpApp(tester, repository);
     await tester.tap(find.text('Mapa y disponibilidad'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
-    repository.request('a').completeError(Exception('sin conexión'));
+    repository.request(nightA).completeError(Exception('sin conexión'));
     await tester.pumpAndSettle();
 
     expect(
@@ -230,7 +345,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Reintentar'), findsOneWidget);
-    for (final table in VenueTables.all) {
+    for (final table in sagsaVenue.tables) {
       expect(_statusOf(tester, table.id), TableMapStatus.unknown);
     }
 
@@ -241,15 +356,15 @@ void main() {
 
   testWidgets('una mesa sin dato se muestra sin información', (tester) async {
     final repository = ControlledRepository();
-    await tester.pumpWidget(RumbaapApp(availabilityRepository: repository));
+    await _pumpApp(tester, repository);
     await tester.tap(find.text('Mapa y disponibilidad'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     repository
-        .request('a')
+        .request(nightA)
         .complete(
-          availability('a', {
-            for (final t in VenueTables.all)
+          availability(nightA, {
+            for (final t in sagsaVenue.tables)
               if (t.id != 'M03') t.id: TableAvailability.available,
           }),
         );
@@ -257,6 +372,381 @@ void main() {
 
     expect(_statusOf(tester, 'M03'), TableMapStatus.unknown);
     expect(_statusOf(tester, 'M04'), TableMapStatus.available);
+  });
+
+  group('noches y fines de semana', () {
+    testWidgets(
+      'se navega a fines de semana futuros y se vuelve al actual',
+      (tester) async {
+        await _openMap(tester);
+        // Sin noches pasadas (M3): no hay anterior a la primera.
+        expect(
+          tester
+              .widget<IconButton>(
+                find.ancestor(
+                  of: find.byIcon(Icons.chevron_left_rounded),
+                  matching: find.byType(IconButton),
+                ),
+              )
+              .onPressed,
+          isNull,
+        );
+
+        await tester.tap(_table('M05'));
+        await tester.pumpAndSettle();
+        for (var i = 0; i < 3; i++) {
+          await _nextNight(tester);
+        }
+
+        expect(find.text('Vie 16 oct').hitTestable(), findsOneWidget);
+        expect(find.text('Vie 9 oct'), findsNothing);
+        expect(find.byType(TableDetail), findsNothing);
+        expect(
+          _allStatuses(tester).values,
+          isNot(contains(TableMapStatus.unknown)),
+        );
+        await _nextNight(tester);
+        expect(find.text('Sáb 17 oct'), findsOneWidget);
+
+        // Hacia atrás vuelve a la última noche del fin de semana anterior.
+        await _previousNight(tester);
+        await _previousNight(tester);
+        expect(find.text('Dom 11 oct'), findsOneWidget);
+        for (var i = 0; i < 2; i++) {
+          await _previousNight(tester);
+        }
+        expect(find.text('Vie 9 oct'), findsOneWidget);
+      },
+      variant: _iosAndAndroid,
+    );
+
+    testWidgets('la noche en curso se marca y es la única con mesas ocupadas', (
+      tester,
+    ) async {
+      // Viernes 9 de octubre, 11:00 p. m. en el local.
+      DateTime fridayNight() => venueInstant(2026, 10, 9, 23);
+      await _openMap(tester, clock: fridayNight);
+
+      expect(find.text('Vie 9 oct · En curso'), findsOneWidget);
+      expect(_allStatuses(tester).values, contains(TableMapStatus.occupied));
+
+      await _nextNight(tester);
+      expect(
+        _allStatuses(tester).values,
+        isNot(contains(TableMapStatus.occupied)),
+      );
+    });
+
+    testWidgets('las noches terminadas no se ofrecen', (tester) async {
+      // Domingo 11 de octubre, 4:00 p. m.: viernes y sábado ya cerraron.
+      await _openMap(tester, clock: () => venueInstant(2026, 10, 11, 16));
+      expect(find.text('Dom 11 oct'), findsOneWidget);
+      await _previousNight(tester);
+      expect(find.text('Dom 11 oct'), findsOneWidget);
+      expect(find.text('Sáb 10 oct'), findsNothing);
+      expect(find.text('Vie 9 oct'), findsNothing);
+    });
+  });
+
+  group('paso del tiempo con la pantalla abierta', () {
+    testWidgets(
+      'al cruzar las 03:00 se retira la noche terminada y su ocupación',
+      (tester) async {
+        // Sábado 10, 2:50 a. m.: la noche del viernes sigue en curso.
+        var now = venueInstant(2026, 10, 10, 2, 50);
+        await _openMap(tester, clock: () => now);
+        expect(find.text('Vie 9 oct · En curso'), findsOneWidget);
+        expect(_allStatuses(tester).values, contains(TableMapStatus.occupied));
+
+        // Pasan 10 minutos con la pantalla abierta, sin tocar nada.
+        now = venueInstant(2026, 10, 10, 3);
+        await tester.pump(const Duration(minutes: 10));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Vie 9 oct'), findsNothing);
+        expect(find.text('Sáb 10 oct · En curso'), findsNothing);
+        expect(find.text('Sáb 10 oct'), findsOneWidget);
+        expect(
+          _allStatuses(tester).values,
+          isNot(contains(TableMapStatus.occupied)),
+        );
+      },
+    );
+
+    testWidgets('al volver del segundo plano se recalcula la noche en curso', (
+      tester,
+    ) async {
+      // Viernes 9, 8:00 p. m.: aún no abre.
+      var now = venueInstant(2026, 10, 9, 20);
+      final store = DemoReservationStore(
+        venue: sagsaVenue,
+        latency: Duration.zero,
+        clock: () => now,
+      );
+      allowDemoReservationActions(store.book);
+      await _openMap(tester, repository: store, clock: () => now);
+      expect(find.text('Vie 9 oct'), findsOneWidget);
+      expect(
+        _allStatuses(tester).values,
+        isNot(contains(TableMapStatus.occupied)),
+      );
+
+      // La app pasa a segundo plano y vuelve a las 11:00 p. m.
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      now = venueInstant(2026, 10, 9, 23);
+      for (final state in [
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pumpAndSettle();
+
+      expect(find.text('Vie 9 oct · En curso'), findsOneWidget);
+      // La apertura no convierte reservas en llegadas por sí sola.
+      expect(
+        _allStatuses(tester).values,
+        isNot(contains(TableMapStatus.occupied)),
+      );
+
+      // Mientras la app está en segundo plano, alguien del personal registra
+      // una llegada; al volver, el mapa la refleja.
+      final reserved = store.book
+          .forNight(Night(DateTime.utc(2026, 10, 9)))
+          .firstWhere((r) => r.status == ReservationStatus.confirmed);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      store.book.markArrival(reserved.id, actorId: 'admin-1');
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(_statusOf(tester, reserved.tableId), TableMapStatus.occupied);
+    });
+  });
+
+  group('reservas de demostración', () {
+    testWidgets(
+      'una mesa en proceso deja de mostrarse así al vencer, sin tocar nada',
+      (tester) async {
+        var now = fixedClock();
+        final store = DemoReservationStore(
+          venue: sagsaVenue,
+          latency: Duration.zero,
+          clock: () => now,
+        );
+        allowDemoReservationActions(store.book);
+        await _openMap(tester, repository: store, clock: () => now);
+        final inProcess = store.book
+            .forNight(Night(DateTime.utc(2026, 10, 9)))
+            .firstWhere((r) => r.status == ReservationStatus.inProcess);
+        expect(_statusOf(tester, inProcess.tableId), TableMapStatus.pending);
+
+        now = now.add(const Duration(minutes: 10));
+        await tester.pump(const Duration(minutes: 10));
+        await tester.pumpAndSettle();
+        expect(_statusOf(tester, inProcess.tableId), TableMapStatus.available);
+      },
+    );
+
+    testWidgets('salir y volver al mapa conserva reservas y cambios', (
+      tester,
+    ) async {
+      final store = DemoReservationStore(
+        venue: sagsaVenue,
+        latency: Duration.zero,
+        clock: fixedClock,
+      );
+      allowDemoReservationActions(store.book);
+      await _openMap(tester, repository: store);
+      final friday = Night(DateTime.utc(2026, 10, 9));
+      final reserved = store.book
+          .forNight(friday)
+          .firstWhere((r) => r.status == ReservationStatus.confirmed);
+      store.book.revoke(reserved.id, actorId: 'admin-1');
+      final free = sagsaVenue.tables.firstWhere(
+        (t) => store.book.activeFor(friday, t.id) == null,
+      );
+      store.book.createDirect(
+        actorId: 'admin-1',
+        night: friday,
+        tableId: free.id,
+        holder: const ReservationHolder(
+          name: 'Titular demo X',
+          idNumber: '0',
+          phone: '0',
+        ),
+      );
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mapa y disponibilidad'));
+      await tester.pumpAndSettle();
+
+      expect(_statusOf(tester, reserved.tableId), TableMapStatus.available);
+      expect(_statusOf(tester, free.id), TableMapStatus.reserved);
+    });
+  });
+
+  group('estado pendiente', () {
+    testWidgets(
+      'normal «En proceso» y VIP «Pendiente de pago», también al lector',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        final repository = ControlledRepository();
+        await _pumpApp(tester, repository);
+        await tester.tap(find.text('Mapa y disponibilidad'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        repository
+            .request(nightA)
+            .complete(
+              availability(nightA, {
+                for (final t in sagsaVenue.tables)
+                  t.id: TableAvailability.available,
+                'M03': TableAvailability.pending,
+                'VIP 1': TableAvailability.pending,
+              }),
+            );
+        await tester.pumpAndSettle();
+
+        expect(_statusOf(tester, 'M03'), TableMapStatus.pending);
+        expect(_statusOf(tester, 'VIP 1'), TableMapStatus.pendingPayment);
+        expect(
+          tester.getSemantics(_table('M03')).label,
+          'Mesa M03, En proceso',
+        );
+        expect(
+          tester.getSemantics(_table('VIP 1')).label,
+          'VIP 1, Pendiente de pago',
+        );
+
+        await tester.tap(_table('VIP 1'));
+        await tester.pumpAndSettle();
+        expect(_inDetail('Pendiente de pago'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Buscar mesa'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('table-search')),
+          'M03',
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.bySemanticsLabel('Mesa M03, En proceso, Lado occidental'),
+          findsOneWidget,
+        );
+        semantics.dispose();
+      },
+      variant: _iosAndAndroid,
+    );
+  });
+
+  group('animación', () {
+    testWidgets('el mapa se anima si no se pide reducir el movimiento', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        DemoReservationStore(
+          venue: sagsaVenue,
+          latency: Duration.zero,
+          clock: fixedClock,
+        ),
+        reduceMotion: false,
+      );
+      await tester.tap(find.text('Mapa y disponibilidad'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byType(CrystalTable), findsNWidgets(22));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+    });
+
+    testWidgets('la animación se pausa si otra pantalla tapa el mapa', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        DemoReservationStore(
+          venue: sagsaVenue,
+          latency: Duration.zero,
+          clock: fixedClock,
+        ),
+        reduceMotion: false,
+      );
+      await tester.tap(find.text('Mapa y disponibilidad'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('Otra pantalla')),
+            ),
+          );
+      // Si la animación del mapa siguiera corriendo, pumpAndSettle no
+      // terminaría nunca.
+      await tester.pumpAndSettle();
+      expect(find.text('Otra pantalla'), findsOneWidget);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+    });
+
+    testWidgets('la animación se pausa con la app en segundo plano', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        DemoReservationStore(
+          venue: sagsaVenue,
+          latency: Duration.zero,
+          clock: fixedClock,
+        ),
+        reduceMotion: false,
+      );
+      await tester.tap(find.text('Mapa y disponibilidad'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.binding.hasScheduledFrame, isFalse);
+
+      for (final state in [
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+    });
+
+    testWidgets('con «reducir movimiento» el mapa queda quieto', (
+      tester,
+    ) async {
+      await _openMap(tester);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    });
   });
 
   group('acción semántica tap', () {
@@ -279,11 +769,11 @@ void main() {
             tester.widget<TableDetail>(find.byType(TableDetail)).table.id,
             id,
           );
-          expect(tester.widget<TableWidget>(_table(id)).selected, isTrue);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isTrue);
 
           await _semanticTap(tester, _table(id));
           expect(find.byType(TableDetail), findsNothing);
-          expect(tester.widget<TableWidget>(_table(id)).selected, isFalse);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isFalse);
         }
 
         expect(_allStatuses(tester), before);
@@ -300,7 +790,12 @@ void main() {
         final before = _allStatuses(tester);
 
         for (final id in ['M01', 'VIP 2']) {
-          await tester.tap(find.text('Elegir mesa'));
+          await tester.tap(find.byTooltip('Buscar mesa'));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.byKey(const ValueKey('table-search')),
+            id,
+          );
           await tester.pumpAndSettle();
           await _semanticTap(tester, _pickerRow(id));
 
@@ -309,10 +804,15 @@ void main() {
             tester.widget<TableDetail>(find.byType(TableDetail)).table.id,
             id,
           );
-          expect(tester.widget<TableWidget>(_table(id)).selected, isTrue);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isTrue);
 
           // Reelegirla desde la lista no la deselecciona.
-          await tester.tap(find.text('Elegir mesa'));
+          await tester.tap(find.byTooltip('Buscar mesa'));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.byKey(const ValueKey('table-search')),
+            id,
+          );
           await tester.pumpAndSettle();
           await _semanticTap(tester, _pickerRow(id));
           expect(find.byType(BottomSheet), findsNothing);
@@ -320,7 +820,7 @@ void main() {
             tester.widget<TableDetail>(find.byType(TableDetail)).table.id,
             id,
           );
-          expect(tester.widget<TableWidget>(_table(id)).selected, isTrue);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isTrue);
         }
 
         expect(_allStatuses(tester), before);
@@ -337,7 +837,7 @@ void main() {
         (tester) async {
           await _openMap(tester);
           final before = {
-            for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+            for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
           };
 
           // Desde el mapa.
@@ -354,9 +854,9 @@ void main() {
           expect(fromList.table.id, fromMap.table.id);
           expect(fromList.status, fromMap.status);
           expect(fromList.nightLabel, fromMap.nightLabel);
-          expect(tester.widget<TableWidget>(_table(id)).selected, isTrue);
+          expect(tester.widget<CrystalTable>(_table(id)).selected, isTrue);
           expect({
-            for (final t in VenueTables.all) t.id: _statusOf(tester, t.id),
+            for (final t in sagsaVenue.tables) t.id: _statusOf(tester, t.id),
           }, before);
         },
         variant: _iosAndAndroid,
@@ -368,7 +868,12 @@ void main() {
       (tester) async {
         final semantics = tester.ensureSemantics();
         await _openMap(tester);
-        await tester.tap(find.text('Elegir mesa'));
+        await tester.tap(find.byTooltip('Buscar mesa'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('table-search')),
+          'VIP 2',
+        );
         await tester.pumpAndSettle();
 
         final row = _pickerRow('VIP 2');
@@ -405,21 +910,25 @@ void main() {
         await _pickFromList(tester, 'M05');
         expect(find.byType(TableDetail), findsOneWidget);
 
-        await tester.tap(find.text('Sábado 17 de octubre'));
-        await tester.pumpAndSettle();
+        await _nextNight(tester);
         expect(find.byType(TableDetail), findsNothing);
 
-        await tester.tap(find.text('Elegir mesa'));
+        await tester.tap(find.byTooltip('Buscar mesa'));
         await tester.pumpAndSettle();
         final sheet = find.byType(BottomSheet);
         expect(
           find.descendant(
             of: sheet,
-            matching: find.text('Sábado 17 de octubre'),
+            matching: find.text('Sábado 10 de octubre'),
           ),
           findsOneWidget,
         );
         for (final id in ['VIP 1', 'VIP 2', 'M01', 'M02']) {
+          await tester.enterText(
+            find.byKey(const ValueKey('table-search')),
+            id,
+          );
+          await tester.pumpAndSettle();
           final tile = tester.widget<ListTile>(_pickerRow(id));
           expect(tile.selected, isFalse);
           expect(
@@ -452,32 +961,32 @@ void main() {
           expect(tester.takeException(), isNull);
 
           for (final id in ['VIP 1', 'M05']) {
+            // En horizontal el plano se desplaza: la persona baja hasta la
+            // mesa.
+            await tester.ensureVisible(_table(id));
+            await tester.pumpAndSettle();
             await tester.tap(_table(id));
             await tester.pumpAndSettle();
             expect(find.byType(TableDetail), findsOneWidget);
             expect(tester.takeException(), isNull);
           }
 
-          // Con el detalle abierto, la segunda noche sigue a la vista y se
+          await _expandDetail(tester);
+          expect(tester.takeException(), isNull);
+
+          // Con el detalle abierto, la noche siguiente sigue a la vista y se
           // puede tocar sin desplazar nada.
-          final saturday = find.text('Sábado 17 de octubre');
-          expect(saturday.hitTestable(), findsOneWidget);
+          final next = find.byTooltip('Noche siguiente');
+          expect(next.hitTestable(), findsOneWidget);
           final screen = Offset.zero & entry.value;
-          expect(
-            screen.intersect(tester.getRect(saturday)),
-            tester.getRect(saturday),
-          );
-          await tester.tap(saturday);
-          await tester.pumpAndSettle();
+          expect(screen.intersect(tester.getRect(next)), tester.getRect(next));
+          await _nextNight(tester);
+          expect(find.text('Sáb 10 oct'), findsOneWidget);
           expect(find.byType(TableDetail), findsNothing);
 
           await _pickFromList(tester, 'VIP 2');
           expect(_inDetail('VIP 2'), findsOneWidget);
-          expect(find.text('Elegir mesa').hitTestable(), findsOneWidget);
-          expect(tester.takeException(), isNull);
-
-          await tester.tap(find.byTooltip('Acercar'));
-          await tester.pumpAndSettle();
+          expect(find.byTooltip('Buscar mesa').hitTestable(), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
         variant: _iosAndAndroid,

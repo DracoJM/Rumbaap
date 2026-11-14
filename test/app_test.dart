@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_config.dart';
+import 'package:rumbaap/features/venues/sagsa/sagsa_venue.dart';
 import 'package:rumbaap/app/app.dart';
-import 'package:rumbaap/features/reservations/data/demo_night_availability_repository.dart';
+import 'package:rumbaap/features/reservations/data/demo_reservation_store.dart';
+
+import 'features/reservations/fakes.dart';
 
 void main() {
   Widget app() => RumbaapApp(
-    availabilityRepository: DemoNightAvailabilityRepository(
+    config: sagsaConfig,
+    store: DemoReservationStore(
+      venue: sagsaVenue,
       latency: Duration.zero,
+      clock: fixedClock,
     ),
+    clock: fixedClock,
   );
 
   testWidgets(
@@ -16,7 +24,7 @@ void main() {
       await tester.pumpWidget(app());
 
       expect(find.text('Rumbaap'), findsOneWidget);
-      expect(find.text('Mapa y disponibilidad'), findsOneWidget);
+      expect(find.text('Cliente demo A'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.mobile(),

@@ -1,0 +1,75 @@
+# Entradas, credenciales y manillas (prototipo P25)
+
+- **Estado:** prototipo frontend con datos ficticios y pagos SIMULADOS. No hay backend, cobro, devolución de dinero, lector ni autenticación reales.
+- **Código:** `lib/features/tickets/` (dominio `TicketBook`, almacén `DemoTicketStore`, vistas de cliente, promotor, puerta, taquilla y administración).
+- **Leyenda:** `VALIDATED` (indicado por el equipo), `PROPUESTA` (recomendación técnica pendiente de ratificar por Juanmi), `NOT DECIDED`.
+
+## Recorrido
+
+| Paso | Quién | Qué ocurre | Estado |
+|---|---|---|---|
+| Venta | Cliente (app) o promotor | Crea derechos sin activar y sin credencial. Mostrar una venta no activa nada. | VALIDATED |
+| Pago | Cliente: pago simulado. Promotor: confirma el pago comprobado de su venta. | Solo entonces el derecho se activa y se emite la credencial. | VALIDATED |
+| Cortesía | Administración | Activa sin pago, con nombre y motivo (p. ej. mesa VIP). La cantidad la decide quien autoriza. | VALIDATED (cortesías VIP); cantidad: 6 por mesa VIP como beneficio de su reserva ([beneficios VIP](beneficios-vip.md)); fuera de ese beneficio, NOT DECIDED |
+| Consulta de puerta | Seguridad | Muestra el estado vigente para este local y la noche en curso, y los datos del registro. No cambia nada. | PROPUESTA |
+| Primer ingreso | Seguridad | «Confirmar primer ingreso» lo registra una vez. Un segundo intento muestra «Ingreso ya registrado» y no bloquea la taquilla. | PROPUESTA |
+| Canje | Taquilla (app y cortesías) o promotor con su lote (sus ventas) | Entrega la manilla una vez. Después, puerta y taquilla responden «No canjeable». El reingreso es con la manilla. | VALIDATED (canje único, reingreso con manilla); separación de pasos: PROPUESTA |
+| Rechazo | Puerta o taquilla | Motivo visible e incidencia con actor y hora. Nunca revoca un derecho válido en su contexto (otra noche u otro local). | VALIDATED |
+
+- **Circuitos.** Taquilla canjea compras de la app y cortesías. Las ventas del promotor se canjean con su lote físico; activar su credencial no traslada esa custodia a taquilla.
+- **Precio.** Por noche, de DEMOSTRACIÓN (`TicketProduct.demoPriceByWeekday`); no es la política del local. Precios y eventos reales: NOT DECIDED.
+- **Aforo.** Configurable por local (`VenueConfig.capacity`), hoy sin configurar. La ocupación física no se deduce de entradas ni de ingresos.
+
+## Credencial (lo que lleva el QR)
+
+- **Pedido de Juanmi:** borrar y reutilizar identificadores al canjear; y tener nombre y cédula disponibles al validar.
+- **PROPUESTA implementada en la demo, pendiente de ratificar:**
+  - Credencial **nueva de longitud fija** (12 caracteres: prefijo de 2 del local y 10 aleatorios de un alfabeto sin ambigüedades). Los 12 caracteres son una decisión de DEMO, no una garantía de seguridad de producción: emitirlas y verificarlas será responsabilidad del backend.
+  - Se generan al azar y no a partir de un contador, para que tras reiniciar la demo no vuelvan a salir las mismas (lo detectó el recorrido en Android).
+  - Al reemplazarla (cliente o administración) o anularla, la anterior queda **retirada y no se recicla**. Leerla después da «Credencial retirada». La venta, el pago y la cuenta se conservan.
+  - El QR es una **referencia opaca**: no lleva nombre, cédula ni estado. La puerta obtiene nombre y cédula del registro («Datos del registro, no de la captura»), mediante un lector autorizado en el sistema real.
+  - Diferencia con el pedido: los identificadores no se reutilizan, para que una captura antigua nunca vuelva a ser válida y se conserve la trazabilidad.
+- **Límite que sigue vigente:** un QR vigente compartido puede usarlo primero otro portador. La comprobación física de la persona sigue siendo necesaria.
+- **Demo:** la ficha de la entrada muestra un QR real que codifica solo la credencial vigente. Puerta y Caja lo leen con la cámara, que activa el personal con su botón, o escriben la credencial a mano como respaldo. La lectura solo consulta: el primer ingreso y el canje siguen necesitando la confirmación de la persona. Detalle en [QR y cámara](../proposals/qr-escaneable-y-camara.md).
+- **«Mi QR» del cliente:** es el mismo QR real de su entrada de la noche en curso; no hay otro código de cuenta. Con varias entradas propias esa noche, la persona elige cuál mostrar (un QR a la vez; no se crea, fusiona ni transfiere nada, y no implica una política de compras múltiples). La elección se descarta si cambian la cuenta, el local o la noche, o si la entrada deja de estar disponible. Sin entrada, lo dice. Barra lo usa solo para identificar la cuenta (ver [pedidos de barra](pedidos-barra.md)).
+
+## Manillas físicas y credenciales
+
+- La manilla es un objeto físico, distinto de la reserva y de la cuenta: se entrega al comprador, es transferible y no es nominativa (aclaración previa A8 (apartado 6) del contexto maestro de ChatGPT v42, actualizado el 2026-10-11 19:09 (Colombia); fuente indirecta, mensaje original no localizado; verificación documental 2026-10-12). Con ella se controla el reingreso (E1 P43: la manilla, entregada por el promotor o comprada, es lo que permite volver a ingresar; la P44 no tiene respuesta registrada). Una credencial de entrada (QR) y una cuenta de cliente son cosas distintas (ver «Credencial»).
+- La seguridad física y la comprobación de edad las hace el personal en la puerta; la app no sustituye esa comprobación (E1: menores, personas ebrias y documentos falsos son los problemas principales).
+- Las excepciones y devoluciones las autoriza la administración; no son un automatismo bancario (ver «Devoluciones y cambios»).
+- Fuera de alcance, no se abren por defecto: inventario de manillas, comisiones, subpromotores, monedero y traslado de consumos entre mesas.
+- `NOT DECIDED`: fórmula de puntos y vinculación futura de compradores con cuentas.
+
+## Devoluciones y cambios
+
+- El cliente solicita la devolución o el cambio a otra noche de una entrada activa, sin primer ingreso.
+- Solo la administración autoriza o rechaza.
+- Una devolución autorizada anula la entrada y retira su credencial. NO devuelve dinero.
+- La «devolución efectuada» se registra aparte, cuando ocurre fuera de la app.
+- Las cortesías no admiten solicitudes.
+- Reembolso VIP, grupos y transferencia digital: no se definen aquí (NOT DECIDED).
+
+## Frontera para el backend futuro
+
+- `TicketGateway` (puerta y taquilla): operaciones asíncronas e idempotentes por `requestId`. Un reintento con el mismo identificador devuelve el mismo resultado sin repetir la operación ni la incidencia.
+- La interfaz distingue «consultando», éxito, rechazo y fallo de conexión. Ante un fallo, reintenta con el mismo identificador.
+- El backend deberá autorizar cada operación según el rol y registrar cada paso de forma indivisible. La demo vive en memoria en un solo dispositivo: NO hay concurrencia real entre dispositivos.
+
+## Registro y actores
+
+- Cada operación nueva guarda el actor (identidad ficticia), la hora, la nota o el motivo, y el origen y el importe de la venta.
+- No se reconstruyen actores desconocidos.
+
+## Ventas del promotor: comprador y entrega de la manilla (2026-10-12)
+
+| Elemento | Estado |
+|---|---|
+| Cada venta nueva del promotor guarda nombre, **teléfono y cédula** del comprador, los tres obligatorios, para usos futuros (p. ej. puntos). Teléfono y cédula solo admiten dígitos (se ignoran los espacios de los extremos; sin longitud ni formato, como R7/R12). | VALIDATED (pedido de Juanmi) |
+| Los datos no van en la credencial ni en registros de depuración, no vinculan ninguna cuenta (ni por coincidencia de cédula o teléfono) y no generan puntos. Las ventas anteriores cargan sin ellos y se muestran «No registrado». | VALIDATED (pedido de Juanmi) |
+| Fórmula de puntos, canje de puntos y vinculación futura con cuentas. | NOT DECIDED |
+| El promotor que hizo la venta puede entregar la manilla de su lote **en cualquier momento** (antes, durante o después de la noche), una vez por entrada, con pago comprobado, estado activo, credencial vigente y circuito Promotor. | VALIDATED (pedido de Juanmi) |
+| Quien no hizo la venta, Caja, Seguridad y las demás entradas (app, cortesías) no obtienen esa excepción: la regla de la noche sigue igual. Un actor ajeno se rechaza con «Lote de otro promotor» en cualquier fecha: queda el incidente y el evento de rechazo habituales, pero el estado de entrega no cambia y no se registra ningún evento `redeemed`. | DECISIÓN DE PROTOTIPO (alcance exacto de la excepción) |
+| La entrega anticipada es un paso distinto del ingreso físico: la puerta no cambia (no hay admisión temprana ni cambio de reingresos) y una entrada ya entregada responde «No canjeable» en puerta. | DECISIÓN DE PROTOTIPO |
+| El promotor ya no tiene lector QR: entrega con «Entregar manilla de mi lote» desde su venta, con confirmación y el recuento «Sin entregar: N de M». | DECISIÓN DE PROTOTIPO |
+| Los datos del comprador se ven en el detalle de la venta del promotor y en la ficha de la entrada de administración. | DECISIÓN DE PROTOTIPO |

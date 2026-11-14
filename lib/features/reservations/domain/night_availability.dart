@@ -1,15 +1,18 @@
+import 'night_schedule.dart';
+import 'reservation.dart';
+
 /// Estado de lectura de una mesa en una noche. Las transiciones entre
 /// estados no pertenecen a esta consulta.
-enum TableAvailability { available, reserved, occupied }
+enum TableAvailability {
+  available,
 
-/// Noche o evento que se puede consultar.
-class Night {
-  const Night({required this.id, required this.label});
+  /// Reserva en proceso (mesa normal) o pendiente de pago (VIP): la mesa
+  /// queda bloqueada (regla R3).
+  pending,
+  reserved,
 
-  final String id;
-
-  /// Texto para mostrar, por ejemplo «Viernes 16 de octubre».
-  final String label;
+  /// Solo posible durante la noche en curso (regla N6).
+  occupied,
 }
 
 /// Estados de las mesas en una noche concreta.
@@ -17,9 +20,20 @@ class NightAvailability {
   NightAvailability({
     required this.nightId,
     required Map<String, TableAvailability> byTableId,
+    this.venueId,
+    this.refreshAt,
   }) : _byTableId = Map.unmodifiable(byTableId);
 
   final String nightId;
+
+  /// Local al que pertenecen estos datos. Quien lo consulta comprueba que sea
+  /// el suyo para no mezclar mesas de locales distintos (`null` si la fuente
+  /// no lo indica).
+  final String? venueId;
+
+  /// Instante real en que estos datos dejan de ser válidos sin intervención
+  /// de nadie (p. ej. vence una reserva en proceso, R1). `null` si no hay.
+  final DateTime? refreshAt;
   final Map<String, TableAvailability> _byTableId;
 
   /// `null` si no hay información de esa mesa: nunca se asume disponible.
@@ -29,8 +43,31 @@ class NightAvailability {
 /// Contrato de consulta de disponibilidad por noche. Hoy lo implementa un
 /// adaptador de demostración; un adaptador con datos compartidos podrá
 /// sustituirlo sin cambiar la presentación.
+///
+/// Las noches que se pueden consultar las define [NightSchedule], no el
+/// repositorio.
 abstract interface class NightAvailabilityRepository {
-  Future<List<Night>> listNights();
+  Future<NightAvailability> availabilityFor(Night night);
+}
 
-  Future<NightAvailability> availabilityFor(String nightId);
+/// Estados de una noche junto con sus reservas (incluidas las terminadas),
+/// tomados en la misma consulta para que mapa, listas y detalle coincidan.
+///
+/// Contiene datos personales del titular: solo para la vista del
+/// administrador, nunca para la consulta pública.
+class NightReservations extends NightAvailability {
+  NightReservations({
+    required super.nightId,
+    required super.byTableId,
+    required List<Reservation> reservations,
+    super.venueId,
+    super.refreshAt,
+  }) : reservations = List.unmodifiable(reservations);
+
+  final List<Reservation> reservations;
+
+  /// Reserva activa de la mesa en esta consulta, si la hay.
+  Reservation? activeFor(String tableId) => reservations
+      .where((r) => r.tableId == tableId && r.status.isActive)
+      .firstOrNull;
 }
